@@ -33,8 +33,6 @@ cp .cursorrules /your-project/
 | `CLAUDE.md` | Claude Code/Desktop | 레포 루트 |
 | `.cursorrules` | Cursor IDE | 레포 루트 |
 | `.github/copilot-instructions.md` | GitHub Copilot | .github 폴더 |
-| `VIBE_CODING_INIT.md` | 상세 초기화 문서 | docs 폴더 |
-| `SETUP_GUIDE.md` | 적용 가이드 | docs 폴더 |
 
 ---
 
