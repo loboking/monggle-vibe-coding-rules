@@ -4,7 +4,30 @@
 
 ## 🚀 Quick Start
 
-### 방법 1: Git Clone (추천)
+### 방법 1: 자동 초기화 (추천) 🆕
+
+```bash
+# 1. 레포 클론
+git clone https://github.com/loboking/monggle-vibe-coding-rules.git
+cd monggle-vibe-coding-rules
+
+# 2. PRD 작성
+cp scripts/templates/prd.md.template my-project-prd.md
+# PRD 파일에 프로젝트 정보 입력
+
+# 3. 초기화 실행
+python3 scripts/init_core.py my-project-prd.md
+```
+
+**초기화内容包括:**
+- ✅ 프로젝트 정보 설정
+- ✅ Git 설정 (user, email)
+- ✅ CI/CD 워크플로우 초기화
+- ✅ Hooks 설치 (선택)
+- ✅ 에이전트/스킬 설치 (선택)
+- ✅ 초기 커밋 생성
+
+### 방법 2: Git Clone (간단)
 
 ```bash
 # 프로젝트 루트에서 클론
@@ -14,7 +37,7 @@ cp temp-rules/.cursorrules .
 rm -rf temp-rules
 ```
 
-### 방법 2: 수동 복사
+### 방법 3: 수동 복사
 
 ```bash
 # 프로젝트 루트에 복사
