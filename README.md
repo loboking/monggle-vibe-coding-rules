@@ -82,4 +82,27 @@ A: 같은 내용으로 여러 파일 배치:
 
 ---
 
+## 🔗 관련 프로젝트 & 리소스
+
+### 같은 계열 프로젝트
+
+**[monggle-claudecode-skills-agents](https://github.com/loboking/claude-code-skills)**
+> Claude Code 전용 커맨드 & 에이전트 툴킷
+
+- **목적**: Claude Code에서 반복 작업 자동화 (`/duo`, `/run`, `/super` 등)
+- **대상**: Claude Code 사용자
+- **활용**: 본 규칙을 적용한 프로젝트에서 효율성 극대화
+
+**관계**:
+- 본 프로젝트 = **"어떻게 협업할 것인가"** (규칙)
+- Skills Toolkit = **"어떻게 자동화할 것인가"** (도구)
+
+### 외부 전문 가이드
+
+- [Conventional Commits](https://www.conventionalcommits.org/) - 커밋 메시지 표준
+- [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow) - 브랜치 전략
+- [Axios API Design Guide](https://github.com/axios/axios/blob/master/docs/README.md) - API 설계 원칙
+
+---
+
 **Created with Vibe Coding Methodology v1.0**
