@@ -4,6 +4,18 @@
 
 ## 🚀 Quick Start
 
+### 방법 1: Git Clone (추천)
+
+```bash
+# 프로젝트 루트에서 클론
+git clone https://github.com/loboking/monggle-vibe-coding-rules.git temp-rules
+cp temp-rules/CLAUDE.md .
+cp temp-rules/.cursorrules .
+rm -rf temp-rules
+```
+
+### 방법 2: 수동 복사
+
 ```bash
 # 프로젝트 루트에 복사
 cp CLAUDE.md /your-project/
