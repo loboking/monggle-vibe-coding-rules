@@ -1,0 +1,243 @@
+name: Monorepo CI
+
+# Monorepo용 CI/CD 파이프라인
+# 대상: 여러 패키지/프로젝트를 포함하는 Monorepo
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.changes.outputs.frontend }}
+      backend: ${{ steps.changes.outputs.backend }}
+      shared: ${{ steps.changes.outputs.shared }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            frontend:
+              - 'packages/frontend/**'
+              - 'packages/shared/**'
+            backend:
+              - 'packages/backend/**'
+              - 'packages/shared/**'
+            shared:
+              - 'packages/shared/**'
+
+  # Frontend Jobs
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  frontend-test:
+    name: Frontend Test
+    runs-on: ubuntu-latest
+    needs: [detect-changes, frontend-lint]
+    if: needs.detect-changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./packages/frontend/coverage/lcov.info
+          flags: frontend
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    needs: [detect-changes, frontend-test]
+    if: needs.detect-changes.outputs.frontend == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: packages/frontend/dist/
+
+  # Backend Jobs
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run pylint
+        run: pylint src/
+
+      - name: Run black check
+        run: black --check src/
+
+  backend-test:
+    name: Backend Test
+    runs-on: ubuntu-latest
+    needs: [detect-changes, backend-lint]
+    if: needs.detect-changes.outputs.backend == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest tests/ --cov=src --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./packages/backend/coverage.xml
+          flags: backend
+
+  backend-build:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    needs: [detect-changes, backend-test]
+    if: needs.detect-changes.outputs.backend == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t app-backend .
+
+  # Shared package jobs
+  shared-lint:
+    name: Shared Lint
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.shared == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/shared
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+  shared-test:
+    name: Shared Test
+    runs-on: ubuntu-latest
+    needs: [detect-changes, shared-lint]
+    if: needs.detect-changes.outputs.shared == 'true'
+    defaults:
+      run:
+        working-directory: ./packages/shared
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared
+        run: npm run build
+
+      - name: Run tests
+        run: npm test

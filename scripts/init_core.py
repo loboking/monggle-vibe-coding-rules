@@ -10,7 +10,7 @@ import subprocess
 import json
 import shutil
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import re
 
 
@@ -50,14 +50,29 @@ class ProjectInitializer:
         print(f"{prefix} {message}")
 
     def parse_prd(self) -> bool:
-        """PRD 파싱 (YAML Frontmatter + Markdown)"""
+        """PRD 파싱 (YAML Frontmatter + Markdown)
+
+        Returns:
+            bool: 파싱 성공 여부
+        """
         self.log("PRD 파싱 중...", "step")
 
+        # 파일 존재 확인
         if not self.prd_path.exists():
             self.log(f"PRD 파일을 찾을 수 없습니다: {self.prd_path}", "error")
             return False
 
-        content = self.prd_path.read_text(encoding='utf-8')
+        # 파일 읽기 권한 확인
+        if not os.access(self.prd_path, os.R_OK):
+            self.log(f"PRD 파일 읽기 권한 없음: {self.prd_path}", "error")
+            return False
+
+        # 파일 읽기
+        try:
+            content = self.prd_path.read_text(encoding='utf-8')
+        except IOError as e:
+            self.log(f"PRD 파일 읽기 실패: {e}", "error")
+            return False
 
         # YAML Frontmatter 추출
         frontmatter_match = re.match(r'^---\n(.*?)\n---', content, re.DOTALL)
@@ -73,6 +88,9 @@ class ProjectInitializer:
             self.log("PRD 파싱 완료", "success")
             self.log(f"프로젝트: {self.config.get('project_name', 'Unknown')}", "info")
             return True
+        except (ValueError, KeyError) as e:
+            self.log(f"PRD 형식 오류: {e}", "error")
+            return False
         except Exception as e:
             self.log(f"PRD 파싱 실패: {e}", "error")
             return False
@@ -118,7 +136,11 @@ class ProjectInitializer:
         return True
 
     def initialize_git(self) -> bool:
-        """Git 초기화"""
+        """Git 초기화
+
+        Returns:
+            bool: 초기화 성공 여부
+        """
         self.log("Git 초기화 중...", "step")
 
         try:
@@ -127,25 +149,55 @@ class ProjectInitializer:
                 self.log("이미 Git 저장소입니다.", "warning")
                 return True
 
-            # git init
-            subprocess.run(['git', 'init'], cwd=self.project_root, check=True, capture_output=True)
+            # git init (타임아웃 30초)
+            result = subprocess.run(
+                ['git', 'init'],
+                cwd=self.project_root,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            self.log(f"Git init 출력: {result.stdout.strip()}", "info")
 
             # 기본 브랜치 설정
             default_branch = self.config.get('git_default_branch', 'main')
-            subprocess.run(['git', 'checkout', '-b', default_branch], cwd=self.project_root, check=True, capture_output=True)
+            result = subprocess.run(
+                ['git', 'checkout', '-b', default_branch],
+                cwd=self.project_root,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
 
             # remote 설정 (URL이 있는 경우)
             remote_url = self.config.get('git_remote_url')
             if remote_url:
-                subprocess.run(['git', 'remote', 'add', 'origin', remote_url], cwd=self.project_root, check=True, capture_output=True)
+                result = subprocess.run(
+                    ['git', 'remote', 'add', 'origin', remote_url],
+                    cwd=self.project_root,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
                 self.log(f"Git remote 설정: {remote_url}", "info")
 
             self.log("Git 초기화 완료", "success")
             self.steps_completed.append("Git 초기화")
             return True
 
+        except subprocess.TimeoutExpired:
+            self.log("Git 초기화 타임아웃 (30초 초과)", "error")
+            self.steps_failed.append("Git 초기화")
+            return False
         except subprocess.CalledProcessError as e:
-            self.log(f"Git 초기화 실패: {e}", "error")
+            self.log(f"Git 초기화 실패: {e.stderr if e.stderr else e}", "error")
+            self.steps_failed.append("Git 초기화")
+            return False
+        except Exception as e:
+            self.log(f"Git 초기화 중 예상치 못한 오류: {e}", "error")
             self.steps_failed.append("Git 초기화")
             return False
 
@@ -182,7 +234,11 @@ class ProjectInitializer:
             return False
 
     def clone_skills_repository(self) -> bool:
-        """외부 저장소 클론"""
+        """외부 저장소 클론
+
+        Returns:
+            bool: 클론 성공 여부
+        """
         skills_repo = self.config.get('skills_repository')
         if not skills_repo:
             self.log("외부 저장소 설정 없음", "info")
@@ -201,18 +257,30 @@ class ProjectInitializer:
             # 부모 디렉토리 생성
             install_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # git clone
-            subprocess.run([
-                'git', 'clone', '-b', branch, '--single-branch',
-                skills_repo, str(install_path)
-            ], check=True, capture_output=True)
+            # git clone (타임아웃 5분)
+            result = subprocess.run(
+                ['git', 'clone', '-b', branch, '--single-branch', skills_repo, str(install_path)],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5분 타임아웃
+            )
 
             self.log(f"외부 저장소 클론 완료: {install_path}", "success")
             self.steps_completed.append("외부 저장소 클론")
             return True
 
+        except subprocess.TimeoutExpired:
+            self.log("외부 저장소 클론 타임아웃 (5분 초과)", "error")
+            self.log("네트워크 연결을 확인하거나 나중에 다시 시도하세요.", "warning")
+            self.steps_failed.append("외부 저장소 클론")
+            return False
         except subprocess.CalledProcessError as e:
-            self.log(f"외부 저장소 클론 실패: {e}", "error")
+            self.log(f"외부 저장소 클론 실패: {e.stderr if e.stderr else e}", "error")
+            self.steps_failed.append("외부 저장소 클론")
+            return False
+        except Exception as e:
+            self.log(f"외부 저장소 클론 중 예상치 못한 오류: {e}", "error")
             self.steps_failed.append("외부 저장소 클론")
             return False
 
