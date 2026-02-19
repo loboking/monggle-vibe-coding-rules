@@ -10,7 +10,7 @@ git_remote_url: ""  # 원격 저장소 URL (optional)
 git_default_branch: "main"
 
 # CI/CD 설정
-ci_cd_provider: "github-actions"  # github-actions, gitlab-ci, jenkins, none
+ci_cd_provider: ""  # github-actions, gitlab-ci, jenkins, none (비워두면 설정 안 함)
 ci_cd_template: "basic"  # basic, docker, kubernetes, monorepo
 
 # 외부 저장소

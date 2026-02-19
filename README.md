@@ -5,6 +5,7 @@
 ## Table of Contents
 
 - [Quick Start](#-quick-start)
+- [MVP v1.0 Features](#-mvp-v10-features)
 - [Agent Pipeline](#-agent-pipeline)
 - [PRD Types](#-prd-types)
 - [File Structure](#-file-structure)
@@ -73,6 +74,93 @@ vim prd/feature-user-auth-20250209.md
 ```
 
 AI가 **Agent 파이프라인**을 실행하여 자동으로 구현합니다.
+
+---
+
+## 🎯 MVP v1.0 Features
+
+### Implemented Components
+
+#### 1. Pre-Tool Hook (`/.claude/hooks/pre-tool-use.sh`)
+
+Validates PRD before any tool execution:
+
+- PRD file existence check
+- YAML frontmatter validation
+- Required sections verification (by type)
+- Automatic PRD type detection
+- Colored console output with logging
+
+#### 2. Slash Commands
+
+**`/gate`** - PRD Validation Command
+```bash
+/gate                    # Auto-detect and validate PRD
+/gate prd/feature.md     # Validate specific file
+```
+
+**`/pipeline`** - Full Agent Pipeline Executor
+```bash
+/pipeline                    # Run full pipeline
+/pipeline prd/feature.md     # Run with specific PRD
+/pipeline --dry-run          # Show plan only
+/pipeline --skip-validation  # Skip gate check
+```
+
+**`/trace`** - Log Viewer
+```bash
+/trace                    # Show latest log
+/trace --list             # List all log files
+/trace --tail             # Tail latest log (live)
+/trace --errors           # Show only errors
+/trace 20250210-120000    # Show specific log
+```
+
+#### 3. Example Project
+
+Complete To-Do List application demonstrating the workflow:
+
+- **Location**: `example-project/`
+- **PRD**: `example-project/prd/todo-feature.md`
+- **Tech Stack**: Vanilla JavaScript (HTML, CSS, JS)
+- **Features**: CRUD operations, LocalStorage, filtering
+
+**Project Structure:**
+```
+example-project/
+├── index.html          # Main HTML
+├── style.css           # Responsive styling
+├── app.js              # Application logic
+├── prd/
+│   └── todo-feature.md # Feature PRD
+└── README.md
+```
+
+### Usage Flow
+
+1. **Create PRD** using templates in `prd/`
+2. **Run `/gate`** to validate PRD
+3. **Run `/pipeline`** to execute agent workflow
+4. **Run `/trace`** to view logs and debug
+
+### Directory Structure
+
+```
+.claude/
+├── hooks/
+│   └── pre-tool-use.sh    # PRD validation hook
+├── commands/
+│   ├── gate.sh            # /gate command
+│   ├── pipeline.sh        # /pipeline command
+│   └── trace.sh           # /trace command
+logs/                       # Validation & pipeline logs
+example-project/            # Demo project
+├── prd/todo-feature.md    # Example PRD
+├── index.html
+├── style.css
+├── app.js
+└── README.md
+```
 
 ---
 

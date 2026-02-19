@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do List</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 To-Do List</h1>
+        </header>
+
+        <section class="input-section">
+            <input type="text" id="todoInput" placeholder="할 일을 입력하세요 (최대 100자)" maxlength="100">
+            <textarea id="todoDesc" placeholder="설명 (선택, 최대 500자)" maxlength="500" rows="2"></textarea>
+            <button id="addBtn">추가</button>
+        </section>
+
+        <section class="filter-section">
+            <button class="filter-btn active" data-filter="all">전체</button>
+            <button class="filter-btn" data-filter="active">미완료</button>
+            <button class="filter-btn" data-filter="completed">완료</button>
+            <button id="clearCompleted">완료된 항목 삭제</button>
+        </section>
+
+        <section class="todo-list">
+            <ul id="todoList"></ul>
+            <p id="emptyMessage" class="empty-message">할 일이 없습니다</p>
+        </section>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal">
+        <div class="modal-content">
+            <h2>할 일 수정</h2>
+            <input type="text" id="editTitle" placeholder="제목 (최대 100자)" maxlength="100">
+            <textarea id="editDesc" placeholder="설명 (선택, 최대 500자)" maxlength="500" rows="3"></textarea>
+            <div class="modal-buttons">
+                <button class="save-btn">저장</button>
+                <button class="cancel-btn">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

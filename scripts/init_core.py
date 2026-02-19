@@ -203,9 +203,10 @@ class ProjectInitializer:
 
     def setup_ci_cd(self) -> bool:
         """CI/CD 설정"""
-        ci_cd_provider = self.config.get('ci_cd_provider', 'none')
+        ci_cd_provider = self.config.get('ci_cd_provider', '')
 
-        if ci_cd_provider == 'none':
+        # 비어있거나 'none'이면 건너뜀
+        if not ci_cd_provider or ci_cd_provider == 'none':
             self.log("CI/CD 설정 건너뜀", "info")
             return True
 
