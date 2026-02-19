@@ -4,43 +4,140 @@
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # 1. 저장소 클론
 git clone https://github.com/loboking/monggle-vibe-coding-rules.git
 cd monggle-vibe-coding-rules
 
-# 2. 파일 복사 (기존 프로젝트인 경우)
-cp -r .claude/ /path/to/your-project/
-cp -r agents/ /path/to/your-project/
-cp -r prd/ /path/to/your-project/
-cp -r rules/ /path/to/your-project/
-cp CLAUDE.md /path/to/your-project/
+# 2. 설치 스크립트 실행 (원클릭 설치)
+./install.sh
+
+# 또는 기존 프로젝트에 설치
+./install.sh /path/to/your-project
 
 # 3. PRD 작성
 cp prd/feature.md prd/feature-my-task.md
 # -> PRD 내용 작성
 
 # 4. 실행
-/gate prd/feature-my-task.md
 /pipeline prd/feature-my-task.md
 ```
 
 ---
 
-## 🎯 MVP v1.0 Features
+## v2.0 Features
 
-### 1. Pre-Tool Hook
+### 0. AI Reviewer System
 
-파일 수정 전 PRD를 자동으로 검증:
+**Automated code review powered by AI**
 
-- ✅ PRD 파일 존재 확인
-- ✅ YAML frontmatter 검증
-- ✅ 필수 섹션 검증 (타입별)
-- ✅ 컬러 콘솔 출력
+Three modes available:
 
-### 2. 슬래시 커맨드
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Manual** | Review only when `/review` command is used | Development phase, on-demand review |
+| **Semi-Auto** | Auto-review on PR creation, merge requires admin approval | Team collaboration, quality gate |
+| **Auto** | Auto-review + auto-merge if confidence >= threshold | Fully automated CI/CD |
+
+**Setup:**
+```bash
+./install.sh              # Automatically configures AI reviewer
+# Select mode during installation
+# Creates .claude/config/team.yaml with your settings
+```
+
+**Usage:**
+```bash
+# Manual review
+/review                   # Review current changes
+/review path/to/file.py   # Review specific file
+/review --json            # Output as JSON
+```
+
+**Configuration:**
+```yaml
+# .claude/config/team.yaml
+ai_reviewer:
+  enabled: true
+  mode: "semi-auto"       # manual | semi-auto | auto
+  model: "gpt-4"
+  auto_merge_threshold: 0.9
+  checks:
+    - security
+    - performance
+    - best_practices
+    - test_coverage
+```
+
+**CI/CD Integration:**
+- **GitHub**: Automatically creates `.github/workflows/ai-reviewer.yml`
+- **GitLab**: Updates `.gitlab-ci.yml` with AI reviewer
+- Detects platform from `git remote origin.url`
+
+**Features:**
+- Security vulnerability detection
+- Performance issue identification
+- Best practices validation
+- Test coverage analysis
+- Documentation completeness check
+- Error handling pattern review
+
+---
+
+### 1. One-Click Installation
+
+### 1. One-Click Installation
+
+```bash
+./install.sh              # 현재 디렉토리에 설치
+./install.sh /path/to/project  # 특정 프로젝트에 설치
+```
+
+설치 과정:
+- Python 3.8+ 자동 감지
+- settings.json 동적 생성
+- 실행 권한 자동 설정
+- 필수 디렉토리 생성
+
+### 2. Dynamic Path Resolution
+
+절대 경로 하드코딩 문제 해결:
+- `scripts/generate_settings.py` - settings.json 동적 생성
+- `install.sh` - 경로 자동 감지
+- 타인이 클론해도 바로 작동
+
+### 3. Full Agent Pipeline
+
+```
+Gate -> Scan -> Fold -> Verdict -> Patch -> Trace
+```
+
+| Agent | 역할 | 상태 |
+|-------|------|------|
+| **Gate** | PRD 유효성 검사 | Hook |
+| **Scan** | 코드베이스 영향 분석 | Python 구현 |
+| **Fold** | 결과 종합 및 타당성 평가 | Python 구현 |
+| **Verdict** | 최종 판단 (PASS/FIX/FAIL) | Python 구현 |
+| **Patch** | 코드 생성/수정 | Python 구현 |
+| **Trace** | 실행 로그 기록 | Python 구현 |
+
+### 4. Python 3.8+ Compatible
+
+모든 Python 코드는 3.8+에서 실행 가능:
+- `pathlib.Path` 사용
+- `typing` 모듈 활용
+- 3.13 전용 문법 배제
+
+### 5. Slash Commands
+
+**`/review`** - AI 코드 리뷰
+```bash
+/review                    # 현재 변경사항 리뷰
+/review path/to/file.py    # 특정 파일 리뷰
+/review --json             # JSON 출력
+```
 
 **`/gate`** - PRD 검증
 ```bash
@@ -59,61 +156,57 @@ cp prd/feature.md prd/feature-my-task.md
 ```bash
 /trace                    # 최신 로그
 /trace --list             # 모든 로그 목록
-/trace --tail             # 실시간 로그
-```
-
-### 3. Example Project
-
-실제 작동하는 To-Do 리스트 앱:
-- `example-project/` - 완전한 예시 프로젝트
-- HTML + CSS + JavaScript
-- LocalStorage 기반 CRUD
-
-### 4. 구조
-
-```
-.claude/
-├── hooks/
-│   └── pre-tool-use.sh    # PRD 검증 훅
-├── commands/
-│   ├── gate.sh            # /gate 명령어
-│   ├── pipeline.sh        # /pipeline 명령어
-│   └── trace.sh           # /trace 명령어
-└── settings.json
-
-agents/                     # 에이전트 정의
-prd/                        # PRD 템플릿 (feature, bug, refactor, experiment)
-rules/                      # 에이전트 규칙
-example-project/            # 예시 프로젝트
-logs/                       # 실행 로그
 ```
 
 ---
 
-## 🤖 Agent Pipeline
+## Project Structure
 
 ```
-Gate → Scan → Fold → Verdict → Patch → Trace
+project-root/
+├── CLAUDE.md                # Claude Code 규칙
+├── install.sh               # 원클릭 설치 스크립트
+├── .claude/
+│   ├── config/
+│   │   └── team.yaml        # AI Reviewer 설정 (자동 생성)
+│   ├── hooks/
+│   │   └── pre-tool-use.sh  # PRD 검증 훅
+│   ├── commands/
+│   │   ├── gate.sh          # /gate 명령어
+│   │   ├── pipeline.sh      # /pipeline 명령어
+│   │   ├── trace.sh         # /trace 명령어
+│   │   └── review.sh        # /review 명령어 (AI Reviewer)
+│   ├── scripts/
+│   │   └── ai_reviewer.py   # AI Reviewer 엔진
+│   ├── settings.json        # 자동 생성 (수정 금지)
+│   └── settings.json.template
+├── .github/workflows/
+│   └── ai-reviewer.yml      # GitHub Actions AI Reviewer
+├── agents/                  # Agent 구현 (Python)
+│   ├── base_agent.py        # 기본 클래스
+│   ├── scan_agent.py        # Scan Agent
+│   ├── fold_agent.py        # Fold Agent
+│   ├── verdict_agent.py     # Verdict Agent
+│   ├── patch_agent.py       # Patch Agent
+│   └── trace_agent.py       # Trace Agent
+├── scripts/
+│   ├── init_core.py         # 프로젝트 초기화
+│   ├── generate_settings.py # settings.json 생성
+│   └── run_agent.py         # Agent 실행 CLI
+├── prd/                     # PRD 템플릿
+│   ├── feature.md           # Feature PRD
+│   ├── bug.md               # Bug PRD
+│   ├── refactor.md          # Refactor PRD
+│   └── experiment.md        # Experiment PRD
+├── rules/                   # Agent 규칙
+├── tests/                   # 단위 테스트
+│   └── test_agents.py
+└── logs/                    # 실행 로그
 ```
-
-| Agent | 역할 | 출력 |
-|-------|------|------|
-| **Gate** | PRD 유효성 검사 | PASS/FAIL |
-| **Scan** | 코드베이스 영향 분석 | 영향 파일, 의존성 |
-| **Fold** | 결과 종합 및 타당성 평가 | 실행 가능성, 위험도 |
-| **Verdict** | 최종 판단 | PASS/FIX/FAIL |
-| **Patch** | 코드 생성/수정 | 구현된 코드 |
-| **Trace** | 실행 로그 기록 | 타임라인, 성능 지표 |
 
 ---
 
-## 📋 PRD Types
-
-### 프로젝트 설정 파일
-
-프로젝트 시작 시 1회 작성:
-- 프로젝트 개요, 기술 스택
-- Git/CI/CD 설정
+## PRD Types
 
 ### 작업 PRD
 
@@ -133,66 +226,113 @@ cp prd/feature.md prd/feature-user-auth.md
 
 ---
 
-## ❌ Free Chat Prohibition
+## Verdict System
+
+### PASS (진행)
+
+**조건:**
+- Gate: PASS (PRD 유효)
+- Scan: 복잡도 Medium 이하, 충돌 없음
+- Fold: 구현 가능성 High 이상
+
+**결과:** 즉시 구현 시작
+
+### FIX (수정 필요)
+
+**조건:**
+- 일부 섹션 누락/불완전
+- 해결 가능한 문제
+
+**결과:** PRD 수정 후 재검토
+
+### FAIL (불가능)
+
+**조건:**
+- Gate: FAIL (PRD 무효)
+- 해결 불가능한 차단 문제
+
+**결과:** 요구사항 재검토
+
+---
+
+## Free Chat Prohibition
 
 ### PRD 없는 요청 (응답 거부)
 ```
 사용자: "로그인 기능 추가해줘"
-AI: "❌ PRD가 없습니다. 먼저 prd/feature-*.md를 작성해주세요."
+AI: "PRD가 없습니다. 먼저 prd/feature-*.md를 작성해주세요."
 ```
 
 ### PRD 있는 요청 (정상 응답)
 ```
 사용자: "prd/feature-user-auth.md 구현해줘"
-AI: "✅ Agent 파이프라인을 시작합니다..."
+AI: "Agent 파이프라인을 시작합니다..."
 ```
 
 ---
 
-## 📦 File Structure
-
-```
-project-root/
-├── CLAUDE.md                # Claude Code 규칙
-├── .cursorrules             # Cursor IDE 규칙
-├── .claude/
-│   ├── hooks/               # PRD 검증 훅
-│   └── commands/            # 슬래시 커맨드
-├── agents/                  # 에이전트 정의 (6개)
-├── prd/                     # PRD 템플릿 (4개)
-├── rules/                   # 에이전트 규칙
-├── logs/                    # 실행 로그
-└── example-project/         # 예시 프로젝트
-```
-
----
-
-## 📋 Core Principles
+## Core Principles
 
 1. **PRD 먼저** - 코딩 전에 반드시 PRD 작성
-2. **Agent 파이프라인** - 모든 작업은 Agent 검증을 거침
+2. **Agent 파이블라인** - 모든 작업은 Agent 검증을 거침
 3. **AI가 검증** - 리뷰/검증/판단은 AI가 담당
 4. **개발자는 집중** - 구현과 창의성에만 집중
+5. **자유로운 실험** - 개인 브랜치에서 마음껏
 
 ---
 
-## 💡 FAQ
+## Testing
+
+```bash
+# 단위 테스트 실행
+python3 tests/test_agents.py
+
+# Agent 직접 실행
+python3 agents/scan_agent.py prd/feature.md
+python3 agents/fold_agent.py prd/feature.md
+python3 agents/verdict_agent.py prd/feature.md
+
+# 파이프라인 실행
+python3 scripts/run_agent.py prd/feature.md
+```
+
+---
+
+## FAQ
 
 **Q: PRD 없이 개발할 수 없나요?**
 A: 네, PRD 없이는 AI가 응답하지 않습니다.
 
 **Q: 기존 프로젝트에도 적용 가능한가요?**
-A: 넵! `.claude/`, `agents/`, `prd/`, `rules/` 폴더만 복사하면 됩니다.
+A: 넵! `./install.sh /path/to/project`로 설치하세요.
 
-**Q: CI/CD는 필수인가요?**
-A: 아니요. `ci_cd_provider`를 비워두면 설정되지 않습니다.
+**Q: Python 3.8 미만에서는?**
+A: Bash fallback 모드로 제한된 기능을 제공합니다.
 
-**Q: Agent 파이프라인을 직접 실행해야 하나요?**
-A: 아니요! `/pipeline` 명령어로 실행하면 됩니다.
+**Q: settings.json을 직접 수정해도 되나요?**
+A: 아니요. `scripts/generate_settings.py`를 다시 실행하세요.
+
+**Q: AI Reviewer는 어떤 모드를 선택해야 하나요?**
+A:
+- **개발初期**: Manual 모드 (on-demand 리뷰)
+- **팀 프로젝트**: Semi-Auto 모드 (자동 리뷰 + 승인 필요)
+- **완전 자동화**: Auto 모드 (높은 신뢰도 시 자동 머지)
+
+**Q: AI Reviewer가 필요한가요?**
+A: 선택사항입니다. 설치 시 "1" (Manual)을 선택하면 `/review` 명령어로만 사용 가능합니다.
+
+**Q: GitHub/GitLab이 아닌 곳에서도 사용 가능한가요?**
+A: 네, AI Reviewer는 범용 솔루션입니다. `git remote`가 없어도 동작합니다.
+
+**Q: OPENAI_API_KEY는 어디에 설정하나요?**
+A:
+- **로컬**: `.env` 파일 또는 환경 변수
+- **GitHub**: Repository Settings > Secrets > OPENAI_API_KEY
+- **GitLab**: Settings > CI/CD > Variables > OPENAI_API_KEY
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 기여를 환영합니다!
 
@@ -203,10 +343,10 @@ A: 아니요! `/pipeline` 명령어로 실행하면 됩니다.
 
 ---
 
-## 📄 License
+## License
 
 MIT License
 
 ---
 
-**Vibe Coding Rules v2.0 (MVP v1.0)**
+**Vibe Coding Rules v2.1** (with AI Reviewer)

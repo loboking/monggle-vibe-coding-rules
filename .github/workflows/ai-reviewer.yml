@@ -1,0 +1,212 @@
+name: AI Reviewer
+
+# AI-powered code review for Pull Requests
+# Supports three modes: manual, semi-auto, auto
+# Configure in .claude/config/team.yaml
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, dev]
+
+jobs:
+  ai-review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml openai
+
+      - name: Load team config
+        id: config
+        run: |
+          # Parse team.yaml to get review mode
+          if [ -f ".claude/config/team.yaml" ]; then
+            REVIEW_MODE=$(grep "^mode:" .claude/config/team.yaml | awk '{print $2}' | tr -d '"')
+            ENABLED=$(grep "^enabled:" .claude/config/team.yaml | awk '{print $2}')
+            echo "mode=${REVIEW_MODE:-manual}" >> $GITHUB_OUTPUT
+            echo "enabled=${ENABLED:-true}" >> $GITHUB_OUTPUT
+          else
+            echo "mode=manual" >> $GITHUB_OUTPUT
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if AI reviewer is enabled
+        run: |
+          if [ "${{ steps.config.outputs.enabled }}" != "true" ]; then
+            echo "AI reviewer is disabled in team.yaml"
+            exit 0
+          fi
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          # Get diff between PR branch and target branch
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+
+          # Check if diff is empty
+          if [ ! -s /tmp/pr.diff ]; then
+            echo "No changes detected"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+
+            # Print diff stats
+            echo "Diff stats:"
+            diffstat /tmp/pr.diff 2>/dev/null || echo "  (diffstat not available)"
+          fi
+
+      - name: Run AI Review (Manual Mode)
+        if: steps.config.outputs.mode == 'manual' && steps.diff.outputs.has_changes == 'true'
+        run: |
+          echo "Manual mode: AI review available via /review command"
+          echo "To run: /review"
+          echo ""
+          echo "Preview of review capabilities:"
+          python3 .claude/scripts/ai_reviewer.py --diff /tmp/pr.diff --json | jq '.'
+
+      - name: Run AI Review (Semi-Auto Mode)
+        if: steps.config.outputs.mode == 'semi-auto' && steps.diff.outputs.has_changes == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Semi-auto mode: Running AI review..."
+          python3 .claude/scripts/ai_reviewer.py --diff /tmp/pr.diff --output /tmp/review_result.json
+
+          # Parse result
+          STATUS=$(jq -r '.status' /tmp/review_result.json)
+          CONFIDENCE=$(jq -r '.confidence' /tmp/review_result.json)
+          FEEDBACK=$(jq -r '.feedback' /tmp/review_result.json)
+
+          echo "Review Status: $STATUS"
+          echo "Confidence: $CONFIDENCE"
+
+      - name: Post Review Comment (Semi-Auto)
+        if: steps.config.outputs.mode == 'semi-auto' && steps.diff.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reviewResult = JSON.parse(fs.readFileSync('/tmp/review_result.json', 'utf8'));
+
+            let body = '## 🤖 AI Review Result\n\n';
+            body += `**Status:** ${reviewResult.status.toUpperCase()}\n`;
+            body += `**Confidence:** ${(reviewResult.confidence * 100).toFixed(1)}%\n`;
+            body += `\n${reviewResult.feedback}\n`;
+
+            if (reviewResult.issues && reviewResult.issues.length > 0) {
+              body += '\n### Issues Found\n\n';
+              reviewResult.issues.forEach((issue, i) => {
+                body += `${i + 1}. **[${issue.severity.toUpperCase()}]** ${issue.message}\n`;
+              });
+            }
+
+            body += '\n---\n';
+            body += '*This is an automated review. Admin approval is required before merging.*';
+
+            // Post comment
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Run AI Review (Auto Mode)
+        if: steps.config.outputs.mode == 'auto' && steps.diff.outputs.has_changes == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Auto mode: Running AI review with auto-merge decision..."
+          python3 .claude/scripts/ai_reviewer.py --diff /tmp/pr.diff --output /tmp/review_result.json
+
+          # Parse result
+          STATUS=$(jq -r '.status' /tmp/review_result.json)
+          CONFIDENCE=$(jq -r '.confidence' /tmp/review_result.json)
+
+          echo "Review Status: $STATUS"
+          echo "Confidence: $CONFIDENCE"
+
+          # Check auto-merge threshold
+          THRESHOLD=$(grep "auto_merge_threshold:" .claude/config/team.yaml | awk '{print $2}' || echo "0.9")
+          THRESHOLD=${THRESHOLD//\"/}
+
+          if [ "$STATUS" = "approved" ] && (( $(echo "$CONFIDENCE >= $THRESHOLD" | bc -l) )); then
+            echo "AUTO-MERGE APPROVED"
+            echo "auto_merge=true" >> $GITHUB_ENV
+          else
+            echo "AUTO-MERGE NOT APPROVED"
+            echo "auto_merge=false" >> $GITHUB_ENV
+          fi
+
+      - name: Post Review Comment (Auto Mode)
+        if: steps.config.outputs.mode == 'auto' && steps.diff.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reviewResult = JSON.parse(fs.readFileSync('/tmp/review_result.json', 'utf8'));
+            const autoMerge = process.env.auto_merge === 'true';
+
+            let body = '## 🤖 AI Review Result (Auto Mode)\n\n';
+            body += `**Status:** ${reviewResult.status.toUpperCase()}\n`;
+            body += `**Confidence:** ${(reviewResult.confidence * 100).toFixed(1)}%\n`;
+            body += `\n${reviewResult.feedback}\n`;
+
+            if (reviewResult.issues && reviewResult.issues.length > 0) {
+              body += '\n### Issues Found\n\n';
+              reviewResult.issues.forEach((issue, i) => {
+                body += `${i + 1}. **[${issue.severity.toUpperCase()}]** ${issue.message}\n`;
+              });
+            }
+
+            body += '\n---\n';
+            if (autoMerge) {
+              body += '✅ **Auto-merge approved**. This PR will be merged automatically.\n';
+            } else {
+              body += '⚠️ **Auto-merge not approved**. Manual review required.\n';
+            }
+
+            // Post comment
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Auto-merge (Auto Mode)
+        if: steps.config.outputs.mode == 'auto' && env.auto_merge == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Merge the PR
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              merge_method: 'merge',
+              commit_title: 'Auto-merged by AI Reviewer',
+              commit_message: 'Automatically merged after passing AI review'
+            });
+
+      - name: Review failed or disabled
+        if: steps.diff.outputs.has_changes != 'true' || steps.config.outputs.enabled != 'true'
+        run: |
+          echo "AI review skipped or disabled"
