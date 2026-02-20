@@ -50,10 +50,10 @@ Three modes available:
 
 **Usage:**
 ```bash
-# Manual review
+# Manual review (Claude Code AI-powered)
 /review                   # Review current changes
 /review path/to/file.py   # Review specific file
-/review --json            # Output as JSON
+/review --staged          # Review staged changes
 ```
 
 **Configuration:**
@@ -62,7 +62,6 @@ Three modes available:
 ai_reviewer:
   enabled: true
   mode: "semi-auto"       # manual | semi-auto | auto
-  provider: "rule-based"  # API-free, rule-based review
   auto_merge_threshold: 0.9
   checks:
     - security
@@ -390,9 +389,8 @@ A: 네, AI Reviewer는 범용 솔루션입니다. `git remote`가 없어도 동�
 
 **Q: API 키가 필요한가요?**
 A: 아니요! **API 키가 전혀 필요 없습니다.**
-- **로컬**: Claude Code 내장 기능 사용 (무료)
+- **로컬**: `/review` 명령어로 Claude Code가 직접 리뷰 (무료)
 - **CI/CD**: Rule-based 검사 (무료)
-- **AI 리뷰**: `/review` 명령어로 Claude Code가 직접 리뷰
 
 **Q: TDD는 필수인가요?**
 A: 네, 개발 프로세스의 핵심입니다. Red-Green-Refactor 사이클을 따라주세요:
