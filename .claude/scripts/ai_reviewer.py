@@ -389,10 +389,11 @@ def main():
     # Get diff content
     if args.diff:
         diff_path = Path(args.diff)
-        if diff_path.exists():
+        if diff_path.is_file():
             with open(diff_path) as f:
                 diff_content = f.read()
         else:
+            # Treat as raw diff content (for process substitution)
             diff_content = args.diff
     else:
         # Read from stdin
