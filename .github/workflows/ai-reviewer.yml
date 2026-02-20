@@ -40,10 +40,12 @@ jobs:
           if [ -f ".claude/config/team.yaml" ]; then
             # Extract mode value using python for reliable YAML parsing
             REVIEW_MODE=$(python3 -c "import yaml; print(yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['mode'])" 2>/dev/null || echo "semi-auto")
-            ENABLED=$(python3 -c "import yaml; print(yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['enabled'])" 2>/dev/null || echo "true")
+            # Convert Python boolean to bash boolean string
+            ENABLED=$(python3 -c "import yaml; e = yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['enabled']; print('true' if e else 'false')" 2>/dev/null || echo "true")
             echo "mode=${REVIEW_MODE:-semi-auto}" >> $GITHUB_OUTPUT
-            echo "enabled=${ENABLED:-true}" >> $GITHUB_OUTPUT
+            echo "enabled=${ENABLED}" >> $GITHUB_OUTPUT
             echo "Detected mode: $REVIEW_MODE"
+            echo "Detected enabled: $ENABLED"
           else
             echo "mode=semi-auto" >> $GITHUB_OUTPUT
             echo "enabled=true" >> $GITHUB_OUTPUT
