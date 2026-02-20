@@ -13,7 +13,7 @@ team:
 
 ai_reviewer:
   enabled: true
-  mode: "{{REVIEW_MODE}}"  # manual | semi-auto | auto
+  mode: "semi-auto"  # manual | semi-auto | auto (default: semi-auto for testing)
 
   # Review Configuration (API-free, Rule-based)
   # For AI-powered review, use Claude Code's built-in capabilities

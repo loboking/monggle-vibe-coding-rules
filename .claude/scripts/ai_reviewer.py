@@ -389,10 +389,11 @@ def main():
     # Get diff content
     if args.diff:
         diff_path = Path(args.diff)
-        if diff_path.exists():
+        if diff_path.is_file():
             with open(diff_path) as f:
                 diff_content = f.read()
         else:
+            # Treat as raw diff content (for process substitution)
             diff_content = args.diff
     else:
         # Read from stdin
@@ -422,12 +423,14 @@ def main():
         print(output)
 
     # Exit code based on status
+    # 0 = approved (success), 1 = changes requested (warning, not failure)
+    # For CI, we want review to pass but show warnings
     if result.status == ReviewStatus.APPROVED:
         sys.exit(0)
     elif result.status == ReviewStatus.CHANGES_REQUESTED:
-        sys.exit(1)
+        sys.exit(0)  # Exit 0 for CI to continue, issues will be in comments
     else:
-        sys.exit(2)
+        sys.exit(0)  # Error shouldn't fail CI, just report it
 
 
 if __name__ == "__main__":

@@ -38,12 +38,16 @@ jobs:
         run: |
           # Parse team.yaml to get review mode
           if [ -f ".claude/config/team.yaml" ]; then
-            REVIEW_MODE=$(grep "^mode:" .claude/config/team.yaml | awk '{print $2}' | tr -d '"')
-            ENABLED=$(grep "^enabled:" .claude/config/team.yaml | awk '{print $2}')
-            echo "mode=${REVIEW_MODE:-manual}" >> $GITHUB_OUTPUT
-            echo "enabled=${ENABLED:-true}" >> $GITHUB_OUTPUT
+            # Extract mode value using python for reliable YAML parsing
+            REVIEW_MODE=$(python3 -c "import yaml; print(yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['mode'])" 2>/dev/null || echo "semi-auto")
+            # Convert Python boolean to bash boolean string
+            ENABLED=$(python3 -c "import yaml; e = yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['enabled']; print('true' if e else 'false')" 2>/dev/null || echo "true")
+            echo "mode=${REVIEW_MODE:-semi-auto}" >> $GITHUB_OUTPUT
+            echo "enabled=${ENABLED}" >> $GITHUB_OUTPUT
+            echo "Detected mode: $REVIEW_MODE"
+            echo "Detected enabled: $ENABLED"
           else
-            echo "mode=manual" >> $GITHUB_OUTPUT
+            echo "mode=semi-auto" >> $GITHUB_OUTPUT
             echo "enabled=true" >> $GITHUB_OUTPUT
           fi
 
@@ -87,13 +91,23 @@ jobs:
           echo "Semi-auto mode: Running rule-based review..."
           python3 .claude/scripts/ai_reviewer.py --diff /tmp/pr.diff --output /tmp/review_result.json
 
-          # Parse result
-          STATUS=$(jq -r '.status' /tmp/review_result.json)
-          CONFIDENCE=$(jq -r '.confidence' /tmp/review_result.json)
-          FEEDBACK=$(jq -r '.feedback' /tmp/review_result.json)
+          # Parse result using Python for reliable JSON parsing
+          python3 << 'EOF'
+import json
+with open('/tmp/review_result.json') as f:
+    data = json.load(f)
+    print(f"Review Status: {data['status']}")
+    print(f"Confidence: {data['confidence']}")
+    print(f"Feedback: {data['feedback']}")
 
-          echo "Review Status: $STATUS"
-          echo "Confidence: $CONFIDENCE"
+    # Save parsed values for next step
+    with open('/tmp/review_status.txt', 'w') as f:
+        f.write(data['status'])
+    with open('/tmp/review_confidence.txt', 'w') as f:
+        f.write(str(data['confidence']))
+    with open('/tmp/review_feedback.txt', 'w') as f:
+        f.write(data['feedback'])
+EOF
 
       - name: Post Review Comment (Semi-Auto)
         if: steps.config.outputs.mode == 'semi-auto' && steps.diff.outputs.has_changes == 'true'
@@ -132,22 +146,34 @@ jobs:
           echo "Auto mode: Running rule-based review with auto-merge decision..."
           python3 .claude/scripts/ai_reviewer.py --diff /tmp/pr.diff --output /tmp/review_result.json
 
-          # Parse result
-          STATUS=$(jq -r '.status' /tmp/review_result.json)
-          CONFIDENCE=$(jq -r '.confidence' /tmp/review_result.json)
+          # Parse result using Python
+          python3 << 'EOF'
+import json
+with open('/tmp/review_result.json') as f:
+    data = json.load(f)
+    print(f"Review Status: {data['status']}")
+    print(f"Confidence: {data['confidence']}")
 
-          echo "Review Status: $STATUS"
-          echo "Confidence: $CONFIDENCE"
+    # Get threshold
+    threshold = 0.9
+    status = data['status']
+    confidence = data['confidence']
 
-          # Check auto-merge threshold
-          THRESHOLD=$(grep "auto_merge_threshold:" .claude/config/team.yaml | awk '{print $2}' || echo "0.9")
-          THRESHOLD=${THRESHOLD//\"/}
+    # Check auto-merge
+    if status == 'approved' and confidence >= threshold:
+        print("AUTO-MERGE APPROVED")
+        with open('/tmp/auto_merge.txt', 'w') as f:
+            f.write('true')
+    else:
+        print("AUTO-MERGE NOT APPROVED")
+        with open('/tmp/auto_merge.txt', 'w') as f:
+            f.write('false')
+EOF
 
-          if [ "$STATUS" = "approved" ] && (( $(echo "$CONFIDENCE >= $THRESHOLD" | bc -l) )); then
-            echo "AUTO-MERGE APPROVED"
+          # Set auto_merge env var
+          if [ -f "/tmp/auto_merge.txt" ] && [ "$(cat /tmp/auto_merge.txt)" = "true" ]; then
             echo "auto_merge=true" >> $GITHUB_ENV
           else
-            echo "AUTO-MERGE NOT APPROVED"
             echo "auto_merge=false" >> $GITHUB_ENV
           fi
 
