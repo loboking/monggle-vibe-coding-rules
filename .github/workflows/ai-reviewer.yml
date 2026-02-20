@@ -38,8 +38,9 @@ jobs:
         run: |
           # Parse team.yaml to get review mode
           if [ -f ".claude/config/team.yaml" ]; then
-            REVIEW_MODE=$(grep "^mode:" .claude/config/team.yaml | sed 's/^mode: *//' | sed 's/.*"\(.*\)".*/\1/' | sed "s/.*'\(.*\)'.*/\1/")
-            ENABLED=$(grep "^enabled:" .claude/config/team.yaml | awk '{print $2}')
+            # Extract mode value using python for reliable YAML parsing
+            REVIEW_MODE=$(python3 -c "import yaml; print(yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['mode'])" 2>/dev/null || echo "semi-auto")
+            ENABLED=$(python3 -c "import yaml; print(yaml.safe_load(open('.claude/config/team.yaml'))['ai_reviewer']['enabled'])" 2>/dev/null || echo "true")
             echo "mode=${REVIEW_MODE:-semi-auto}" >> $GITHUB_OUTPUT
             echo "enabled=${ENABLED:-true}" >> $GITHUB_OUTPUT
             echo "Detected mode: $REVIEW_MODE"
