@@ -15,11 +15,9 @@ ai_reviewer:
   enabled: true
   mode: "{{REVIEW_MODE}}"  # manual | semi-auto | auto
 
-  # AI Model Configuration
-  model: "claude-opus-4"  # claude-opus-4 | claude-sonnet-4 | claude-haiku-4 | gpt-4
-  api_key_env: "ANTHROPIC_API_KEY"  # ANTHROPIC_API_KEY | OPENAI_API_KEY
-  max_tokens: 2000
-  temperature: 0.3
+  # Review Configuration (API-free, Rule-based)
+  # For AI-powered review, use Claude Code's built-in capabilities
+  provider: "rule-based"  # rule-based (API-free)
 
   # Auto Review Settings
   auto_review_on_pr: true

@@ -62,8 +62,7 @@ Three modes available:
 ai_reviewer:
   enabled: true
   mode: "semi-auto"       # manual | semi-auto | auto
-  model: "claude-opus-4"  # Claude (default) | gpt-4
-  api_key_env: "ANTHROPIC_API_KEY"  # ANTHROPIC_API_KEY | OPENAI_API_KEY
+  provider: "rule-based"  # API-free, rule-based review
   auto_merge_threshold: 0.9
   checks:
     - security
@@ -389,12 +388,11 @@ A: 선택사항입니다. 설치 시 "1" (Manual)을 선택하면 `/review` 명�
 **Q: GitHub/GitLab이 아닌 곳에서도 사용 가능한가요?**
 A: 네, AI Reviewer는 범용 솔루션입니다. `git remote`가 없어도 동작합니다.
 
-**Q: OPENAI_API_KEY는 어디에 설정하나요?**
-A: Claude (Anthropic)를 기본으로 사용합니다:
-- **로컬**: `ANTHROPIC_API_KEY` 환경 변수
-- **GitHub**: Repository Settings > Secrets > ANTHROPIC_API_KEY
-- **GitLab**: Settings > CI/CD > Variables > ANTHROPIC_API_KEY
-- **GPT-4 사용 시**: `OPENAI_API_KEY`로 설정하고 `team.yaml`에서 `model: gpt-4`로 변경
+**Q: API 키가 필요한가요?**
+A: 아니요! **API 키가 전혀 필요 없습니다.**
+- **로컬**: Claude Code 내장 기능 사용 (무료)
+- **CI/CD**: Rule-based 검사 (무료)
+- **AI 리뷰**: `/review` 명령어로 Claude Code가 직접 리뷰
 
 **Q: TDD는 필수인가요?**
 A: 네, 개발 프로세스의 핵심입니다. Red-Green-Refactor 사이클을 따라주세요:

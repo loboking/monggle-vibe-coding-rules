@@ -101,8 +101,7 @@ class AIReviewer:
             "ai_reviewer": {
                 "enabled": True,
                 "mode": "manual",
-                "model": "claude-opus-4",
-                "api_key_env": "ANTHROPIC_API_KEY",
+                "provider": "rule-based",
                 "auto_merge_threshold": 0.9,
                 "checks": ["security", "performance", "best_practices"],
                 "no_auto_merge": {"paths": ["prod/*"], "keywords": ["TODO", "HACK"]}
@@ -139,17 +138,9 @@ class AIReviewer:
 
         # Call AI API
         try:
-            if self.api_key:
-                if self.api_provider == "anthropic" and ANTHROPIC_AVAILABLE:
-                    analysis = self._call_claude(prompt)
-                elif self.api_provider == "openai" and OPENAI_AVAILABLE:
-                    analysis = self._call_openai(prompt)
-                else:
-                    # Fallback to rule-based analysis
-                    analysis = self._rule_based_analysis(diff, checks)
-            else:
-                # Fallback to rule-based analysis
-                analysis = self._rule_based_analysis(diff, checks)
+            # Always use rule-based analysis (API-free)
+            # For AI-powered review, use Claude Code's built-in capabilities
+            analysis = self._rule_based_analysis(diff, checks)
 
             # Parse analysis and calculate confidence
             return self._parse_analysis(analysis)
