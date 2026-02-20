@@ -38,12 +38,13 @@ jobs:
         run: |
           # Parse team.yaml to get review mode
           if [ -f ".claude/config/team.yaml" ]; then
-            REVIEW_MODE=$(grep "^mode:" .claude/config/team.yaml | awk '{print $2}' | tr -d '"')
+            REVIEW_MODE=$(grep "^mode:" .claude/config/team.yaml | sed 's/^mode: *//' | sed 's/.*"\(.*\)".*/\1/' | sed "s/.*'\(.*\)'.*/\1/")
             ENABLED=$(grep "^enabled:" .claude/config/team.yaml | awk '{print $2}')
-            echo "mode=${REVIEW_MODE:-manual}" >> $GITHUB_OUTPUT
+            echo "mode=${REVIEW_MODE:-semi-auto}" >> $GITHUB_OUTPUT
             echo "enabled=${ENABLED:-true}" >> $GITHUB_OUTPUT
+            echo "Detected mode: $REVIEW_MODE"
           else
-            echo "mode=manual" >> $GITHUB_OUTPUT
+            echo "mode=semi-auto" >> $GITHUB_OUTPUT
             echo "enabled=true" >> $GITHUB_OUTPUT
           fi
 
