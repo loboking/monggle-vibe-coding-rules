@@ -62,7 +62,8 @@ Three modes available:
 ai_reviewer:
   enabled: true
   mode: "semi-auto"       # manual | semi-auto | auto
-  model: "gpt-4"
+  model: "claude-opus-4"  # Claude (default) | gpt-4
+  api_key_env: "ANTHROPIC_API_KEY"  # ANTHROPIC_API_KEY | OPENAI_API_KEY
   auto_merge_threshold: 0.9
   checks:
     - security
@@ -281,7 +282,71 @@ AI: "Agent 파이프라인을 시작합니다..."
 
 ---
 
-## Testing
+## TDD (Test-Driven Development)
+
+이 프로젝트는 **TDD(Test-Driven Development)**를 따릅니다.
+
+### Red-Green-Refactor Cycle
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  RED          GREEN          REFACTOR                           │
+│  실패하는      최소한의        코드 품질                          │
+│  테스트 작성   구현으로         개선                               │
+│              통과하게                                              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Running Tests
+
+```bash
+# 전체 테스트 실행
+python3 -m unittest discover tests/
+
+# 특정 테스트 파일
+python3 tests/test_agents.py
+
+# 상세 출력
+python3 -m unittest tests.test_agents -v
+
+# 특정 테스트 케이스만
+python3 -m unittest tests.test_agents.TestScanAgent.test_scan_complexity
+```
+
+### Test Categories
+
+| 타입 | 설명 | 예시 |
+|------|------|------|
+| **Unit Tests** | 개별 컴포넌트 테스트 | PRD 파싱, YAML 검증 |
+| **Integration Tests** | 전체 워크플로우 테스트 | 초기화부터 생성까지 |
+| **Error Tests** | 예외 상황 테스트 | 누락된 PRD, 잘못된 형식 |
+
+### Test Coverage Requirements
+
+| 단계 | 커버리지 | 차단 여부 |
+|------|----------|----------|
+| 개인 브랜치 | 80%+ 권장 | No |
+| PR 생성 | 80%+ 필수 | Yes |
+| Main Merge | Full 필수 | Yes |
+
+### Test Naming Convention
+
+```python
+# 테스트 파일: test_<모듈>.py
+test_agents.py
+test_init_core.py
+
+# 테스트 클래스: Test<기능>
+TestScanAgent
+TestPRDParsing
+
+# 테스트 메서드: test_<기능>_<상황>
+def test_scan_complexity_medium(self):
+def test_parse_valid_prd(self):
+def test_error_missing_file(self):
+```
+
+### Testing
 
 ```bash
 # 단위 테스트 실행
@@ -325,10 +390,26 @@ A: 선택사항입니다. 설치 시 "1" (Manual)을 선택하면 `/review` 명�
 A: 네, AI Reviewer는 범용 솔루션입니다. `git remote`가 없어도 동작합니다.
 
 **Q: OPENAI_API_KEY는 어디에 설정하나요?**
+A: Claude (Anthropic)를 기본으로 사용합니다:
+- **로컬**: `ANTHROPIC_API_KEY` 환경 변수
+- **GitHub**: Repository Settings > Secrets > ANTHROPIC_API_KEY
+- **GitLab**: Settings > CI/CD > Variables > ANTHROPIC_API_KEY
+- **GPT-4 사용 시**: `OPENAI_API_KEY`로 설정하고 `team.yaml`에서 `model: gpt-4`로 변경
+
+**Q: TDD는 필수인가요?**
+A: 네, 개발 프로세스의 핵심입니다. Red-Green-Refactor 사이클을 따라주세요:
+1. **RED**: 실패하는 테스트 작성
+2. **GREEN**: 최소한의 코드로 통과
+3. **REFACTOR**: 코드 품질 개선
+
+**Q: 테스트 커버리지 기준은?**
 A:
-- **로컬**: `.env` 파일 또는 환경 변수
-- **GitHub**: Repository Settings > Secrets > OPENAI_API_KEY
-- **GitLab**: Settings > CI/CD > Variables > OPENAI_API_KEY
+- 개인 브랜치: 80%+ 권장
+- PR 생성: 80%+ 필수 (CI에서 차단)
+- Main Merge: Full 커버리지 필수
+
+**Q: 어떤 테스트 프레임워크를 사용하나요?**
+A: Python `unittest` 표준 라이브러리를 사용합니다.
 
 ---
 

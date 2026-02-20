@@ -17,7 +17,7 @@ cache:
 
 before_script:
   - python3 -m pip install --upgrade pip
-  - pip3 install pyyaml openai
+  - pip3 install pyyaml anthropic openai
 
 # Run existing tests
 test:
@@ -39,13 +39,16 @@ ai_review:
       if [ -f ".claude/config/team.yaml" ]; then
         REVIEW_MODE=$(grep "^mode:" .claude/config/team.yaml | awk '{print $2}' | tr -d '"')
         ENABLED=$(grep "^enabled:" .claude/config/team.yaml | awk '{print $2}')
+        API_KEY_ENV=$(grep "api_key_env:" .claude/config/team.yaml | awk '{print $2}' | tr -d '"')
       else
         REVIEW_MODE="manual"
         ENABLED="true"
+        API_KEY_ENV="ANTHROPIC_API_KEY"
       fi
 
     - echo "AI Reviewer mode: $REVIEW_MODE"
     - echo "AI Reviewer enabled: $ENABLED"
+    - echo "API Key env: $API_KEY_ENV"
 
     # Check if enabled
     - |

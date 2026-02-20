@@ -194,11 +194,69 @@ Types: feat, fix, refactor, test, docs, chore
 
 ## 테스트 요구사항
 
-| 단계 | 테스트 | 차단 여부 |
-|------|--------|----------|
-| 개인 브랜치 | TDD, Lint | No |
-| PR | Feature, Scenario | Yes |
-| Main Merge | Full, Integration | Yes |
+| 단계 | 테스트 | 커버리지 | 차단 여부 |
+|------|--------|----------|----------|
+| 개인 브랜치 | TDD, Lint | 80%+ 권장 | No |
+| PR | Feature, Scenario | 80%+ 필수 | Yes |
+| Main Merge | Full, Integration | Full 필수 | Yes |
+
+---
+
+## TDD 가이드라인
+
+### Red-Green-Refactor 사이클
+
+모든 기능 개발은 TDD 사이클을 따릅니다:
+
+```
+1. RED   : 실패하는 테스트를 먼저 작성
+2. GREEN : 최소한의 코드로 테스트 통과
+3. REFACTOR: 코드 품질을 개선하면서 테스트 유지
+```
+
+### TDD 워크플로우
+
+```bash
+# 1. RED: 테스트 작성 (실패 예상)
+# tests/test_my_feature.py
+def test_new_feature_returns_success():
+    result = my_feature()
+    assert result == "success"  # 아직 구현 안 됨
+
+# 2. GREEN: 최소 구현
+# my_module.py
+def my_feature():
+    return "success"  # 테스트 통과만 목표
+
+# 3. REFACTOR: 코드 개선
+def my_feature():
+    # 실제 로직 구현
+    if validate_input():
+        return process_success()
+    return "success"
+```
+
+### 테스트 작성 원칙
+
+1. **테스트 먼저 작성** - 구현보다 테스트가 먼저
+2. **한 테스트 = 하나의 검증** - 테스트는 한 가지 이유로만 실패해야 함
+3. **명확한 이름** - `test_<기능>_<상황>` 형식
+4. **Happy Path + Edge Cases** - 정상 경로와 예외 상황 모두 테스트
+
+### 커버리지 측정
+
+```bash
+# 커버리지 설치
+pip install coverage
+
+# 커버리지 실행
+coverage run -m unittest discover tests/
+coverage report -m
+
+# HTML 리포트
+coverage html
+open htmlcov/index.html
+```
 
 ---
 
