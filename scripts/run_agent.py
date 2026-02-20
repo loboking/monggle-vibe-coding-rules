@@ -143,12 +143,14 @@ class AgentPipeline:
             self.log(f"Agent {name} failed: {e}", "error")
             return AgentResult(success=False, error=str(e))
 
-    def run_pipeline(self, prd_path: Path, skip_gate: bool = False) -> bool:
+    def run_pipeline(self, prd_path: Path, skip_gate: bool = False, skip_fold: bool = False, prd_type_override: str = None) -> bool:
         """전체 파이프라인 실행
 
         Args:
             prd_path: PRD 파일 경로
             skip_gate: Gate 건너뛰기
+            skip_fold: Fold 건너뛰기 (hotfix mode)
+            prd_type_override: PRD 타입 오버라이드
 
         Returns:
             bool: 성공 여부
@@ -159,7 +161,11 @@ class AgentPipeline:
         self.log(f"Loading PRD: {prd_path}", "step")
         try:
             prd = PRDContent.from_file(prd_path)
-            self.log(f"PRD type: {prd.feature_type}", "info")
+            if prd_type_override:
+                prd.feature_type = prd_type_override
+                self.log(f"PRD type override: {prd_type_override}", "info")
+            else:
+                self.log(f"PRD type: {prd.feature_type}", "info")
         except Exception as e:
             self.log(f"Failed to load PRD: {e}", "error")
             return False
@@ -190,13 +196,22 @@ class AgentPipeline:
         if not scan_result.success:
             self.log("Scan failed, but continuing...", "warning")
 
-        # 3. Fold
-        fold_result = self.run_agent("fold", FoldAgent, prd, context)
-        self.results["fold"] = fold_result.data if fold_result.success else {}
-        context["fold_result"] = self.results["fold"]
+        # 3. Fold (skip if hotfix mode)
+        if skip_fold:
+            self.log("Skipping fold: Hotfix mode", "warning")
+            self.print_stage("fold", "skip")
+            self.results["fold"] = {
+                "feasibility": "High",
+                "approach": "Fast-track hotfix",
+                "risk_assessment": {"technical": "Low", "operational": "Low"}
+            }
+        else:
+            fold_result = self.run_agent("fold", FoldAgent, prd, context)
+            self.results["fold"] = fold_result.data if fold_result.success else {}
+            context["fold_result"] = self.results["fold"]
 
-        if not fold_result.success:
-            self.log("Fold failed, but continuing...", "warning")
+            if not fold_result.success:
+                self.log("Fold failed, but continuing...", "warning")
 
         # 4. Verdict
         verdict_result = self.run_agent("verdict", VerdictAgent, prd, context)
@@ -330,6 +345,17 @@ def main():
         choices=["gate", "scan", "fold", "verdict", "patch", "trace"],
         help="Run only specific agent"
     )
+    parser.add_argument(
+        "--type",
+        type=str,
+        choices=["feature", "bug", "refactor", "hotfix", "experiment"],
+        help="Override PRD type (auto-detect from file if not provided)"
+    )
+    parser.add_argument(
+        "--skip-fold",
+        action="store_true",
+        help="Skip Fold agent (for hotfix mode)"
+    )
 
     args = parser.parse_args()
 
@@ -371,7 +397,12 @@ def main():
         print("Note: Single agent mode not fully implemented, running pipeline...")
 
     # 전체 파이프라인 실행
-    success = pipeline.run_pipeline(prd_path, args.skip_gate)
+    success = pipeline.run_pipeline(
+        prd_path,
+        skip_gate=args.skip_gate,
+        skip_fold=args.skip_fold,
+        prd_type_override=args.type
+    )
 
     sys.exit(0 if success else 1)
 

@@ -1,6 +1,7 @@
 # Vibe Coding Rules
 
 > **Agent 기반 Vibe Coding 방법론 - PRD 없이는 어떠한 개발 요청도 응답하지 않습니다.**
+> **v2.2: Solo/Team Mode, Fast Track, Auto Pipeline, Stats, Single Source of Truth**
 
 ---
 
@@ -17,19 +18,123 @@ cd monggle-vibe-coding-rules
 # 또는 기존 프로젝트에 설치
 ./install.sh /path/to/your-project
 
-# 3. PRD 작성
+# 3. 모드 설정 (선택)
+/mode                    # 현재 모드 확인
+/mode solo               # Solo 모드 (PRD 선택적)
+/mode team               # Team 모드 (PRD 필수)
+
+# 4. PRD 작성
 cp prd/feature.md prd/feature-my-task.md
 # -> PRD 내용 작성
 
-# 4. 실행
+# 5. 실행
 /pipeline prd/feature-my-task.md
+
+# 긴급 수정의 경우
+cp prd/hotfix.md prd/hotfix-urgent-fix.md
+/quick prd/hotfix-urgent-fix.md
 ```
 
 ---
 
-## v2.0 Features
+## What's New in v2.2
 
-### 0. AI Reviewer System
+### 1. Solo/Team Mode (NEW)
+
+Flexibility for different workflows:
+
+| Mode | PRD Required | Use Case |
+|------|--------------|----------|
+| **Solo** | Optional | Personal projects, quick iterations |
+| **Team** | Required | Team collaboration, quality assurance |
+
+```bash
+/mode solo               # Quick iterations allowed
+/mode team               # PRD required for all dev work
+```
+
+### 2. Fast Track Hotfix (NEW)
+
+Urgent bug fix workflow:
+
+```bash
+/quick [prd_file]        # Skip Fold agent, faster execution
+```
+
+**Hotfix PRD Template** (`prd/hotfix.md`):
+- Minimal required sections
+- Skip Fold agent (saves time)
+- Focused on speed while maintaining quality
+
+### 3. Auto Pipeline (NEW)
+
+PRD type-based agent auto-selection:
+
+```bash
+# Automatically selects agents based on PRD type
+/pipeline prd/feature-my-task.md
+/pipeline prd/bugfix-login-error.md
+/pipeline prd/hotfix-production-crash.md
+```
+
+**Pipeline by Type:**
+| PRD Type | Pipeline |
+|----------|----------|
+| Feature/Bug/Refactor | Gate → Scan → Fold → Verdict → Patch → Trace |
+| Hotfix | Gate → Scan → Verdict → Patch → Trace (Skip Fold) |
+| Experiment | Gate → Scan → Fold → Verdict → Trace (Skip Patch) |
+
+### 4. Pipeline Statistics (NEW)
+
+Track your pipeline performance:
+
+```bash
+/stats                   # Show execution statistics
+/stats --json            # JSON output
+/stats --clear           # Clear all logs
+```
+
+**Statistics include:**
+- Total runs, success rate
+- Verdict distribution (PASS/FIX/FAIL)
+- Agent performance (duration, success rate)
+- Recent runs history
+
+### 5. Single Source of Truth (NEW)
+
+`rules/core-rules.yaml` is now the single source of truth:
+
+```bash
+# Sync all config files from core rules
+python3 scripts/sync_rules.py
+
+# Automatically updates:
+# - .cursorrules (IDE rules)
+# - CLAUDE.md (Project guidelines)
+# - .claude/settings.json (Claude Code settings)
+```
+
+### 6. Free Chat Allowed (NEW)
+
+**In Solo Mode:**
+- Development requests WITHOUT PRD are allowed
+- Quick iterations and experiments encouraged
+- PRD still recommended for complex features
+
+**In Team Mode:**
+- Development requests require PRD
+- Quality assurance through documentation
+
+**PRD Exemptions (always allowed):**
+- "explain X", "show me Y", "how does Z work"
+- "review code", "analyze performance"
+- "document X", "add comments"
+
+---
+
+## v2.0 Features (Existing)
+
+### AI Reviewer System
 
 **Automated code review powered by AI**
 
@@ -70,44 +175,7 @@ ai_reviewer:
     - test_coverage
 ```
 
-**CI/CD Integration:**
-- **GitHub**: Automatically creates `.github/workflows/ai-reviewer.yml`
-- **GitLab**: Updates `.gitlab-ci.yml` with AI reviewer
-- Detects platform from `git remote origin.url`
-
-**Features:**
-- Security vulnerability detection
-- Performance issue identification
-- Best practices validation
-- Test coverage analysis
-- Documentation completeness check
-- Error handling pattern review
-
----
-
-### 1. One-Click Installation
-
-### 1. One-Click Installation
-
-```bash
-./install.sh              # 현재 디렉토리에 설치
-./install.sh /path/to/project  # 특정 프로젝트에 설치
-```
-
-설치 과정:
-- Python 3.8+ 자동 감지
-- settings.json 동적 생성
-- 실행 권한 자동 설정
-- 필수 디렉토리 생성
-
-### 2. Dynamic Path Resolution
-
-절대 경로 하드코딩 문제 해결:
-- `scripts/generate_settings.py` - settings.json 동적 생성
-- `install.sh` - 경로 자동 감지
-- 타인이 클론해도 바로 작동
-
-### 3. Full Agent Pipeline
+### Full Agent Pipeline
 
 ```
 Gate -> Scan -> Fold -> Verdict -> Patch -> Trace
@@ -122,39 +190,60 @@ Gate -> Scan -> Fold -> Verdict -> Patch -> Trace
 | **Patch** | 코드 생성/수정 | Python 구현 |
 | **Trace** | 실행 로그 기록 | Python 구현 |
 
-### 4. Python 3.8+ Compatible
+---
 
-모든 Python 코드는 3.8+에서 실행 가능:
-- `pathlib.Path` 사용
-- `typing` 모듈 활용
-- 3.13 전용 문법 배제
+## Slash Commands
 
-### 5. Slash Commands
+### Pipeline Commands
 
-**`/review`** - AI 코드 리뷰
+**`/pipeline`** - Execute full agent pipeline
 ```bash
-/review                    # 현재 변경사항 리뷰
-/review path/to/file.py    # 특정 파일 리뷰
-/review --json             # JSON 출력
+/pipeline                    # Auto-detect PRD and execute
+/pipeline prd/feature.md     # Execute with specific PRD
+/pipeline --skip-gate        # Skip gate validation
 ```
 
-**`/gate`** - PRD 검증
+**`/quick`** - Fast track for hotfixes
 ```bash
-/gate                    # 자동 감지 및 검증
-/gate prd/feature.md     # 특정 파일 검증
+/quick                       # Auto-detect hotfix PRD
+/quick prd/hotfix-fix.md     # Execute specific hotfix
 ```
 
-**`/pipeline`** - 전체 에이전트 파이프라인 실행
+**`/stats`** - Pipeline statistics
 ```bash
-/pipeline                    # 전체 파이프라인 실행
-/pipeline prd/feature.md     # 특정 PRD로 실행
-/pipeline --dry-run          # 계획만 표시
+/stats                       # Show statistics
+/stats --json                # JSON output
+/stats --clear               # Clear logs
 ```
 
-**`/trace`** - 로그 뷰어
+### Mode Commands
+
+**`/mode`** - Project mode management
 ```bash
-/trace                    # 최신 로그
-/trace --list             # 모든 로그 목록
+/mode                        # Show current mode
+/mode solo                   # Switch to solo mode
+/mode team                   # Switch to team mode
+```
+
+### Review Commands
+
+**`/review`** - AI code review
+```bash
+/review                    # Current changes
+/review path/to/file.py    # Specific file
+/review --json             # JSON output
+```
+
+**`/gate`** - PRD validation
+```bash
+/gate                    # Auto-detect and validate
+/gate prd/feature.md     # Validate specific file
+```
+
+**`/trace`** - Log viewer
+```bash
+/trace                    # Latest log
+/trace --list             # All logs
 ```
 
 ---
@@ -163,43 +252,50 @@ Gate -> Scan -> Fold -> Verdict -> Patch -> Trace
 
 ```
 project-root/
-├── CLAUDE.md                # Claude Code 규칙
+├── CLAUDE.md                # Claude Code 규칙 (auto-synced)
+├── .cursorrules             # IDE 규칙 (auto-synced)
+├── monggle.config.yaml      # 프로젝트 모드 설정
 ├── install.sh               # 원클릭 설치 스크립트
 ├── .claude/
-│   ├── config/
-│   │   └── team.yaml        # AI Reviewer 설정 (자동 생성)
 │   ├── hooks/
-│   │   └── pre-tool-use.sh  # PRD 검증 훅
+│   │   └── pre-tool-use.sh  # PRD 검증 훅 (mode-aware)
 │   ├── commands/
-│   │   ├── gate.sh          # /gate 명령어
 │   │   ├── pipeline.sh      # /pipeline 명령어
+│   │   ├── quick.sh         # /quick 명령어 (hotfix)
+│   │   ├── stats.sh         # /stats 명령어
+│   │   ├── mode.sh          # /mode 명령어
+│   │   ├── gate.sh          # /gate 명령어
 │   │   ├── trace.sh         # /trace 명령어
-│   │   └── review.sh        # /review 명령어 (AI Reviewer)
-│   ├── scripts/
-│   │   └── ai_reviewer.py   # AI Reviewer 엔진
-│   ├── settings.json        # 자동 생성 (수정 금지)
-│   └── settings.json.template
-├── .github/workflows/
-│   └── ai-reviewer.yml      # GitHub Actions AI Reviewer
+│   │   └── review.sh        # /review 명령어
+│   └── settings.json        # 자동 생성 (수정 금지)
 ├── agents/                  # Agent 구현 (Python)
 │   ├── base_agent.py        # 기본 클래스
+│   ├── pipeline_config.py   # 파이프라인 설정 (NEW)
 │   ├── scan_agent.py        # Scan Agent
 │   ├── fold_agent.py        # Fold Agent
-│   ├── verdict_agent.py     # Verdict Agent
+│   ├── verdict_agent.py     # Verdict Agent (FIX feedback)
 │   ├── patch_agent.py       # Patch Agent
 │   └── trace_agent.py       # Trace Agent
 ├── scripts/
 │   ├── init_core.py         # 프로젝트 초기화
-│   ├── generate_settings.py # settings.json 생성
+│   ├── sync_rules.py        # 규칙 동기화 (NEW)
+│   ├── stats.py             # 통계 수집 (NEW)
 │   └── run_agent.py         # Agent 실행 CLI
+├── rules/
+│   └── core-rules.yaml      # Single Source of Truth (NEW)
 ├── prd/                     # PRD 템플릿
 │   ├── feature.md           # Feature PRD
 │   ├── bug.md               # Bug PRD
 │   ├── refactor.md          # Refactor PRD
+│   ├── hotfix.md            # Hotfix PRD (NEW)
 │   └── experiment.md        # Experiment PRD
-├── rules/                   # Agent 규칙
 ├── tests/                   # 단위 테스트
 │   └── test_agents.py
+├── example-project/         # 예제 프로젝트 (NEW)
+│   ├── prd/
+│   │   ├── todo-feature.md
+│   │   └── hotfix-button-crash.md
+│   └── ...
 └── logs/                    # 실행 로그
 ```
 
@@ -207,20 +303,17 @@ project-root/
 
 ## PRD Types
 
-### 작업 PRD
-
-개별 작업 시 마다 작성:
-
-| 타입 | 템플릿 | 용도 |
-|------|--------|------|
-| **Feature** | `prd/feature.md` | 새로운 기능 개발 |
-| **Bugfix** | `prd/bug.md` | 버그 수정 |
-| **Refactor** | `prd/refactor.md` | 코드 리팩토링 |
-| **Experiment** | `prd/experiment.md` | 실험적 기능 |
+| 타입 | 템플릿 | 용도 | Pipeline |
+|------|--------|------|----------|
+| **Feature** | `prd/feature.md` | 새로운 기능 개발 | Full |
+| **Bugfix** | `prd/bug.md` | 버그 수정 | Full |
+| **Refactor** | `prd/refactor.md` | 코드 리팩토링 | Full |
+| **Hotfix** | `prd/hotfix.md` | 긴급 수정 | Fast Track |
+| **Experiment** | `prd/experiment.md` | 실험적 기능 | No Patch |
 
 ```bash
 cp prd/feature.md prd/feature-user-auth.md
-# -> PRD 내용 작성
+cp prd/hotfix.md prd/hotfix-login-crash.md
 ```
 
 ---
@@ -236,13 +329,15 @@ cp prd/feature.md prd/feature-user-auth.md
 
 **결과:** 즉시 구현 시작
 
-### FIX (수정 필요)
+### FIX (수정 필요) - Enhanced
 
 **조건:**
 - 일부 섹션 누락/불완전
 - 해결 가능한 문제
 
-**결과:** PRD 수정 후 재검토
+**결과:**
+- PRD 수정 후 재검토
+- **자동 수정 제안 제공** (NEW)
 
 ### FAIL (불가능)
 
@@ -254,46 +349,66 @@ cp prd/feature.md prd/feature-user-auth.md
 
 ---
 
-## Free Chat Prohibition
+## Free Chat Rules
 
-### PRD 없는 요청 (응답 거부)
-```
-사용자: "로그인 기능 추가해줘"
-AI: "PRD가 없습니다. 먼저 prd/feature-*.md를 작성해주세요."
-```
+### Solo Mode
 
-### PRD 있는 요청 (정상 응답)
-```
-사용자: "prd/feature-user-auth.md 구현해줘"
-AI: "Agent 파이프라인을 시작합니다..."
-```
+**Allowed without PRD:**
+- Quick fixes and iterations
+- Experiments and prototypes
+- Code reviews and analysis
+- Documentation
+
+**PRD Recommended for:**
+- Complex features
+- Breaking changes
+- Team collaborations
+
+### Team Mode
+
+**PRD Required for:**
+- All development work
+- Code modifications
+- Feature implementations
+
+**Exemptions (always allowed):**
+- "explain X", "show me Y"
+- "review code", "analyze performance"
+- "document X", "add comments"
 
 ---
 
 ## Core Principles
 
-1. **PRD 먼저** - 코딩 전에 반드시 PRD 작성
-2. **Agent 파이블라인** - 모든 작업은 Agent 검증을 거침
+1. **PRD 먼저** - 코딩 전에 PRD 작성 (Team 모드)
+2. **Agent 파이프라인** - 모든 작업은 Agent 검증을 거침
 3. **AI가 검증** - 리뷰/검증/판단은 AI가 담당
 4. **개발자는 집중** - 구현과 창의성에만 집중
-5. **자유로운 실험** - 개인 브랜치에서 마음껏
+5. **자유로운 실험** - Solo 모드에서 빠른 반복
+
+---
+
+## Example Project
+
+See `example-project/` for a working example:
+
+```bash
+cd example-project
+
+# View PRD
+cat prd/todo-feature.md
+cat prd/hotfix-button-crash.md
+
+# Run pipeline
+../scripts/run_agent.py prd/todo-feature.md
+../scripts/run_agent.py prd/hotfix-button-crash.md --type hotfix --skip-fold
+```
 
 ---
 
 ## TDD (Test-Driven Development)
 
 이 프로젝트는 **TDD(Test-Driven Development)**를 따릅니다.
-
-### Red-Green-Refactor Cycle
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  RED          GREEN          REFACTOR                           │
-│  실패하는      최소한의        코드 품질                          │
-│  테스트 작성   구현으로         개선                               │
-│              통과하게                                              │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ### Running Tests
 
@@ -306,18 +421,7 @@ python3 tests/test_agents.py
 
 # 상세 출력
 python3 -m unittest tests.test_agents -v
-
-# 특정 테스트 케이스만
-python3 -m unittest tests.test_agents.TestScanAgent.test_scan_complexity
 ```
-
-### Test Categories
-
-| 타입 | 설명 | 예시 |
-|------|------|------|
-| **Unit Tests** | 개별 컴포넌트 테스트 | PRD 파싱, YAML 검증 |
-| **Integration Tests** | 전체 워크플로우 테스트 | 초기화부터 생성까지 |
-| **Error Tests** | 예외 상황 테스트 | 누락된 PRD, 잘못된 형식 |
 
 ### Test Coverage Requirements
 
@@ -327,85 +431,34 @@ python3 -m unittest tests.test_agents.TestScanAgent.test_scan_complexity
 | PR 생성 | 80%+ 필수 | Yes |
 | Main Merge | Full 필수 | Yes |
 
-### Test Naming Convention
-
-```python
-# 테스트 파일: test_<모듈>.py
-test_agents.py
-test_init_core.py
-
-# 테스트 클래스: Test<기능>
-TestScanAgent
-TestPRDParsing
-
-# 테스트 메서드: test_<기능>_<상황>
-def test_scan_complexity_medium(self):
-def test_parse_valid_prd(self):
-def test_error_missing_file(self):
-```
-
-### Testing
-
-```bash
-# 단위 테스트 실행
-python3 tests/test_agents.py
-
-# Agent 직접 실행
-python3 agents/scan_agent.py prd/feature.md
-python3 agents/fold_agent.py prd/feature.md
-python3 agents/verdict_agent.py prd/feature.md
-
-# 파이프라인 실행
-python3 scripts/run_agent.py prd/feature.md
-```
-
 ---
 
 ## FAQ
 
-**Q: PRD 없이 개발할 수 없나요?**
-A: 네, PRD 없이는 AI가 응답하지 않습니다.
+**Q: Solo 모드와 Team 모드의 차이는?**
+A:
+- **Solo**: PRD 선택적, 빠른 반복 가능
+- **Team**: PRD 필수, 품질 보장
 
-**Q: 기존 프로젝트에도 적용 가능한가요?**
-A: 넵! `./install.sh /path/to/project`로 설치하세요.
+**Q: Hotfix는 언제 사용하나요?**
+A: 프로덕션 서비스 중단, 데이터 손실 위험, 보안 취약점 등 긴급 상황에만 사용하세요.
+
+**Q: /quick와 /pipeline의 차이는?**
+A:
+- `/quick`: Fold agent 건너뛰기, hotfix용
+- `/pipeline`: 전체 파이프라인, 일반 작업용
+
+**Q: 통계는 어떻게 확인하나요?**
+A: `/stats` 명령어로 파이프라인 실행 통계를 확인할 수 있습니다.
+
+**Q: 규칙을 동기화하려면?**
+A: `python3 scripts/sync_rules.py`를 실행하세요.
 
 **Q: Python 3.8 미만에서는?**
 A: Bash fallback 모드로 제한된 기능을 제공합니다.
 
-**Q: settings.json을 직접 수정해도 되나요?**
-A: 아니요. `scripts/generate_settings.py`를 다시 실행하세요.
-
-**Q: AI Reviewer는 어떤 모드를 선택해야 하나요?**
-A:
-- **개발初期**: Manual 모드 (on-demand 리뷰)
-- **팀 프로젝트**: Semi-Auto 모드 (자동 리뷰 + 승인 필요)
-- **완전 자동화**: Auto 모드 (높은 신뢰도 시 자동 머지)
-
-**Q: AI Reviewer가 필요한가요?**
-A: 선택사항입니다. 설치 시 "1" (Manual)을 선택하면 `/review` 명령어로만 사용 가능합니다.
-
-**Q: GitHub/GitLab이 아닌 곳에서도 사용 가능한가요?**
-A: 네, AI Reviewer는 범용 솔루션입니다. `git remote`가 없어도 동작합니다.
-
 **Q: API 키가 필요한가요?**
 A: 아니요! **API 키가 전혀 필요 없습니다.**
-- **로컬**: `/review` 명령어로 Claude Code가 직접 리뷰 (무료)
-- **CI/CD**: Rule-based 검사 (무료)
-
-**Q: TDD는 필수인가요?**
-A: 네, 개발 프로세스의 핵심입니다. Red-Green-Refactor 사이클을 따라주세요:
-1. **RED**: 실패하는 테스트 작성
-2. **GREEN**: 최소한의 코드로 통과
-3. **REFACTOR**: 코드 품질 개선
-
-**Q: 테스트 커버리지 기준은?**
-A:
-- 개인 브랜치: 80%+ 권장
-- PR 생성: 80%+ 필수 (CI에서 차단)
-- Main Merge: Full 커버리지 필수
-
-**Q: 어떤 테스트 프레임워크를 사용하나요?**
-A: Python `unittest` 표준 라이브러리를 사용합니다.
 
 ---
 
@@ -426,4 +479,4 @@ MIT License
 
 ---
 
-**Vibe Coding Rules v2.1** (with AI Reviewer)
+**Vibe Coding Rules v2.2** (Solo/Team Mode, Fast Track, Auto Pipeline, Stats)
