@@ -63,6 +63,50 @@ prd:
         - Test Plan
         - Success Criteria
 
+# Interactive PRD Creation (NEW v2.3)
+interactive_prd:
+  enabled: true
+  command: "/init"
+  description: "Interactive PRD creation via natural language conversation"
+
+  # PRD types with interactive prompts
+  types:
+    - name: feature
+      prompts:
+        - "What should we call this feature?"
+        - "What problem does this solve?"
+        - "What are the functional requirements?"
+        - "What edge cases should we handle?"
+        - "How should we test this?"
+
+    - name: bug
+      prompts:
+        - "What bug are you experiencing?"
+        - "Describe the problem in detail"
+        - "What's causing the issue (if known)?"
+        - "How should we fix it?"
+        - "How to verify the fix?"
+
+    - name: refactor
+      prompts:
+        - "What's the current state?"
+        - "What problems exist with current code?"
+        - "What changes do you want?"
+        - "What impact will this have?"
+        - "How to ensure nothing breaks?"
+
+    - name: hotfix
+      prompts:
+        - "What's the urgent problem?"
+        - "What's the immediate fix?"
+        - "Quick verification steps?"
+
+    - name: experiment
+      prompts:
+        - "What are you trying to prove?"
+        - "How will you test it?"
+        - "How do you measure success?"
+
 # Agent Pipeline Configuration
 agents:
   # Execution order matters

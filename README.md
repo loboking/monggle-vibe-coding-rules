@@ -1,7 +1,7 @@
 # Vibe Coding Rules
 
 > **Agent 기반 Vibe Coding 방법론 - PRD 없이는 어떠한 개발 요청도 응답하지 않습니다.**
-> **v2.2: Solo/Team Mode, Fast Track, Auto Pipeline, Stats, Single Source of Truth**
+> **v2.3: Interactive PRD Creation (/init), Natural Language PRD Generation**
 
 ---
 
@@ -23,14 +23,24 @@ cd monggle-vibe-coding-rules
 /mode solo               # Solo 모드 (PRD 선택적)
 /mode team               # Team 모드 (PRD 필수)
 
-# 4. PRD 작성
+# 4. PRD 작성 (대화형 또는 수동)
+
+## 방법 A: 대화형 PRD 생성 (추천)
+/init feature            # Claude Code가 질문하며 PRD 작성
+# 또는 그냥 설명하면 자동으로 타입 감지
+/init
+# -> "이메일 로그인 기능 추가해줘"
+
+## 방법 B: 수동 PRD 작성
 cp prd/feature.md prd/feature-my-task.md
-# -> PRD 내용 작성
+# -> 에디터로 직접 작성
 
 # 5. 실행
 /pipeline prd/feature-my-task.md
 
 # 긴급 수정의 경우
+/init hotfix             # 대화형 hotfix PRD 생성
+# 또는
 cp prd/hotfix.md prd/hotfix-urgent-fix.md
 /quick prd/hotfix-urgent-fix.md
 ```
@@ -193,6 +203,24 @@ Gate -> Scan -> Fold -> Verdict -> Patch -> Trace
 ---
 
 ## Slash Commands
+
+### PRD Creation Commands
+
+**`/init`** - Interactive PRD creation (NEW v2.3)
+```bash
+/init                    # Auto-detect type from description
+/init feature            # Create feature PRD
+/init bug                # Create bug fix PRD
+/init refactor           # Create refactor PRD
+/init hotfix             # Create hotfix PRD (fast track)
+/init experiment         # Create experiment PRD
+```
+
+**How it works:**
+1. Claude Code asks you questions based on PRD type
+2. You answer in natural language
+3. PRD is automatically generated
+4. You can review and proceed with `/pipeline`
 
 ### Pipeline Commands
 
@@ -388,6 +416,121 @@ cp prd/hotfix.md prd/hotfix-login-crash.md
 
 ---
 
+## Usage Examples
+
+### Example 1: User Authentication (Feature)
+
+```bash
+# Step 1: Start interactive PRD creation
+/init feature
+
+# Claude Code will ask:
+📝 Feature Name?
+> 이메일 로그인 기능
+
+📝 What problem does this solve?
+> 사용자가 이메일과 비밀번호로 로그인할 수 있게 해요
+
+📝 What are the functional requirements?
+> - 이메일 형식 검증
+> - 비밀번호 8자 이상
+> - 로그인 상태 유지 (JWT)
+> - 비밀번호 찾기 기능
+
+📝 What edge cases should we handle?
+> - 중복 이메일 가입 방지
+> - 비밀번호 재설정 링크 24시간 유효
+> - 로그인 5회 실패 시 계정 잠금
+
+📝 How should we test this?
+> - 단위 테스트: 이메일 검증, 비밀번호 암호화
+> - 통합 테스트: 로그인 flow, 토큰 발급
+
+# Step 2: PRD automatically generated
+✅ PRD created: prd/feature-email-login-20250224-143022.md
+
+# Step 3: Review and proceed
+Would you like to:
+1) Proceed with pipeline
+2) Edit PRD first
+3) Start over
+> 1
+
+# Step 4: Pipeline executes automatically
+/pipeline prd/feature-email-login-20250224-143022.md
+```
+
+### Example 2: Login Button Crash (Hotfix)
+
+```bash
+# Step 1: Describe the issue
+/init hotfix
+
+# Claude Code will ask:
+📝 What's the urgent problem?
+> 로그인 버튼 클릭 시 앱이 크래시돼요. 프로덕션에서 발생하고 있어요.
+
+📝 What's the immediate fix?
+> 버튼 onClick 핸들러가 null 체크 없이 호출되고 있어요.
+> null 체크를 추가해야 해요.
+
+📝 Quick verification steps?
+> - 로그인 버튼 클릭 시 앱 크래시 없어야 함
+> - 로그인 성공 시 정상적으로 홈 화면으로 이동
+
+# Step 2: PRD generated for hotfix
+✅ PRD created: prd/hotfix-login-button-crash-20250224-143545.md
+
+# Step 3: Fast track execution (skips Fold agent)
+/quick prd/hotfix-login-button-crash-20250224-143545.md
+```
+
+### Example 3: Code Refactoring (Refactor)
+
+```bash
+/init refactor
+
+📝 What's the current state?
+> UserService에 500줄이 넘는 코드가 있어요. 모든 로직이 한 클래스에 있어요.
+
+📝 What problems exist?
+> - 테스트하기 어려움
+> - 코드 중복이 많음
+> - 새 기능 추가 시 버그 발생
+
+📝 What changes do you want?
+> - 비즈니스 로직을 서비스 계층으로 분리
+> - 데이터베이스 작업을 Repository로 분리
+> - 유효성 검증을 Validator로 분리
+
+📝 What impact will this have?
+> - API 동작은 변화 없음
+> - 기존 테스트는 모두 통과해야 함
+> - 성능은 유지되거나 개선되어야 함
+
+📝 How to ensure nothing breaks?
+> - 통합 테스트 실행
+> - E2E 테스트 실행
+> - 성능 테스트 실행
+
+✅ PRD created: prd/refactor-user-service-20250224-144218.md
+```
+
+### Example 4: Natural Language Request (Auto-detect)
+
+```bash
+# Just describe what you want
+/init
+
+📝 Please describe what you want to build:
+> 결제 시스템에 카카오페이를 추가하고 싶어요. 기존 신용카드 결제는 그대로 유지하면서 새로운 결제 수단을 추가해야 해요.
+
+✅ Detected type: feature
+✅ PRD created: prd/feature-kakao-pay-20250224-144500.md
+```
+
+---
+
 ## Example Project
 
 See `example-project/` for a working example:
@@ -460,6 +603,12 @@ A: Bash fallback 모드로 제한된 기능을 제공합니다.
 **Q: API 키가 필요한가요?**
 A: 아니요! **API 키가 전혀 필요 없습니다.**
 
+**Q: /init로 PRD를 만들면 바로 실행되나요?**
+A: 아니요, PRD가 생성된 후 내용을 확인하고 수정할 수 있습니다. 준비가 되면 `/pipeline`으로 실행하세요.
+
+**Q: 이미 작성한 PRD 파일이 있어도 되나요?**
+A: 너! `cp prd/feature.md prd/my-feature.md`로 템플릿을 복사해서 직접 작성하셔도 됩니다.
+
 ---
 
 ## Contributing
@@ -479,4 +628,4 @@ MIT License
 
 ---
 
-**Vibe Coding Rules v2.2** (Solo/Team Mode, Fast Track, Auto Pipeline, Stats)
+**Vibe Coding Rules v2.3** (Interactive PRD Creation, Natural Language PRD)
