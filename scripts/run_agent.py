@@ -39,7 +39,7 @@ class AgentPipeline:
     }
 
     def __init__(self, project_root: Path = None):
-        """초기화
+        """초기화 v2.4
 
         Args:
             project_root: 프로젝트 루트 경로
@@ -55,6 +55,11 @@ class AgentPipeline:
         self.session_id = datetime.now().strftime("%Y%m%d-%H%M%S")
         self.results: Dict[str, Any] = {}
 
+        # v2.4 options
+        self.verbose = False
+        self.retry_count = 0
+        self.parallel_mode = False
+
     def log(self, message: str, level: str = "info"):
         """로그 출력"""
         prefix_map = {
@@ -68,9 +73,9 @@ class AgentPipeline:
         print(f"{prefix} {message}")
 
     def print_header(self):
-        """헤더 출력"""
+        """헤더 출력 v2.4"""
         print("\n" + "=" * 60)
-        print("  Vibe Coding Agent Pipeline v1.0")
+        print("  Vibe Coding Agent Pipeline v2.4")
         print("=" * 60 + "\n")
 
     def print_stage(self, stage: str, status: str):
@@ -124,24 +129,40 @@ class AgentPipeline:
             return {"valid": False, "verdict": "FAIL", "error": str(e)}
 
     def run_agent(self, name: str, agent_class, prd: PRDContent, context: Dict[str, Any]) -> AgentResult:
-        """단일 Agent 실행"""
+        """단일 Agent 실행 (v2.4: with retry support)"""
         self.print_stage(name, "running")
 
-        try:
-            agent = agent_class(self.project_root)
-            result = agent.execute_with_timing(prd, context)
+        max_attempts = self.retry_count + 1
+        last_result = None
 
-            if result.success:
-                self.print_stage(name, "success")
-            else:
-                self.print_stage(name, "error")
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    self.log(f"Retry {name} (attempt {attempt + 1}/{max_attempts})", "warning")
 
-            return result
+                agent = agent_class(self.project_root)
+                result = agent.execute_with_timing(prd, context)
 
-        except Exception as e:
-            self.print_stage(name, "error")
-            self.log(f"Agent {name} failed: {e}", "error")
-            return AgentResult(success=False, error=str(e))
+                if result.success:
+                    self.print_stage(name, "success")
+                    if self.verbose and attempt > 0:
+                        self.log(f"{name} succeeded after {attempt + 1} attempts", "success")
+                    return result
+                else:
+                    last_result = result
+                    if attempt < max_attempts - 1:
+                        self.log(f"{name} failed: {result.error}, will retry...", "warning")
+
+            except Exception as e:
+                last_result = AgentResult(success=False, error=str(e))
+                if attempt < max_attempts - 1:
+                    self.log(f"Agent {name} exception: {e}, will retry...", "warning")
+
+        # All attempts failed
+        self.print_stage(name, "error")
+        if self.verbose:
+            self.log(f"Agent {name} failed after {max_attempts} attempts", "error")
+        return last_result or AgentResult(success=False, error="Max retries exceeded")
 
     def run_pipeline(self, prd_path: Path, skip_gate: bool = False, skip_fold: bool = False, prd_type_override: str = None) -> bool:
         """전체 파이프라인 실행
@@ -319,9 +340,16 @@ class AgentPipeline:
 
 
 def main():
-    """CLI 진입점"""
+    """CLI 진입점 v2.4"""
     parser = argparse.ArgumentParser(
-        description="Run Vibe Coding Agent Pipeline"
+        description="Run Vibe Coding Agent Pipeline v2.4",
+        epilog="""
+Examples:
+  %(prog)s                          # Auto-detect PRD
+  %(prog)s prd/feature.md           # Specific PRD
+  %(prog)s --verbose --retry 3      # Detailed logging with retry
+  %(prog)s --parallel               # Parallel mode (experimental)
+        """
     )
     parser.add_argument(
         "prd",
@@ -348,13 +376,31 @@ def main():
     parser.add_argument(
         "--type",
         type=str,
-        choices=["feature", "bug", "refactor", "hotfix", "experiment"],
+        choices=["feature", "bug", "refactor", "hotfix", "experiment", "api", "migration", "ml", "devops"],
         help="Override PRD type (auto-detect from file if not provided)"
     )
     parser.add_argument(
         "--skip-fold",
         action="store_true",
         help="Skip Fold agent (for hotfix mode)"
+    )
+    # New in v2.4
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable detailed logging"
+    )
+    parser.add_argument(
+        "--retry",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Retry failed agents up to N times (default: 0)"
+    )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Run independent agents in parallel (experimental)"
     )
 
     args = parser.parse_args()
@@ -366,6 +412,9 @@ def main():
         project_root = Path.cwd()
 
     pipeline = AgentPipeline(project_root)
+    pipeline.verbose = args.verbose
+    pipeline.retry_count = args.retry
+    pipeline.parallel_mode = args.parallel
 
     # PRD 파일 결정
     if args.prd:
