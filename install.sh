@@ -424,6 +424,41 @@ print_summary() {
     echo ""
 }
 
+# Prompt for configuration
+prompt_configuration() {
+    print_step "Configuration"
+    echo ""
+
+    # PRD Language Selection
+    echo -e "${CYAN}Select PRD template language:${NC}"
+    echo "  1) 한국어 (Korean)"
+    echo "  2) English"
+    echo "  3) 中文 (Chinese)"
+    echo ""
+    read -p "Enter choice [1-3] (default: 1): " lang_choice
+    lang_choice=${lang_choice:-1}
+
+    case $lang_choice in
+        1) PRD_LANGUAGE="ko" ;;
+        2) PRD_LANGUAGE="en" ;;
+        3) PRD_LANGUAGE="zh" ;;
+        *) PRD_LANGUAGE="ko" ;;
+    esac
+
+    print_success "PRD Language: $PRD_LANGUAGE"
+
+    # Save configuration
+    mkdir -p "$PROJECT_ROOT/.claude/config"
+    cat > "$PROJECT_ROOT/.claude/config/install.conf" << EOF
+# Installation Configuration
+# Generated: $(date +%Y-%m-%d)
+
+PRD_LANGUAGE="$PRD_LANGUAGE"
+EOF
+
+    echo ""
+}
+
 # Main installation
 main() {
     print_header
@@ -437,6 +472,9 @@ main() {
 
     echo -e "${CYAN}Target directory: ${PROJECT_ROOT}${NC}"
     echo ""
+
+    # Step 0: Configuration
+    prompt_configuration
 
     # Step 1: Check Python
     if ! check_python; then

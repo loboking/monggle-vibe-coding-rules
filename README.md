@@ -37,12 +37,18 @@ Vibe Coding Rules는 **Claude Code**를 위한 개발 방법론 프레임워크�
 git clone https://github.com/loboking/monggle-vibe-coding-rules.git
 cd monggle-vibe-coding-rules
 
-# 2. 원클릭 설치
+# 2. 원클릭 설치 (언어 선택 포함)
 ./install.sh
 
 # 3. 기존 프로젝트에 적용
 ./install.sh /path/to/your-project
 ```
+
+### 설치 시 설정
+
+설치 스크립트가 다음을 안내합니다:
+- **PRD 언어 선택**: 한국어(ko) / 영어(en) / 중국어(zh)
+- **AI Reviewer 모드**: Manual / Semi-Auto / Auto
 
 ### 5분 만에 시작하기
 
@@ -51,9 +57,10 @@ cd monggle-vibe-coding-rules
 /mode solo               # Solo 모드 (PRD 선택적)
 /mode team               # Team 모드 (PRD 필수)
 
-# PRD 작성 (대화형)
+# PRD 작성 (대화형, 언어 자동 선택)
 /init                    # 자동 타입 감지
 /init feature            # Feature PRD
+/init --language en feature  # 영어 PRD
 /init hotfix             # 긴급 수정
 
 # 실행
