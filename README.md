@@ -1,7 +1,7 @@
 # Vibe Coding Rules
 
 > **Agent 기반 Vibe Coding 방법론 - PRD 없이는 어떠한 개발 요청도 응답하지 않습니다.**
-> **v2.3: Interactive PRD Creation (/init), Natural Language PRD Generation**
+> **v2.4: 12개 코드 품질/문서/성능 스킬 추가, 자동화 훅 강화**
 
 ---
 
@@ -43,6 +43,135 @@ cp prd/feature.md prd/feature-my-task.md
 # 또는
 cp prd/hotfix.md prd/hotfix-urgent-fix.md
 /quick prd/hotfix-urgent-fix.md
+```
+
+---
+
+## What's New in v2.4
+
+### 1. 코드 품질 스킬 (4개)
+
+**`/lint-smart`** - 프로젝트 자동 감지 린터
+```bash
+/lint-smart                # 자동 감지 후 실행
+/lint-smart --fix          # 자동 수정
+/lint-smart --check        # 검사만
+```
+
+**`/audit`** - 보안 취약점 스캔
+```bash
+/audit                     # 전체 스캔
+/audit --secrets           # 시크릿 스캔
+/audit --deps              # 의존성 스캔
+```
+
+**`/format-check`** - 코드 포맷 검사
+```bash
+/format-check              # 포맷 검사만 (수정 X)
+/format-check --fix        # 자동 포맷
+```
+
+**`/complexity`** - 복잡도 분석
+```bash
+/complexity                # 전체 분석
+/complexity --top 20       # 상위 20개
+/complexity --file src.py  # 특정 파일
+```
+
+### 2. 문서 자동화 스킬 (4개)
+
+**`/changelog`** - CHANGELOG 자동 생성
+```bash
+/changelog                 # Git 커밋 기반 생성
+/changelog --unreleased    # unreleased 섹션만
+/changelog --version 1.2.0 # 버전 지정
+```
+
+**`/bump`** - 버전 업 + 태그 생성
+```bash
+/bump major                # 메이저 버전 업
+/bump minor                # 마이너 버전 업
+/bump patch                # 패치 버전 업
+```
+
+**`/api-docs`** - API 문서 추출
+```bash
+/api-docs                  # 자동 감지
+/api-docs --openapi        # OpenAPI/Swagger 생성
+/api-docs --serve          # 문서 서버 실행
+```
+
+**`/readme-sync`** - README 동기화
+```bash
+/readme-sync               # 전체 동기화
+/readme-sync --check       # 확인만
+/readme-sync --dry-run     # 미리보기
+```
+
+### 3. 성능 분석 스킬 (4개)
+
+**`/bottleneck`** - 병목 지점 찾기
+```bash
+/bottleneck                # 전체 분석
+/bottleneck --cpu          # CPU 병목
+/bottleneck --io           # I/O 병목
+/bottleneck --db           # DB 병목
+```
+
+**`/profile`** - 프로파일링 실행
+```bash
+/profile                   # CPU 프로파일링
+/profile --memory          # 메모리 프로파일링
+/profile --flamegraph      # 플레임그래프 생성
+```
+
+**`/bench`** - 벤치마크 실행/비교
+```bash
+/bench                     # 전체 실행
+/bench --compare base.json # 베이스라인 비교
+/bench --suite fast        # 특정 스위트
+```
+
+**`/mem-check`** - 메모리 누수 탐지
+```bash
+/mem-check                 # 전체 검사
+/mem-check --live 1234     # 실행 중인 프로세스
+/mem-check --leaks         # 누수만 탐지
+```
+
+### 4. 자동화 훅 강화
+
+**코드 변경 감지 → 스킬 추천:**
+- 보안 패턴 → `/audit`
+- 복잡한 코드 → `/complexity`
+- 성능 패턴 → `/bottleneck`
+- 메모리 패턴 → `/mem-check`
+- API 변경 → `/api-docs`
+- 의존성 변경 → `/readme-sync`
+
+---
+
+## What's New in v2.3
+
+### Interactive PRD Creation (NEW)
+
+**`/init`** command for conversational PRD creation:
+
+```bash
+/init feature              # Feature PRD (guided)
+/init bug                  # Bug fix PRD (guided)
+/init hotfix               # Hotfix PRD (fast-track)
+/init                     # Auto-detect from description
+```
+
+### Natural Language PRD Generation
+
+Just describe what you want:
+```bash
+/init
+> "이메일 로그인 기능 추가해줘"
+> ✅ Detected: feature
+> ✅ PRD created: prd/feature-email-login.md
 ```
 
 ---
@@ -628,4 +757,48 @@ MIT License
 
 ---
 
-**Vibe Coding Rules v2.3** (Interactive PRD Creation, Natural Language PRD)
+**Vibe Coding Rules v2.4** (12개 코드 품질/문서/성능 스킬, 자동화 훅 강화)
+
+---
+
+## Slash Commands Reference
+
+### 코드 품질
+| 명령어 | 설명 |
+|--------|------|
+| `/lint-smart` | 프로젝트 자동 감지 후 린터 실행 |
+| `/audit` | 보안 취약점 스캔 |
+| `/format-check` | 코드 포맷 검사만 |
+| `/complexity` | 복잡도 분석, 리팩토링 후보 추천 |
+
+### 문서 자동화
+| 명령어 | 설명 |
+|--------|------|
+| `/changelog` | Git 커밋 기반 CHANGELOG 생성 |
+| `/bump` | 버전 업 + 태그 생성 |
+| `/api-docs` | 코드에서 API 문서 추출 |
+| `/readme-sync` | 코드 변경 → README 최신화 |
+
+### 성능 분석
+| 명령어 | 설명 |
+|--------|------|
+| `/bottleneck` | 성능 병목 지점 찾기 |
+| `/profile` | 프로파일링 실행 |
+| `/bench` | 벤치마크 실행/비교 |
+| `/mem-check` | 메모리 누수 탐지 |
+
+### PRD & 파이프라인
+| 명령어 | 설명 |
+|--------|------|
+| `/init` | 대화형 PRD 생성 |
+| `/pipeline` | 전체 에이전트 파이프라인 실행 |
+| `/quick` | 핫픽스 빠른 실행 |
+| `/mode` | Solo/Team 모드 전환 |
+| `/stats` | 파이프라인 통계 |
+
+### 검토 & 로그
+| 명령어 | 설명 |
+|--------|------|
+| `/review` | AI 코드 리뷰 |
+| `/gate` | PRD 유효성 검사 |
+| `/trace` | 실행 로그 확인 |
