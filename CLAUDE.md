@@ -69,10 +69,10 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 ### PRD Commands
 
 ```bash
-/init                    # 대화형 PRD 생성
-/init feature            # 특정 타입으로 생성
-/init api                # v2.4: API PRD 생성
-/init --list-templates   # 사용 가능한 템플릿 목록
+/prd                    # 대화형 PRD 생성
+/prd feature            # 특정 타입으로 생성
+/prd api                # v2.4: API PRD 생성
+/prd --list-templates   # 사용 가능한 템플릿 목록
 ```
 
 ### PRD Validation v2.4
@@ -155,10 +155,10 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 - 에이전트 실행 시간 분석
 
 **PRD 템플릿 확장:**
-- API 전용 템플릿 (`/init api`)
-- DB 마이그레이션 템플릿 (`/init migration`)
-- ML 모델 개발 템플릿 (`/init ml`)
-- DevOps 자동화 템플릿 (`/init devops`)
+- API 전용 템플릿 (`/prd api`)
+- DB 마이그레이션 템플릿 (`/prd migration`)
+- ML 모델 개발 템플릿 (`/prd ml`)
+- DevOps 자동화 템플릿 (`/prd devops`)
 
 **에이전트 실행 옵션 강화:**
 - `--verbose` 상세 로그
@@ -186,5 +186,20 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 ```
 [09:49:40] 수정: appium-tests/src/test/kotlin/com/ocean/appium/tests/BaseTest.kt
 [09:49:44] 수정: appium-tests/src/test/kotlin/com/ocean/appium/tests/BaseTest.kt
+```
+
+
+### 2026-04-02
+
+**변경된 파일 수**: ��
+
+```
+[08:35:04] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
+[08:35:15] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
+[08:35:25] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
+[08:36:13] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
+[08:36:24] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
+[08:36:54] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
+[08:37:30] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
 ```
 

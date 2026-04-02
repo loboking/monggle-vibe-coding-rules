@@ -1,0 +1,14 @@
+
+# Vibe Coding Rules
+logs/*.log
+
+# Override global .gitignore for .claude commands
+!.claude/commands/
+!.claude/hooks/
+!.claude/lib/
+!.claude/config/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

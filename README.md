@@ -58,10 +58,10 @@ cd monggle-vibe-coding-rules
 /mode team               # Team 모드 (PRD 필수)
 
 # PRD 작성 (대화형, 언어 자동 선택)
-/init                    # 자동 타입 감지
-/init feature            # Feature PRD
-/init --language en feature  # 영어 PRD
-/init hotfix             # 긴급 수정
+/prd                    # 자동 타입 감지
+/prd feature            # Feature PRD
+/prd --language en feature  # 영어 PRD
+/prd hotfix             # 긴급 수정
 
 # 실행
 /pipeline prd/feature.md # 전체 파이프라인
@@ -158,10 +158,10 @@ PRD 검증   영향 분석   종합       판단(PASS/FIX/FAIL)  구현     로�
 ### PRD & 파이프라인
 
 ```bash
-/init                    # 대화형 PRD 생성 (자동 타입 감지)
-/init feature            # Feature PRD
-/init bug                # Bug fix PRD
-/init hotfix             # Hotfix PRD (fast-track)
+/prd                    # 대화형 PRD 생성 (자동 타입 감지)
+/prd feature            # Feature PRD
+/prd bug                # Bug fix PRD
+/prd hotfix             # Hotfix PRD (fast-track)
 
 /pipeline [prd]          # 전체 파이프라인 실행
 /quick [prd]             # 핫픽스 빠른 실행 (Fold 생략)
@@ -240,7 +240,7 @@ monggle-vibe-coding-rules/
 
 ```bash
 # Step 1: 대화형 PRD 생성
-/init feature
+/prd feature
 
 📝 Feature Name?
 > 이메일 로그인 기능
@@ -264,7 +264,7 @@ monggle-vibe-coding-rules/
 
 ```bash
 # Step 1: 핫픽스 PRD 생성
-/init hotfix
+/prd hotfix
 
 📝 What's the urgent problem?
 > 로그인 버튼 클릭 시 앱 크래시
