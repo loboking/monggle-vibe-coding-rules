@@ -22,6 +22,7 @@ PROJECT_TYPE="$(detect_project_type "$PROJECT_ROOT")"
 CHECK_TYPE="leak"
 THRESHOLD=100
 MONITOR_MODE=0
+JSON_OUTPUT=0
 COMMAND=""
 
 # Parse arguments
@@ -37,6 +38,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --monitor)
             MONITOR_MODE=1
+            shift
+            ;;
+        --json)
+            JSON_OUTPUT=1
             shift
             ;;
         -h|--help)

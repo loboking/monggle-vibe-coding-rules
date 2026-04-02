@@ -40,12 +40,6 @@ INSTALL_CONFIG="${PROJECT_ROOT}/.claude/config/install.conf"
 PIPELINE_SCRIPT="${SCRIPT_DIR}/pipeline.sh"
 AUTO_PIPELINE=false
 AUTO_LINT=false
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-PRD_DIR="${PROJECT_ROOT}/prd"
-PRD_CREATOR="${PROJECT_ROOT}/scripts/prd_creator.py"
-SESSION_FILE="${PROJECT_ROOT}/.claude/.prd-session.json"
-INSTALL_CONFIG="${PROJECT_ROOT}/.claude/config/install.conf"
 
 # Ensure PRD directory exists
 mkdir -p "$PRD_DIR"
