@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# init.sh - Interactive PRD Creation Command v2.4
+# prd.sh - Interactive PRD Creation Command v2.4
 #
 # Usage: /prd [type] [options]
 #
@@ -8,12 +8,15 @@
 #   --non-interactive    비대화형 모드 (기본값 사용)
 #   --output <path>      출력 파일 경로 지정
 #   --language <lang>    PRD 언어 선택 (ko|en|zh)
+#   --auto-pipeline      PRD 생성 후 자동으로 pipeline 실행
+#   --auto-lint          Pipeline 완료 후 자동으로 lint 실행
 #
 # Examples:
 #   /prd feature
 #   /prd api
 #   /prd --non-interactive feature
 #   /prd --language en feature
+#   /prd --auto-pipeline feature
 #
 
 set -eo pipefail
@@ -28,6 +31,15 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PRD_DIR="${PROJECT_ROOT}/prd"
+PRD_CREATOR="${PROJECT_ROOT}/scripts/prd_creator.py"
+SESSION_FILE="${PROJECT_ROOT}/.claude/.prd-session.json"
+INSTALL_CONFIG="${PROJECT_ROOT}/.claude/config/install.conf"
+PIPELINE_SCRIPT="${SCRIPT_DIR}/pipeline.sh"
+AUTO_PIPELINE=false
+AUTO_LINT=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PRD_DIR="${PROJECT_ROOT}/prd"
@@ -83,10 +95,14 @@ show_usage() {
     echo "  --non-interactive    비대화형 모드"
     echo "  --output <path>      출력 파일 경로"
     echo "  --language <lang>    PRD 언어 (ko, en, zh)"
+    echo "  --auto-pipeline      PRD 생성 후 자동 pipeline 실행"
+    echo "  --auto-lint          Pipeline 완료 후 자동 lint 실행"
     echo ""
     echo "Examples:"
     echo "  /prd feature"
     echo "  /prd api"
+    echo "  /prd --auto-pipeline feature"
+    echo "  /prd --auto-lint bug"
     echo "  /prd --output prd/my-feature.md feature"
     echo "  /prd --language en feature"
     echo ""
@@ -180,6 +196,15 @@ main() {
             --language)
                 language="$2"
                 shift 2
+                ;;
+            --auto-pipeline)
+                AUTO_PIPELINE=true
+                shift
+                ;;
+            --auto-lint)
+                AUTO_LINT=true
+                AUTO_PIPELINE=true  # --auto-lint implies --auto-pipeline
+                shift
                 ;;
             feature|bug|refactor|hotfix|experiment|api|migration|ml|devops)
                 prd_type="$1"
@@ -289,10 +314,39 @@ main() {
         echo ""
         echo -e "  ${CYAN}파일:${NC} $output_path"
         echo ""
-        echo "다음 단계:"
-        echo "  1. PRD 내용 확인 후 수정"
-        echo "  2. /pipeline $output_path"
-        echo ""
+
+        # Auto-run pipeline if requested
+        if [[ "$AUTO_PIPELINE" == true ]]; then
+            echo ""
+            log_step "자동 Pipeline 실행 시작..."
+            echo ""
+
+            if [[ -f "$PIPELINE_SCRIPT" ]]; then
+                "$PIPELINE_SCRIPT" "$output_path"
+                local pipeline_exit=$?
+
+                if [[ $pipeline_exit -eq 0 ]] && [[ "$AUTO_LINT" == true ]]; then
+                    echo ""
+                    log_step "자동 Lint 실행 시작..."
+                    echo ""
+
+                    local lint_script="${SCRIPT_DIR}/lint-smart.sh"
+                    if [[ -f "$lint_script" ]]; then
+                        "$lint_script"
+                    else
+                        log_warn "lint-smart.sh를 찾을 수 없습니다"
+                    fi
+                fi
+            else
+                log_warn "pipeline.sh를 찾을 수 없습니다"
+            fi
+        else
+            echo "다음 단계:"
+            echo "  1. PRD 내용 확인 후 수정"
+            echo "  2. /pipeline $output_path"
+            echo "  또는 /prd --auto-pipeline feature"
+            echo ""
+        fi
 
         # Export for Claude
         export PRD_TYPE="$prd_type"
