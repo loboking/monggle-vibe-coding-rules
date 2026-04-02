@@ -63,7 +63,11 @@ cd monggle-vibe-coding-rules
 /prd --language en feature  # 영어 PRD
 /prd hotfix             # 긴급 수정
 
-# 실행
+# 자동 실행 (원커맨드)
+/prd --auto-pipeline feature   # PRD → 자동 Pipeline
+/prd --auto-lint bug           # PRD → Pipeline → 자동 Lint
+
+# 수동 실행
 /pipeline prd/feature.md # 전체 파이프라인
 /quick prd/hotfix.md     # 빠른 핫픽스
 ```
@@ -96,6 +100,12 @@ cd monggle-vibe-coding-rules
 /profile                 # 프로파일링 실행
 /bench                   # 벤치마크 실행/비교
 /mem-check               # 메모리 누수 탐지
+```
+
+#### 자동 실행 기능
+```bash
+/prd --auto-pipeline      # PRD 생성 후 자동 Pipeline 실행
+/prd --auto-lint          # PRD → Pipeline → Lint 자동 실행
 ```
 
 ### Agent 파이프라인
@@ -162,6 +172,10 @@ PRD 검증   영향 분석   종합       판단(PASS/FIX/FAIL)  구현     로�
 /prd feature            # Feature PRD
 /prd bug                # Bug fix PRD
 /prd hotfix             # Hotfix PRD (fast-track)
+
+# 자동 실행 옵션
+/prd --auto-pipeline feature   # PRD → Pipeline 자동 실행
+/prd --auto-lint bug           # PRD → Pipeline → Lint 자동 실행
 
 /pipeline [prd]          # 전체 파이프라인 실행
 /quick [prd]             # 핫픽스 빠른 실행 (Fold 생략)
