@@ -10,7 +10,7 @@
 #   --monitor         Continuous monitoring mode
 #
 
-set -eo pipefail
+set -euo pipefail
 
 # Source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

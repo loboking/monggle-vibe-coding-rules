@@ -9,6 +9,39 @@ on:
     branches: [ main ]
 
 jobs:
+  shellcheck:
+    name: ShellCheck Bash Scripts
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y shellcheck
+          else
+            brew install shellcheck
+          fi
+
+      - name: Run ShellCheck on .claude/commands
+        run: |
+          shellcheck --severity=warning --shell=bash .claude/commands/*.sh
+
+      - name: Run ShellCheck on .claude/lib
+        run: |
+          shellcheck --severity=warning --shell=bash .claude/lib/*.sh
+
+      - name: Check for eval usage (security)
+        run: |
+          if grep -r "eval " .claude/commands/*.sh | grep -v "# " | grep -v "eval git"; then
+            echo "WARNING: eval usage found (except git log)"
+            grep -r "eval " .claude/commands/*.sh | grep -v "# " | grep -v "eval git" || true
+          fi
+
   lint-python:
     name: Lint Python
     runs-on: ubuntu-latest

@@ -19,7 +19,7 @@
 #   /prd --auto-pipeline feature
 #
 
-set -eo pipefail
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'

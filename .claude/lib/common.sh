@@ -6,6 +6,24 @@
 #   source "$(dirname "${BASH_SOURCE[0]}")/../../.claude/lib/common.sh"
 #
 
+# Source additional libraries
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load platform compatibility
+if [[ -f "${LIB_DIR}/platform.sh" ]]; then
+    source "${LIB_DIR}/platform.sh"
+fi
+
+# Load validation functions
+if [[ -f "${LIB_DIR}/validation.sh" ]]; then
+    source "${LIB_DIR}/validation.sh"
+fi
+
+# Load git utilities
+if [[ -f "${LIB_DIR}/git.sh" ]]; then
+    source "${LIB_DIR}/git.sh"
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'

@@ -10,7 +10,7 @@
 #   /new 로그인 버그 수정
 #
 
-set -eo pipefail
+set -euo pipefail
 
 # Colors
 CYAN='\033[0;36m'
