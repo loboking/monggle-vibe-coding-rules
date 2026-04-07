@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.4.1] - 2026-03-31
+## [2.4.2] - 2026-04-07
+
+### Added
+- **Harness Methodology Implementation** - Complete Doom Loop Detection + Auto-Improvement
+  - `scripts/auto_improvement.py` - 통계 분석으로 개선 제안 자동 생성
+  - `.harness/loop-detection.json` - 루프 탐지 데이터 저장소
+  - `.harness/improvement-log.jsonl` - 개선 제안 로그
+  - `.harness/HARNESS_COMPLETED.md` - 하네스 방법론 적용 완료 보고서
+- `/harness` command - 하네스 메트릭 및 관리 도구
+- Curl one-line installation method
+- Auto-improvement check after pipeline completion
+
+### Changed
+- Project renamed to "Vibe Coding Skills for Claude" (emphasizing team + skills)
+- README optimized with SEO keywords
+- Pipeline integration with auto-improvement system
+- Only 100% supported features documented (no future/unimplemented features)
+
+### Docs
+- Harness methodology 4-quadrant framework (Guides + Sensors)
+- "On the Loop" paradigm documentation
+- Progressive Disclosure pattern
+
+---
 
 ### Added
 - `CONTRIBUTING.md` - 상세한 기여 가이드라인
