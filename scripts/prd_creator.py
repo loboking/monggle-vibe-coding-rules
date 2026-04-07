@@ -27,7 +27,6 @@ class PRDConfig:
     project_root: Path
     output_file: Path
     interactive: bool = True
-    use_template: bool = True
 
 
 @dataclass
@@ -155,18 +154,6 @@ class PRDCreator:
         print(f"  PRD Creator v2.4 - {self.config.prd_type.upper()}")
         print("=" * 60)
         print()
-
-    def load_template(self) -> Optional[str]:
-        """템플릿 로드"""
-        if not self.config.use_template:
-            return None
-
-        template_path = self.config.project_root / "prd" / "templates" / f"{self.config.prd_type}.md.template"
-
-        if template_path.exists():
-            with open(template_path, "r", encoding="utf-8") as f:
-                return f.read()
-        return None
 
     def ask_questions(self):
         """질문 진행"""

@@ -75,17 +75,18 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ## 📝 핵심 기능
 
-### 1. PRD 템플릿 (한국어/영어/중국어)
+### 1. PRD 생성
 
-구조화된 PRD를 작성하여 Claude가 정확한 코드를 생성하도록 도와줍니다.
+대화형 질문을 통해 구조화된 PRD를 작성합니다.
 
 ```bash
 /prd feature                    # 새 기능 PRD (대화형)
-/prd --language en bug          # 영어 버그 PRD
-/prd --language zh refactor     # 중국어 리팩토링 PRD
+/prd bug                        # 버그 수정 PRD
+/prd refactor                   # 리팩토링 PRD
+/prd api                        # API 설계 PRD
 ```
 
-**PRD 타입**: `feature`, `bug`, `refactor`, `hotfix`, `experiment`, `api`, `migration`, `ml`, `devops`
+**지원 타입**: `feature`, `bug`, `refactor`, `hotfix`, `experiment`, `api`, `migration`, `ml`, `devops`
 
 ---
 
@@ -259,13 +260,10 @@ PRD 품질을 수치화하여 판단합니다.
 - A: Bash fallback 모드로 제한 기능 제공되지만, Claude Code와 함께 사용할 때 최적의 성능을 발휘합니다.
 
 **Q: 어떤 언어를 지원하나요?**
-- A: PRD 템플릿은 한국어, 영어, 중국어를 지원합니다. 코드 분석은 Python, JavaScript, TypeScript, Go, Java 등을 지원합니다.
+- A: PRD 생성은 한국어로 진행됩니다. 코드 분석은 Python, JavaScript, TypeScript, Go, Java 등을 지원합니다.
 
 **Q: 기존 프로젝트에 적용 가능한가요?**
 - A: 네, `./install.sh /path/to/project` 명령어로 기존 프로젝트에 설치할 수 있습니다.
-
-**Q: PRD 템플릿을 커스텀할 수 있나요?**
-- A: 네, `prd/templates/` 디렉토리의 템플릿 파일을 수정하여 커스텀할 수 있습니다.
 
 **Q: PRD 타입은 어떤 것이 있나요?**
 - A: `feature`(새 기능), `bug`(버그 수정), `refactor`(리팩토링), `hotfix`(긴급 수정), `experiment`(실험), `api`(API), `migration`(DB 마이그레이션), `ml`(ML 모델), `devops`(DevOps)가 있습니다.
