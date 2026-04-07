@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/harness` command - 하네스 메트릭 및 관리 도구
 - Curl one-line installation method
 - Auto-improvement check after pipeline completion
+- **Multilingual PRD Output Support** - PRD 섹션 이름 다국어 지원
+  - 한국어, 영어, 중국어, 일본어 섹션 번역
+  - UI 메시지 다국어 지원
+  - 언어 선택 프롬프트 (인터랙티브 모드, 미선택 시 영어 기본값)
+  - `--language` 옵션 (ko, en, zh, ja)
 
 ### Changed
 - Project renamed to "Vibe Coding Skills for Claude" (emphasizing team + skills)
