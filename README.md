@@ -73,12 +73,24 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 대화형 질문을 통해 구조화된 PRD를 작성합니다.
 
 ```bash
-/prd feature        # 새 기능 PRD
-/prd bug            # 버그 수정 PRD
-/prd api            # API 설계 PRD
+/prd feature                # 새 기능 PRD (언어 선택 프롬프트)
+/prd bug                  # 버그 수정 PRD
+/prd api                  # API 설계 PRD
+/prd --language en feature  # 영어 PRD (언어 지정)
+/prd --language ko bug      # 한국어 PRD
 ```
 
 **지원 타입**: `feature`, `bug`, `refactor`, `hotfix`, `experiment`, `api`, `migration`, `ml`, `devops`
+
+**언어 옵션**:
+- `--language ko` - 한국어 (기본값)
+- `--language en` - 영어
+- `--language zh` - 중국어
+- `--language ja` - 일본어
+
+**언어 선택 프롬프트** (인터랙티브 모드):
+- 선택하지 않고 Enter → 영어 기본값
+- 1번 → 한국어, 2번 → 영어, 3번 → 중국어, 4번 → 일본어
 
 ---
 
