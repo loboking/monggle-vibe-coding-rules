@@ -36,6 +36,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 RUN_AGENT="${PROJECT_ROOT}/scripts/run_agent.py"
 HOOK_FILE="${SCRIPT_DIR}/../hooks/pre-tool-use.sh"
+LOOP_DETECTION_LIB="${SCRIPT_DIR}/../lib/loop_detection.sh"
+
+# Source loop detection library
+if [[ -f "$LOOP_DETECTION_LIB" ]]; then
+    source "$LOOP_DETECTION_LIB"
+else
+    # Create stub functions if library not found
+    loop_detect_init() { :; }
+    loop_check_file() { return 0; }
+    loop_record_attempt() { :; }
+    loop_reset_file() { :; }
+fi
 
 # Flags (v2.4)
 DRY_RUN=false
@@ -302,16 +314,29 @@ run_fallback_pipeline() {
 # Print summary
 print_summary() {
     local exit_code=$1
+    local prd_file="$2"
 
     echo ""
+
+    # Record result in loop detection
     if [[ $exit_code -eq 0 ]]; then
+        loop_record_attempt "$prd_file" "success"
         echo -e "${GREEN}${BOLD}✓ PIPELINE COMPLETED${NC}"
         echo ""
         echo -e "${GREEN}Check the results above.${NC}"
     else
+        loop_record_attempt "$prd_file" "failure"
         echo -e "${RED}${BOLD}✗ PIPELINE FAILED${NC}"
         echo ""
         echo -e "${YELLOW}Please check the errors above and fix before proceeding.${NC}"
+
+        # Show loop status if multiple failures
+        local file_status=$(loop_get_status "$prd_file")
+        if [[ "$file_status" =~ "consecutive_failures: [2-9]" ]]; then
+            echo ""
+            echo -e "${YELLOW}⚠ Warning: Multiple consecutive failures detected${NC}"
+            echo "$file_status"
+        fi
     fi
     echo ""
 }
@@ -352,6 +377,26 @@ main() {
     echo -e "${CYAN}Using PRD: ${prd_file}${NC}"
     echo ""
 
+    # Initialize loop detection
+    loop_detect_init
+
+    # Check for doom loop before running pipeline
+    if ! loop_check_file "$prd_file"; then
+        echo ""
+        echo -e "${YELLOW}To proceed anyway:${NC}"
+        echo "  1. Fix the root cause and retry"
+        echo "  2. Or use --skip-validation to bypass (not recommended)"
+        echo ""
+        read -p "Continue anyway? (y/N): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${CYAN}Pipeline cancelled${NC}"
+            return 1
+        fi
+        # Reset loop count to allow retry
+        loop_reset_file "$prd_file"
+    fi
+
     # Print plan
     print_plan "$prd_file"
 
@@ -367,7 +412,7 @@ main() {
     fi
 
     # Print summary
-    print_summary $exit_code
+    print_summary $exit_code "$prd_file"
 
     return $exit_code
 }

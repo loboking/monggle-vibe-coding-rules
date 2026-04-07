@@ -338,6 +338,57 @@ class AgentPipeline:
 
         self.log(f"Results saved: {result_file}", "info")
 
+    def check_improvements(self, alert_threshold="critical"):
+        """파이프라인 완료 후 개선 제안 확인 (v2.4)
+
+        Args:
+            alert_threshold: 알림 임계값 (critical|major|minor)
+
+        Returns:
+            bool: 알림이 있으면 True
+        """
+        try:
+            # auto_improvement.py import
+            import subprocess
+
+            improvement_script = self.project_root / "scripts" / "auto_improvement.py"
+
+            if not improvement_script.exists():
+                return False
+
+            # 개선 제안 분석 실행 (quiet mode)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(improvement_script),
+                    "analyze",
+                    "--alert", alert_threshold,
+                    "--quiet"
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=self.project_root
+            )
+
+            # 알림이 있으면 표시
+            if result.returncode != 0 and result.stdout:
+                print("\n" + "=" * 60)
+                print("  ⚠️  Improvement Suggestions")
+                print("=" * 60)
+                print(result.stdout)
+                print("=" * 60)
+                print("Run /harness improve for details")
+                print()
+
+                return True
+
+            return False
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+            # 에러 시 무시 (핵심 기능 아님)
+            return False
+
 
 def main():
     """CLI 진입점 v2.4"""
@@ -402,6 +453,18 @@ Examples:
         action="store_true",
         help="Run independent agents in parallel (experimental)"
     )
+    # v2.4: Auto-improvement integration
+    parser.add_argument(
+        "--no-improvement-check",
+        action="store_true",
+        help="Skip automatic improvement check after pipeline"
+    )
+    parser.add_argument(
+        "--improvement-alert",
+        choices=["critical", "major", "minor"],
+        default="critical",
+        help="Alert threshold for improvement suggestions (default: critical)"
+    )
 
     args = parser.parse_args()
 
@@ -452,6 +515,10 @@ Examples:
         skip_fold=args.skip_fold,
         prd_type_override=args.type
     )
+
+    # v2.4: 파이프라인 완료 후 개선 제안 체크
+    if not args.no_improvement_check:
+        pipeline.check_improvements(alert_threshold=args.improvement_alert)
 
     sys.exit(0 if success else 1)
 

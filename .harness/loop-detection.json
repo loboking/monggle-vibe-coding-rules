@@ -1,0 +1,11 @@
+{
+  "$schema": "./harness-schema.json",
+  "version": "1.0.0",
+  "last_updated": "2025-01-12T00:00:00Z",
+  "files": {},
+  "thresholds": {
+    "max_modifications": 5,
+    "max_consecutive_failures": 3,
+    "cooldown_minutes": 30
+  }
+}
