@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.4.2] - 2026-04-07
 
 ### Added
+- **Initial Setup Wizard** (`/init`) - 1회 설정 후 저장
+  - 작업 모드 선택 (solo/team)
+  - PRD 언어 선택 (ko/en/zh/ja)
+  - 기본 AI 모델 선택 (haiku/sonnet/opus)
+  - 사용자 정보 (이름, 이메일)
+  - 설정 저장 (`user.conf`) 및 재시작 시 자동 로드
+- **Auto-improvement check after PRD creation** - PRD 생성 후 하네스 자동 체크
 - **Harness Methodology Implementation** - Complete Doom Loop Detection + Auto-Improvement
   - `scripts/auto_improvement.py` - 통계 분석으로 개선 제안 자동 생성
   - `.harness/loop-detection.json` - 루프 탐지 데이터 저장소

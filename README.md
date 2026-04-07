@@ -66,6 +66,25 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
+### 0. 초기 설정 (최초 1회)
+
+처음 시작할 때 기본 환경을 설정합니다.
+
+```bash
+/init                    # 초기 설정 워드 실행
+/init --reset            # 설정 초기화 후 재설정
+```
+
+**설정 항목**:
+- 작업 모드 (Solo / Team)
+- PRD 언어 (한국어 / English / 中文 / 日本語)
+- 기본 AI 모델 (Haiku / Sonnet / Opus)
+- 사용자 정보 (이름, 이메일)
+
+설정은 `.claude/config/user.conf`에 저장되며, 이후 모든 스킬이 이 값을 사용합니다.
+
+---
+
 ## 📝 핵심 기능
 
 ### 1. PRD 생성
@@ -169,6 +188,7 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 | 명령어 | 설명 |
 |--------|------|
+| `/init` | 초기 설정 워드 (최초 1회) |
 | `/prd` | PRD 생성 (대화형) |
 | `/pipeline` | 전체 파이프라인 실행 |
 | `/quick` | 빠른 실행 (Hotfix) |

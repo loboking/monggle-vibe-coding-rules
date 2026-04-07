@@ -37,6 +37,7 @@ PRD_DIR="${PROJECT_ROOT}/prd"
 PRD_CREATOR="${PROJECT_ROOT}/scripts/prd_creator.py"
 SESSION_FILE="${PROJECT_ROOT}/.claude/.prd-session.json"
 INSTALL_CONFIG="${PROJECT_ROOT}/.claude/config/install.conf"
+USER_CONFIG="${PROJECT_ROOT}/.claude/config/user.conf"
 PIPELINE_SCRIPT="${SCRIPT_DIR}/pipeline.sh"
 AUTO_PIPELINE=false
 AUTO_LINT=false
@@ -45,12 +46,17 @@ AUTO_LINT=false
 mkdir -p "$PRD_DIR"
 mkdir -p "$(dirname "$SESSION_FILE")"
 
-# Load installation config if exists
+# Load user config first (highest priority)
+if [ -f "$USER_CONFIG" ]; then
+    source "$USER_CONFIG"
+fi
+
+# Then load installation config (can be overridden by user config)
 if [ -f "$INSTALL_CONFIG" ]; then
     source "$INSTALL_CONFIG"
 fi
 
-# Default language if not set
+# Default language if not set (ko by default)
 PRD_LANGUAGE="${PRD_LANGUAGE:-ko}"
 
 # Logging
@@ -338,6 +344,24 @@ main() {
         echo ""
         echo -e "  ${CYAN}파일:${NC} $output_path"
         echo ""
+
+        # 자동 개선 제안 체크 (Harness)
+        local improvement_script="${PROJECT_ROOT}/scripts/auto_improvement.py"
+        if [[ -f "$improvement_script" ]]; then
+            local improvement_output
+            improvement_output=$(python3 "$improvement_script" analyze --alert critical --quiet 2>&1)
+            local exit_code=$?
+
+            if [[ $exit_code -ne 0 ]] && [[ -n "$improvement_output" ]]; then
+                echo ""
+                echo -e "${YELLOW}${BOLD}💡 하네스 개선 제안${NC}"
+                echo "=" "=" 60
+                echo "$improvement_output"
+                echo "=" "=" 60
+                echo -e "Run ${CYAN}/harness improve${NC} for details"
+                echo ""
+            fi
+        fi
 
         # Auto-run pipeline if requested
         if [[ "$AUTO_PIPELINE" == true ]]; then
