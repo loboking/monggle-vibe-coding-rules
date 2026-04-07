@@ -7,6 +7,61 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 
 ---
 
+## TDD Testing (Option 3: Combined)
+
+통합 TDD 접근법으로 Python unittest와 bats-core를 병행 사용합니다.
+
+### 테스트 구조
+
+```
+tests/
+├── test_init_core.py      # Python: 프로젝트 초기화 테스트
+├── test_agents.py          # Python: 에이전트 테스트
+├── test_lib_sh.py          # Python: Bash 라이브러리 테스트 (신규)
+├── bash/
+│   └── skills.bats         # bats: 스킬 스크립트 테스트 (신규)
+└── run_tests.sh            # 통합 테스트 실행기 (신규)
+```
+
+### 테스트 실행
+
+```bash
+# 전체 테스트 (Python + bats)
+./tests/run_tests.sh
+
+# Python 테스트만
+./tests/run_tests.sh --python
+
+# bats 테스트만
+./tests/run_tests.sh --bats
+
+# 상세 출력
+./tests/run_tests.sh --verbose
+
+# 직접 실행
+python3 tests/test_lib_sh.py
+bats tests/bash/skills.bats
+```
+
+### 테스트 커버리지
+
+| 카테고리 | Python | bats | 합계 |
+|----------|--------|------|------|
+| 라이브러리 | 26 | 14 | 40 |
+| P0 보안 | 4 | 4 | 8 |
+| P1 아키텍처 | 5 | 5 | 10 |
+| 통합/스킬 | - | 15 | 15 |
+| **합계** | **35** | **34** | **69** |
+
+### CI/CD 통합
+
+GitHub Actions에서 Linux + macOS 매트릭스로 실행:
+- ShellCheck 정적 분석
+- Python unittest (test_init_core.py, test_lib_sh.py)
+- bats-core (skills.bats)
+
+---
+
 ## Current Mode
 
 **MANUAL** 모드로 실행 중입니다.
@@ -181,7 +236,7 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 
 ### 2026-03-31
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [09:49:40] 수정: appium-tests/src/test/kotlin/com/ocean/appium/tests/BaseTest.kt
@@ -191,7 +246,7 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 
 ### 2026-04-02
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [08:35:04] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
@@ -201,5 +256,15 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 [08:36:24] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
 [08:36:54] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
 [08:37:30] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
+```
+
+
+### 2026-04-07
+
+**변경된 파일 수**: ��
+
+```
+[10:19:04] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+[10:19:21] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
 ```
 

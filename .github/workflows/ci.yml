@@ -68,8 +68,11 @@ jobs:
 
   test-python:
     name: Test Python
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     needs: lint-python
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -79,8 +82,40 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run tests
+      - name: Run init_core tests
         run: python3 tests/test_init_core.py
+
+      - name: Run Bash library tests (TDD)
+        run: python3 tests/test_lib_sh.py
+
+  test-bash:
+    name: Test Bash Scripts (bats-core)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install bats-core
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            git clone https://github.com/bats-core/bats-core.git /tmp/bats
+            sudo /tmp/bats/install.sh /usr/local
+          else
+            brew install bats-core
+          fi
+
+      - name: Verify bats installation
+        run: bats --version
+
+      - name: Run bats tests
+        run: bats tests/bash/skills.bats
+
+      - name: Run tests with verbose output on failure
+        if: failure()
+        run: bats --verbose --trace tests/bash/skills.bats
 
   validate-markdown:
     name: Validate Markdown
