@@ -7,7 +7,7 @@
 # Options:
 #   --non-interactive    비대화형 모드 (기본값 사용)
 #   --output <path>      출력 파일 경로 지정
-#   --language <lang>    PRD 언어 선택 (ko|en|zh)
+#   --language <lang>    PRD 언어 선택 (ko|en|zh|ja)
 #   --auto-pipeline      PRD 생성 후 자동으로 pipeline 실행
 #   --auto-lint          Pipeline 완료 후 자동으로 lint 실행
 #
@@ -88,7 +88,7 @@ show_usage() {
     echo "Options:"
     echo "  --non-interactive    비대화형 모드"
     echo "  --output <path>      출력 파일 경로"
-    echo "  --language <lang>    PRD 언어 (ko, en, zh)"
+    echo "  --language <lang>    PRD 언어 (ko, en, zh, ja)"
     echo "  --auto-pipeline      PRD 생성 후 자동 pipeline 실행"
     echo "  --auto-lint          Pipeline 완료 후 자동 lint 실행"
     echo ""
@@ -171,6 +171,7 @@ main() {
     local non_interactive=""
     local output_path=""
     local language="ko"
+    local language_explicit=false  # --language 옵션 사용 여부
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -189,6 +190,7 @@ main() {
                 ;;
             --language)
                 language="$2"
+                language_explicit=true
                 shift 2
                 ;;
             --auto-pipeline)
@@ -218,13 +220,41 @@ main() {
 
     # Validate language
     case "$language" in
-        ko|en|zh)
+        ko|en|zh|ja)
             ;;
         *)
-            log_error "Invalid language: $language (supported: ko, en, zh)"
+            log_error "Invalid language: $language (supported: ko, en, zh, ja)"
             exit 1
             ;;
     esac
+
+    # Ask for language if not specified via --language option (only in interactive mode)
+    if [[ "$language_explicit" == false ]] && [[ -z "$non_interactive" ]]; then
+        echo ""
+        echo -e "${CYAN}${BOLD}🌐 Select Language / 언어 선택${NC}"
+        echo ""
+        echo "  1) 한국어 (ko)"
+        echo "  2) English (en)"
+        echo "  3) 中文 (zh)"
+        echo "  4) 日本語 (ja)"
+        echo ""
+        echo -e "${YELLOW}Press Enter for English (default)${NC}"
+        echo ""
+        read -p "Select / 선택 (1-4, Enter=English): " lang_choice
+
+        case "$lang_choice" in
+            1|ko|한국어) language="ko" ;;
+            2|en|""|English) language="en" ;;
+            3|zh|中文) language="zh" ;;
+            4|ja|日本語) language="ja" ;;
+            *)
+                log_info "Defaulting to English"
+                language="en"
+                ;;
+        esac
+        log_info "Language set to: $language"
+        echo ""
+    fi
 
     # If no type provided, try to detect from input
     if [[ -z "$prd_type" ]]; then

@@ -27,14 +27,181 @@ class PRDConfig:
     project_root: Path
     output_file: Path
     interactive: bool = True
+    language: str = "ko"  # PRD 출력 언어 (ko=en|zh|ja 등)
 
 
 @dataclass
 class PRDContent:
     """PRD 내용"""
     type: str
+    language: str = "ko"
     frontmatter: Dict[str, str] = field(default_factory=dict)
     sections: Dict[str, str] = field(default_factory=dict)
+
+    # 언어별 메시지
+    MESSAGES = {
+        "ko": {
+            "prd_creator_title": "PRD 생성기 v2.4",
+            "creating_prd": "PRD 생성을 위해 질문을 드리겠습니다.",
+            "skip_hint": "답변은 Enter를 누르면 건너뛸 수 있습니다 (필수 항목 제외)",
+            "validating": "PRD 검증 중...",
+            "missing_sections": "누락된 섹션",
+            "validation_passed": "PRD 검증 통과",
+            "validation_failed": "PRD 생성 실패: 필수 항목 누락",
+            "required_warning": "이 항목은 필수입니다.",
+            "prd_completed": "PRD 생성 완료",
+        },
+        "en": {
+            "prd_creator_title": "PRD Creator v2.4",
+            "creating_prd": "I'll ask some questions to create the PRD.",
+            "skip_hint": "Press Enter to skip (except required fields)",
+            "validating": "Validating PRD...",
+            "missing_sections": "Missing sections",
+            "validation_passed": "PRD validation passed",
+            "validation_failed": "PRD creation failed: Missing required fields",
+            "required_warning": "This field is required.",
+            "prd_completed": "PRD created successfully",
+        },
+    }
+
+    def get_message(self, key: str) -> str:
+        """언어에 따른 메시지 반환"""
+        lang_messages = self.MESSAGES.get(self.language, self.MESSAGES["en"])
+        return lang_messages.get(key, key)
+
+    # 언어별 섹션 이름 매핑
+    SECTION_NAMES = {
+        "ko": {
+            "feature": {
+                "goal": "목표",
+                "requirements": "요구사항",
+                "edge_cases": "엣지 케이스",
+                "testing": "테스트",
+            },
+            "bug": {
+                "issue": "문제",
+                "description": "상세 설명",
+                "root_cause": "원인",
+                "fix_plan": "수정 계획",
+                "testing": "검증",
+            },
+            "refactor": {
+                "current": "현재 상태",
+                "issues": "문제점",
+                "proposed_changes": "제안 변경사항",
+                "impact": "영향 범위",
+                "testing": "검증",
+            },
+            "hotfix": {
+                "issue": "문제",
+                "quick_fix": "빠른 수정",
+                "testing": "검증",
+            },
+            "experiment": {
+                "hypothesis": "가설",
+                "test_plan": "테스트 계획",
+                "success_criteria": "성공 기준",
+            },
+            "api": {
+                "purpose": "목적",
+                "endpoints": "엔드포인트",
+                "request": "요청",
+                "response": "응답",
+                "authentication": "인증",
+                "testing": "테스트",
+            },
+            "migration": {
+                "goal": "목표",
+                "schema_changes": "스키마 변경",
+                "data_migration": "데이터 마이그레이션",
+                "rollback_plan": "롤백 계획",
+                "downtime": "다운타임",
+            },
+            "ml": {
+                "purpose": "목적",
+                "data": "데이터",
+                "features": "피쳐",
+                "model": "모델",
+                "evaluation": "평가",
+                "deployment": "배포",
+            },
+            "devops": {
+                "automation_goal": "자동화 목표",
+                "current_workflow": "현재 워크플로우",
+                "tools": "도구",
+                "scope": "범위",
+                "validation": "검증",
+            },
+        },
+        "en": {
+            "feature": {
+                "goal": "Goal",
+                "requirements": "Requirements",
+                "edge_cases": "Edge Cases",
+                "testing": "Testing",
+            },
+            "bug": {
+                "issue": "Issue",
+                "description": "Description",
+                "root_cause": "Root Cause",
+                "fix_plan": "Fix Plan",
+                "testing": "Testing",
+            },
+            "refactor": {
+                "current": "Current",
+                "issues": "Issues",
+                "proposed_changes": "Proposed Changes",
+                "impact": "Impact",
+                "testing": "Testing",
+            },
+            "hotfix": {
+                "issue": "Issue",
+                "quick_fix": "Quick Fix",
+                "testing": "Testing",
+            },
+            "experiment": {
+                "hypothesis": "Hypothesis",
+                "test_plan": "Test Plan",
+                "success_criteria": "Success Criteria",
+            },
+            "api": {
+                "purpose": "Purpose",
+                "endpoints": "Endpoints",
+                "request": "Request",
+                "response": "Response",
+                "authentication": "Authentication",
+                "testing": "Testing",
+            },
+            "migration": {
+                "goal": "Goal",
+                "schema_changes": "Schema Changes",
+                "data_migration": "Data Migration",
+                "rollback_plan": "Rollback Plan",
+                "downtime": "Downtime",
+            },
+            "ml": {
+                "purpose": "Purpose",
+                "data": "Data",
+                "features": "Features",
+                "model": "Model",
+                "evaluation": "Evaluation",
+                "deployment": "Deployment",
+            },
+            "devops": {
+                "automation_goal": "Automation Goal",
+                "current_workflow": "Current Workflow",
+                "tools": "Tools",
+                "scope": "Scope",
+                "validation": "Validation",
+            },
+        },
+    }
+
+    def get_section_name(self, key: str) -> str:
+        """언어에 따른 섹션 이름 반환"""
+        lang_sections = self.SECTION_NAMES.get(self.language, {})
+        type_sections = lang_sections.get(self.type, {})
+        return type_sections.get(key, key)  # fallback to key
 
     def to_markdown(self) -> str:
         """Markdown으로 변환"""
@@ -50,7 +217,8 @@ class PRDContent:
         lines.append("")
 
         # Sections
-        for section_name, content in self.sections.items():
+        for section_key, content in self.sections.items():
+            section_name = self.get_section_name(section_key)
             lines.append(f"## {section_name}")
             lines.append("")
             lines.append(content)
@@ -145,13 +313,13 @@ class PRDCreator:
 
     def __init__(self, config: PRDConfig):
         self.config = config
-        self.prd = PRDContent(type=config.prd_type)
+        self.prd = PRDContent(type=config.prd_type, language=config.language)
         self.answers: Dict[str, str] = {}
 
     def print_header(self):
         """헤더 출력"""
         print("\n" + "=" * 60)
-        print(f"  PRD Creator v2.4 - {self.config.prd_type.upper()}")
+        print(f"  {self.prd.get_message('prd_creator_title')} - {self.config.prd_type.upper()}")
         print("=" * 60)
         print()
 
@@ -159,8 +327,8 @@ class PRDCreator:
         """질문 진행"""
         questions = QuestionBank.get_questions(self.config.prd_type)
 
-        print(f"📝 {self.config.prd_type.upper()} PRD 생성을 위해 질문을 드리겠습니다.")
-        print("💡 답변은 Enter를 누르면 건너뛸 수 있습니다 (필수 항목 제외)")
+        print(f"📝 {self.prd.get_message('creating_prd')}")
+        print(f"💡 {self.prd.get_message('skip_hint')}")
         print()
 
         for idx, q in enumerate(questions, 1):
@@ -178,16 +346,41 @@ class PRDCreator:
 
                 # 필수 항목 체크
                 while required and not answer:
-                    print("⚠️ 이 항목은 필수입니다.")
+                    print(f"⚠️ {self.prd.get_message('required_warning')}")
                     answer = input(f"> ").strip()
 
-                self.answers[key] = answer or "(추가 예정)"
+                self.answers[key] = answer or self._get_pending_text()
             else:
                 # 비대화형 모드
-                self.answers[key] = "(추가 예정)"
+                self.answers[key] = self._get_pending_text()
+
+    def _get_pending_text(self) -> str:
+        """언어별 '추가 예정' 텍스트 반환"""
+        pending_map = {
+            "ko": "(추가 예정)",
+            "en": "(To be added)",
+            "zh": "(待补充)",
+            "ja": "(追加予定)",
+        }
+        return pending_map.get(self.config.language, "(To be added)")
 
     def build_prd(self):
         """PRD 빌드"""
+        # 언어별 기본값
+        none_text = {
+            "ko": "없음",
+            "en": "None",
+            "zh": "无",
+            "ja": "なし",
+        }.get(self.config.language, "None")
+
+        investigate_text = {
+            "ko": "조사 필요",
+            "en": "To be investigated",
+            "zh": "待调查",
+            "ja": "調査必要",
+        }.get(self.config.language, "To be investigated")
+
         # Frontmatter
         self.prd.frontmatter = {
             "type": self.config.prd_type,
@@ -197,67 +390,67 @@ class PRDCreator:
             "status": "draft",
         }
 
-        # Sections
+        # Sections - 소문자 키 사용 (언어별 섹션 이름 변환을 위해)
         section_mapping = {
             "feature": {
-                "Goal": self.answers.get("goal", ""),
-                "Requirements": self.answers.get("requirements", ""),
-                "Edge Cases": self.answers.get("edge_cases", "없음"),
-                "Testing": self.answers.get("testing", ""),
+                "goal": self.answers.get("goal", ""),
+                "requirements": self.answers.get("requirements", ""),
+                "edge_cases": self.answers.get("edge_cases", none_text),
+                "testing": self.answers.get("testing", ""),
             },
             "bug": {
-                "Issue": self.answers.get("issue", ""),
-                "Description": self.answers.get("description", ""),
-                "Root Cause": self.answers.get("root_cause", "조사 필요"),
-                "Fix Plan": self.answers.get("fix_plan", ""),
-                "Testing": self.answers.get("testing", ""),
+                "issue": self.answers.get("issue", ""),
+                "description": self.answers.get("description", ""),
+                "root_cause": self.answers.get("root_cause", investigate_text),
+                "fix_plan": self.answers.get("fix_plan", ""),
+                "testing": self.answers.get("testing", ""),
             },
             "refactor": {
-                "Current": self.answers.get("current", ""),
-                "Issues": self.answers.get("issues", ""),
-                "Proposed Changes": self.answers.get("proposed_changes", ""),
-                "Impact": self.answers.get("impact", ""),
-                "Testing": self.answers.get("testing", ""),
+                "current": self.answers.get("current", ""),
+                "issues": self.answers.get("issues", ""),
+                "proposed_changes": self.answers.get("proposed_changes", ""),
+                "impact": self.answers.get("impact", ""),
+                "testing": self.answers.get("testing", ""),
             },
             "hotfix": {
-                "Issue": self.answers.get("issue", ""),
-                "Quick Fix": self.answers.get("quick_fix", ""),
-                "Testing": self.answers.get("testing", ""),
+                "issue": self.answers.get("issue", ""),
+                "quick_fix": self.answers.get("quick_fix", ""),
+                "testing": self.answers.get("testing", ""),
             },
             "experiment": {
-                "Hypothesis": self.answers.get("hypothesis", ""),
-                "Test Plan": self.answers.get("test_plan", ""),
-                "Success Criteria": self.answers.get("success_criteria", ""),
+                "hypothesis": self.answers.get("hypothesis", ""),
+                "test_plan": self.answers.get("test_plan", ""),
+                "success_criteria": self.answers.get("success_criteria", ""),
             },
             "api": {
-                "Purpose": self.answers.get("purpose", ""),
-                "Endpoints": self.answers.get("endpoints", ""),
-                "Request": self.answers.get("request", ""),
-                "Response": self.answers.get("response", ""),
-                "Authentication": self.answers.get("authentication", ""),
-                "Testing": self.answers.get("testing", ""),
+                "purpose": self.answers.get("purpose", ""),
+                "endpoints": self.answers.get("endpoints", ""),
+                "request": self.answers.get("request", ""),
+                "response": self.answers.get("response", ""),
+                "authentication": self.answers.get("authentication", ""),
+                "testing": self.answers.get("testing", ""),
             },
             "migration": {
-                "Goal": self.answers.get("goal", ""),
-                "Schema Changes": self.answers.get("schema_changes", ""),
-                "Data Migration": self.answers.get("data_migration", ""),
-                "Rollback Plan": self.answers.get("rollback_plan", ""),
-                "Downtime": self.answers.get("downtime", ""),
+                "goal": self.answers.get("goal", ""),
+                "schema_changes": self.answers.get("schema_changes", ""),
+                "data_migration": self.answers.get("data_migration", ""),
+                "rollback_plan": self.answers.get("rollback_plan", ""),
+                "downtime": self.answers.get("downtime", ""),
             },
             "ml": {
-                "Purpose": self.answers.get("purpose", ""),
-                "Data": self.answers.get("data", ""),
-                "Features": self.answers.get("features", ""),
-                "Model": self.answers.get("model", ""),
-                "Evaluation": self.answers.get("evaluation", ""),
-                "Deployment": self.answers.get("deployment", ""),
+                "purpose": self.answers.get("purpose", ""),
+                "data": self.answers.get("data", ""),
+                "features": self.answers.get("features", ""),
+                "model": self.answers.get("model", ""),
+                "evaluation": self.answers.get("evaluation", ""),
+                "deployment": self.answers.get("deployment", ""),
             },
             "devops": {
-                "Automation Goal": self.answers.get("automation_goal", ""),
-                "Current Workflow": self.answers.get("current_workflow", ""),
-                "Tools": self.answers.get("tools", ""),
-                "Scope": self.answers.get("scope", ""),
-                "Validation": self.answers.get("validation", ""),
+                "automation_goal": self.answers.get("automation_goal", ""),
+                "current_workflow": self.answers.get("current_workflow", ""),
+                "tools": self.answers.get("tools", ""),
+                "scope": self.answers.get("scope", ""),
+                "validation": self.answers.get("validation", ""),
             },
         }
 
@@ -265,67 +458,49 @@ class PRDCreator:
 
     def validate(self) -> bool:
         """PRD 검증"""
-        print("\n🔍 PRD 검증 중...")
+        print(f"\n🔍 {self.prd.get_message('validating')}")
+
+        # 비대화형 모드에서는 기본 검증만 수행
+        if not self.config.interactive:
+            print(f"✅ {self.prd.get_message('validation_passed')} (non-interactive mode)")
+            return True
 
         # 필수 섹션 체크
         required_sections = QuestionBank.get_questions(self.config.prd_type)
         missing = []
 
+        # 언어별 "추가 예정" 텍스트
+        pending_texts = {
+            "ko": ["(추가 예정)", "없음", "조사 필요"],
+            "en": ["(To be added)", "None", "To be investigated"],
+            "zh": ["(待补充)", "无", "待调查"],
+            "ja": ["(追加予定)", "なし", "調査必要"],
+        }
+        pending = pending_texts.get(self.config.language, pending_texts["en"])
+
         for section in required_sections:
             key = section["key"]
             if section.get("required", False):
-                # 해당하는 section 이름 찾기
-                section_name = self._find_section_name(key)
-                if section_name and not self.prd.sections.get(section_name):
+                # frontmatter 필드 (title 등)는 별도 처리
+                if key == "title":
+                    title = self.answers.get("title", "").strip()
+                    if not title:
+                        missing.append("Title")
+                    continue
+
+                # 섹션 내용이 비어있는지 확인 (공백만 있는 경우도 누락으로 간주)
+                content = self.prd.sections.get(key, "").strip()
+                if not content or content in pending:
+                    # 언어별로 섹션 이름 표시
+                    section_name = self.prd.get_section_name(key)
                     missing.append(section_name)
 
         if missing:
-            print(f"⚠️ 누락된 섹션: {', '.join(missing)}")
+            print(f"⚠️ {self.prd.get_message('missing_sections')}: {', '.join(missing)}")
             return False
 
-        print("✅ PRD 검증 통과")
+        print(f"✅ {self.prd.get_message('validation_passed')}")
         return True
-
-    def _find_section_name(self, key: str) -> Optional[str]:
-        """key로 section 이름 찾기"""
-        mapping = {
-            "goal": "Goal",
-            "requirements": "Requirements",
-            "edge_cases": "Edge Cases",
-            "testing": "Testing",
-            "issue": "Issue",
-            "description": "Description",
-            "root_cause": "Root Cause",
-            "fix_plan": "Fix Plan",
-            "current": "Current",
-            "issues": "Issues",
-            "proposed_changes": "Proposed Changes",
-            "impact": "Impact",
-            "quick_fix": "Quick Fix",
-            "hypothesis": "Hypothesis",
-            "test_plan": "Test Plan",
-            "success_criteria": "Success Criteria",
-            "purpose": "Purpose",
-            "endpoints": "Endpoints",
-            "request": "Request",
-            "response": "Response",
-            "authentication": "Authentication",
-            "schema_changes": "Schema Changes",
-            "data_migration": "Data Migration",
-            "rollback_plan": "Rollback Plan",
-            "downtime": "Downtime",
-            "data": "Data",
-            "features": "Features",
-            "model": "Model",
-            "evaluation": "Evaluation",
-            "deployment": "Deployment",
-            "automation_goal": "Automation Goal",
-            "current_workflow": "Current Workflow",
-            "tools": "Tools",
-            "scope": "Scope",
-            "validation": "Validation",
-        }
-        return mapping.get(key)
 
     def save(self) -> Path:
         """PRD 저장"""
@@ -347,10 +522,10 @@ class PRDCreator:
 
         if self.validate():
             output_path = self.save()
-            print(f"\n✅ PRD 생성 완료: {output_path}")
+            print(f"\n✅ {self.prd.get_message('prd_completed')}: {output_path}")
             return output_path
         else:
-            print("\n❌ PRD 생성 실패: 필수 항목 누락")
+            print(f"\n❌ {self.prd.get_message('validation_failed')}")
             sys.exit(1)
 
 
@@ -381,6 +556,13 @@ def main():
         type=str,
         help="Project root path"
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="ko",
+        choices=["ko", "en", "zh", "ja"],
+        help="PRD output language (default: ko)"
+    )
 
     args = parser.parse_args()
 
@@ -402,7 +584,8 @@ def main():
         prd_type=args.type,
         project_root=project_root,
         output_file=output_file,
-        interactive=not args.non_interactive
+        interactive=not args.non_interactive,
+        language=args.language
     )
 
     # PRD 생성
