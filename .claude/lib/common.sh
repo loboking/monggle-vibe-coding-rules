@@ -360,6 +360,14 @@ backup_file() {
 
     if [[ -f "$file" ]]; then
         local backup="${file}${backup_suffix}"
+
+        # 중복 방지 - 카운터 추가
+        local counter=1
+        while [[ -f "$backup" ]]; do
+            backup="${file}${backup_suffix}.${counter}"
+            ((counter++))
+        done
+
         cp "$file" "$backup"
         log_info "Backup created: $backup"
     fi

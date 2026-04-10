@@ -27,6 +27,32 @@ get_commits_between() {
     local from_tag="$1"
     local to_tag="${2:-HEAD}"
 
+    # 태그 검증 (인젝션 방지)
+    if [[ "$from_tag" != "HEAD" ]] && ! [[ "$from_tag" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        echo "Error: Invalid from_tag format: $from_tag" >&2
+        return 1
+    fi
+
+    if [[ "$to_tag" != "HEAD" ]] && ! [[ "$to_tag" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        echo "Error: Invalid to_tag format: $to_tag" >&2
+        return 1
+    fi
+
+    # 태그 존재 확인 (HEAD 제외)
+    if [[ "$from_tag" != "HEAD" ]]; then
+        if ! git rev-parse "$from_tag" >/dev/null 2>&1; then
+            echo "Error: Tag not found: $from_tag" >&2
+            return 1
+        fi
+    fi
+
+    if [[ "$to_tag" != "HEAD" ]]; then
+        if ! git rev-parse "$to_tag" >/dev/null 2>&1; then
+            echo "Error: Tag not found: $to_tag" >&2
+            return 1
+        fi
+    fi
+
     safe_git_log git_args
     git_args=("${from_tag}..${to_tag}")
 }

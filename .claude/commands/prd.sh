@@ -162,7 +162,7 @@ check_python() {
     PYTHON_MAJOR=$(echo $PYTHON_VERSION | cut -d. -f1)
     PYTHON_MINOR=$(echo $PYTHON_VERSION | cut -d. -f2)
 
-    if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 8 ]); then
+    if [[ "$PYTHON_MAJOR" -lt 3 ]] || [[ "$PYTHON_MAJOR" -eq 3 && "$PYTHON_MINOR" -lt 8 ]]; then
         log_error "Python 3.8+ required, found $PYTHON_VERSION"
         return 1
     fi

@@ -9,10 +9,34 @@
 validate_file_path() {
     local path="$1"
 
-    # Must be absolute path or relative without ..
+    # 강화된 경로 탐색 검사
+    # 1. 직접적인 .. 패턴
     if [[ "$path" =~ \.\. ]]; then
         echo "Error: Path traversal detected: $path" >&2
         return 1
+    fi
+
+    # 2. 우회 패턴 (././ etc)
+    if [[ "$path" =~ \./\. ]] || [[ "$path" =~ \./\./ ]]; then
+        echo "Error: Path traversal detected: $path" >&2
+        return 1
+    fi
+
+    # 3. 실제 경로 확인 (realpath가 있으면 사용)
+    if command -v realpath &>/dev/null; then
+        local real_path
+        real_path=$(realpath -m "$path" 2>/dev/null || echo "$path")
+        local project_root
+        project_root=$(pwd)
+
+        # 프로젝트 루트 밖인지 확인
+        case "$real_path" in
+            "$project_root"*|"$project_root") ;;  # 프로젝트 내 또는 루트 자체
+            *)
+                echo "Error: Path outside project root: $path" >&2
+                return 1
+                ;;
+        esac
     fi
 
     return 0
