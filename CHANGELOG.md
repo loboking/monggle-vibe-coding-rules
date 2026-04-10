@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.1] - 2026-04-10
+
+### Added
+- **PRD 다국어 지원 확장** - 중국어(zh), 일본어(ja) 완전 지원
+  - `scripts/prd_creator.py` 언어별 메시지 추가 (zh, ja)
+  - PRD 섹션 이름 번역 (모든 PRD 타입)
+  - 인터랙티브 언어 선택 프롬프트 (1=ko, 2=en, 3=zh, 4=ja)
+  - `--language` 옵션으로 4개 언어 완전 지원
+- **PRD 템플릿 디렉토리 구조** - `prd/templates/{ko,en,zh,ja}/`
+- **12개 스킬 완전 구현** (README v2.4에 언급된 모든 스킬)
+
+#### 코드 품질 스킬 (4개)
+- `/lint-smart` - 프로젝트 자동 감지 후 린터 실행
+  - Python: pylint, flake8, ruff, mypy
+  - JavaScript/TypeScript: eslint, prettier, tsc
+  - Go: gofmt, go vet, golangci-lint
+  - Rust: cargo fmt, cargo clippy
+  - Java: checkstyle, spotbugs, Android lint
+  - Ruby: rubocop
+- `/audit` - 보안 취약점 스캔 (bandit, semgrep)
+- `/format-check` - 코드 포맷 검사 (black, prettier)
+- `/complexity` - 복잡도 분석 (radon, lizard)
+
+#### 문서 자동화 스킬 (4개)
+- `/changelog` - Git 로그 → CHANGELOG.md 자동 생성
+- `/bump` - 버전 업 + Git 태그 생성
+- `/api-docs` - Docstring → API 문서 추출
+- `/readme-sync` - README 동기화
+
+#### 성능 분석 스킬 (4개)
+- `/bottleneck` - 성능 병목 지점 분석
+- `/profile` - 프로파일링 실행
+- `/bench` - 벤치마크 실행/비교
+- `/mem-check` - 메모리 누수 탐지
+
+#### 공통 유틸리티
+- `.claude/lib/common.sh` - 색상 출력, 로깅, 프로젝트 타입 감지
+- `scripts/check_tools.py` - 필수 도구 설치 확인
+
+### Changed
+- README FAQ 다국어 지원 관련 답변 업데이트
+- PRD Creator 버전 2.4 → 2.5
+
+### Docs
+- PRD 생성 가이드에 4개 언어 지원 명시
+- 각 스킬 사용법 추가
+
+---
+
 ## [2.5.0] - 2026-04-09
 
 ### Added

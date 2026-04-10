@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.5-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-2.5.1-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -270,7 +270,7 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 - A: Bash fallback 모드로 제한 기능 제공되지만, Claude Code와 함께 사용할 때 최적의 성능을 발휘합니다.
 
 **Q: 어떤 언어를 지원하나요?**
-- A: PRD 생성은 한국어로 진행됩니다. 코드 분석은 Python, JavaScript, TypeScript, Go, Java 등을 지원합니다.
+- A: PRD 생성은 **한국어, 영어, 중국어, 일본어**를 지원합니다 (`--language ko|en|zh|ja`). 코드 분석은 Python, JavaScript, TypeScript, Go, Java, Ruby, Rust 등을 지원합니다.
 
 **Q: 기존 프로젝트에 적용 가능한가요?**
 - A: 네, `./install.sh /path/to/project`로 기존 프로젝트에 설치할 수 있습니다.
@@ -324,7 +324,7 @@ git log --oneline -5
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v2.5**
+**Vibe Coding Skills for Claude v2.5.1**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 
