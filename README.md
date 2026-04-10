@@ -284,6 +284,30 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 ---
 
+## 🔄 업데이트
+
+### 최신 버전 확인
+
+```bash
+cd monggle-vibe-coding-rules
+git pull origin main
+./install.sh
+```
+
+### Curl로 업데이트
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/main/install.sh | bash
+```
+
+### 변경사항 확인
+
+```bash
+git log --oneline -5
+```
+
+---
+
 ## 📜 License
 
 [MIT License](LICENSE)
@@ -300,7 +324,7 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v2.4**
+**Vibe Coding Skills for Claude v2.5**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 
