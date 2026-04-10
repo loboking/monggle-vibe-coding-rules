@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.4-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-2.5-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -161,7 +161,49 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 ---
 
-### 6. 하네스 시스템 (v2.4)
+### 6. Git 협업 스킬 (v2.5)
+
+**팀 개발을 위한 안전한 Git 동기화 및 충돌 해결**
+
+```bash
+./update                 # 또는 ./.claude/commands/update.sh
+./push-safe              # 또는 ./.claude/commands/push-safe.sh
+```
+
+**특징:**
+- ✅ 자동 stash로 작업 안전 저장
+- ✅ 충돌 발생 시 자동 rollback
+- ✅ GitHub/GitLab/Bitbucket PR 자동 생성
+- ✅ 충돌 해결 가이드 제공
+
+**사용 예시:**
+```bash
+./update                 # 대화형 실행
+./update --auto          # 자동 실행
+./update --dry-run       # 계획만 확인
+
+./push-safe              # 안전하게 push + PR
+./push-safe --no-pr      # PR 생성 없이 push
+```
+
+**충돌 해결 가이드:**
+```
+❌ 충돌 발생: src/auth.ts
+
+🔍 원인 분석:
+- 같은 줄(line 15)에서 충돌
+- 원본: return true (teamA 수정)
+- 내것: return false (나 수정)
+
+💡 해결 방안:
+1. /resolve-keep    → 내 변경 유지
+2. /resolve-theirs  → 원본 변경 유지
+3. /resolve-merge   → 둘 다 합치기
+```
+
+---
+
+### 7. 하네스 시스템 (v2.4)
 
 **Pipeline 실행 후 자동으로 작동합니다.** (백그라운드)
 
@@ -195,6 +237,8 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 | `/stats` | 통계 확인 |
 | `/gate` | PRD 검증 |
 | `/review` | AI 코드 리뷰 |
+| **`/update`** | **Git 동기화 (v2.5)** |
+| **`/push-safe`** | **안전 전송 (v2.5)** |
 | `/lint-smart` | 자동 린터 |
 | `/audit` | 보안 스캔 |
 | `/format-check` | 포맷 검사 |
@@ -232,10 +276,11 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 - A: 네, `./install.sh /path/to/project`로 기존 프로젝트에 설치할 수 있습니다.
 
 **Q: 팀에서 함께 쓸 수 있나요?**
-- A: 각 팀원이 개별적으로 설치해서 사용할 수 있습니다. 하지만 이 프로젝트 자체는 팀 협업 기능(공유 워크플로우, 실시간 동기화 등)을 제공하지 않습니다.
-
-**Q: 그럼 실제 팀 개발은 어떻게 하나요?**
-- A: 각자가 이 스킬을 활용해서 자신의 작업을 수행하고, Git을 통해 코드를 공유하는 것이 일반적입니다. 이 프로젝트는 그 "각자의 작업 효율"을 높여주는 역할을 합니다.
+- A: 네! v2.5부터 Git 협업 스킬이 추가되어 팀 개발이 가능합니다:
+  - `/update`로 원격 저장소 안전 동기화
+  - `/push-safe`로 충돌 방지 전송
+  - GitHub/GitLab/Bitbucket PR 자동 생성
+  - 각 팀원이 설치 후 Git 워크플로우 사용 가능
 
 ---
 

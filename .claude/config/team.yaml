@@ -62,3 +62,10 @@ ai_reviewer:
 # Git Platform Detection (auto-detected by install.sh)
 git_platform: "{{GIT_PLATFORM}}"  # github | gitlab | none
 git_remote_url: "{{GIT_REMOTE_URL}}"
+
+# Git Collaboration Settings (v2.4)
+collaboration:
+  mode: solo  # solo | team
+  auto_update: true
+  create_pr: true
+  conflict_resolve: manual  # auto | manual

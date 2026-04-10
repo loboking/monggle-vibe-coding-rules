@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] - 2026-04-09
+
+### Added
+- **Git 협업 스킬 시스템** - 팀 개발을 위한 안전한 Git 동기화 및 충돌 해결
+  - `/update` - 원격 저장소 안전 동기화
+    - 자동 stash로 작업 안전 저장
+    - git pull --rebase로 최신화
+    - 충돌 발생 시 자동 rollback
+    - `--auto`, `--dry-run` 옵션 지원
+  - `/push-safe` - 안전한 전송 및 PR 자동 생성
+    - 뒤처짐 감지 후 자동 `/update` 연동
+    - GitHub/GitLab/Bitbucket PR 자동 생성
+    - `--no-pr`, `--dry-run` 옵션 지원
+  - **Git 공통 라이브러리** (`.claude/lib/git_helper.sh`)
+    - Git 저장소 감지 (`is_git_repo`)
+    - 변경사항 확인 (`has_uncommitted_changes`)
+    - 뒤처짐/앞섬 확인 (`is_behind_origin`, `is_ahead_origin`)
+    - 브랜치/원격 URL/호스트 감지
+    - 충돌 파일/마커 감지
+    - stash 자동화 (`git_safe_stash`, `git_safe_stash_pop`)
+  - **PR 생성 라이브러리** (`.claude/lib/pr_helper.sh`)
+    - GitHub PR 생성 (`create_github_pr`)
+    - GitLab MR 생성 (`create_gitlab_pr`)
+    - Bitbucket PR 생성 (`create_bitbucket_pr`)
+    - 호스트 자동 감지 및 API 연동
+  - **충돌 해결 가이드** (`.claude/lib/conflict_helper.sh`)
+    - 충돌 원인 분석 (`analyze_conflict`)
+    - 충돌 유형 분류 (같은 줄/인접 줄/함수)
+    - 해결 옵션 (`resolve_keep`, `resolve_theirs`, `resolve_merge`)
+    - 충돌 파일 목록 표시 (`show_conflict_files`)
+  - **테스트 스위트** - 단위 테스트 + E2E 테스트
+    - `tests/bash/git_helper.bats` - Git 공통 함수 (10개 케이스)
+    - `tests/bash/update.bats` - 동기화 스크립트 (6개 케이스)
+    - `tests/bash/push-safe.bats` - 전송 스크립트 (8개 케이스)
+    - `tests/bash/conflict_helper.bats` - 충돌 해결 (6개 케이스)
+    - `tests/bash/e2e_git_collaboration.bats` - E2E 테스트 (11개 시나리오)
+  - **문서화**
+    - `.claude/docs/git-collaboration.md` - Git 협업 가이드
+    - `.claude/config/git.conf` - Git 설정 파일
+    - `.claude/config/team.yaml` - 팀 협업 설정 (업데이트)
+
+### Changed
+- README v2.5 업데이트
+  - Git 협업 스킬 섹션 추가
+  - FAQ 팀 협업 관련 답변 업데이트
+- 버전 배지 2.4 → 2.5
+
+### Technical Details
+- Bash 스크립트: update.sh, push-safe.sh
+- 라이브러리: git_helper.sh (9개 함수), pr_helper.sh (7개 함수), conflict_helper.sh (7개 함수)
+- 지원 Git 호스팅: GitHub, GitLab, Bitbucket
+- 테스트 프레임워크: bats-core
+
+---
+
 ## [2.4.2] - 2026-04-07
 
 ### Added

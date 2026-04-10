@@ -268,3 +268,37 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 [10:19:21] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
 ```
 
+
+### 2026-04-09
+
+**변경된 파일 수**: ��
+
+```
+[13:13:10] 수정: core/pedometer-api/src/main/AndroidManifest.xml
+[13:13:10] 수정: core/pedometer-core/src/main/AndroidManifest.xml
+[13:13:16] 수정: features/pedometer-aos/src/main/AndroidManifest.xml
+[13:13:16] 수정: features/pedometer-lgu/src/main/AndroidManifest.xml
+[13:13:16] 수정: features/pedometer-sk/src/main/AndroidManifest.xml
+[13:13:19] 수정: libraries/pedometer-aos-lib/src/main/AndroidManifest.xml
+[13:13:19] 수정: libraries/pedometer-lgu-lib/src/main/AndroidManifest.xml
+[13:13:19] 수정: libraries/pedometer-sk-lib/src/main/AndroidManifest.xml
+[13:13:25] 수정: samples/sample-aos/src/main/AndroidManifest.xml
+[13:13:25] 수정: samples/sample-lgu/src/main/AndroidManifest.xml
+[13:13:25] 수정: samples/sample-sk/src/main/AndroidManifest.xml
+[13:13:33] 수정: samples/sample-aos/src/main/java/com/oceanbleu/pedometer/sample/aos/MainActivity.kt
+[13:13:33] 수정: samples/sample-lgu/src/main/java/com/oceanbleu/pedometer/sample/lgu/MainActivity.kt
+[13:13:33] 수정: samples/sample-sk/src/main/java/com/oceanbleu/stepcount/sample/sk/MainActivity.kt
+[13:13:35] 수정: samples/sample-aos/src/main/res/values/strings.xml
+[13:13:35] 수정: samples/sample-lgu/src/main/res/values/strings.xml
+[13:13:35] 수정: samples/sample-sk/src/main/res/values/strings.xml
+[13:13:45] 수정: samples/sample-aos/src/main/res/layout/activity_main.xml
+[13:13:45] 수정: samples/sample-lgu/src/main/res/layout/activity_main.xml
+[13:13:45] 수정: samples/sample-sk/src/main/res/layout/activity_main.xml
+[13:16:17] 수정: samples/sample-aos/src/main/AndroidManifest.xml
+[13:16:22] 수정: samples/sample-lgu/src/main/AndroidManifest.xml
+[13:16:22] 수정: samples/sample-sk/src/main/AndroidManifest.xml
+[13:16:51] 수정: features/pedometer-sk/src/main/AndroidManifest.xml
+[13:16:58] 수정: features/pedometer-aos/src/main/AndroidManifest.xml
+[13:16:58] 수정: features/pedometer-lgu/src/main/AndroidManifest.xml
+```
+
