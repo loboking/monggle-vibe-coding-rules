@@ -85,6 +85,24 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
+### 🔄 작업 모드별 동작
+
+**Solo 모드** (기본값):
+- PRD 없이어도 자유롭게 코드 수정 가능
+- 빠른 프로토타이핑에 적합
+
+**Team 모드**:
+- PRD가 필수! PRD 없으면 자동 생성 프롬프트
+- 체계된 협업 프로세스 보장
+
+모드 변경:
+```bash
+/mode solo              # Solo 모드로 변경
+/mode team              # Team 모드로 변경
+```
+
+---
+
 ## 📝 핵심 기능
 
 ### 1. PRD 생성
