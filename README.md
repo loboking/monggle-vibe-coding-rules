@@ -5,10 +5,12 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.5.1-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
+
+[한국어](README.md) | [English](README_EN.md)
 
 </div>
 
@@ -234,7 +236,36 @@ Git 로그과 코드에서 문서를 자동 생성합니다.
 
 ---
 
-### 7. 하네스 시스템 (v2.4)
+### 7. 작업 관리 스킬 (v2.6) 🆕
+
+```bash
+/save-point              # 현재 작업 상태 저장
+/save-point list         # 저장된 상태 목록
+/save-point resume       # 최근 상태 복구
+
+/arch-review             # 아키텍처/설계 리뷰
+/arch-review <prd-file>  # PRD 파일 리뷰
+
+/weekly-recap            # 주간 회고
+/weekly-recap --team     # 팀원별 분석
+```
+
+**저장되는 정보 (`/save-point`)**:
+- Git 상태 (브랜치, 수정된 파일, 커밋)
+- 완료/진행 중/남은 작업
+- 중요한 결정 사항
+- 관련 PRD/이슈 링크
+
+**아키텍처 리뷰 항목 (`/arch-review`)**:
+- 컴포넌트 분리 & 의존성
+- 데이터 흐름
+- 엣지 케이스 (네트워크 실패, 동시성 등)
+- 테스트 커버리지
+- 성능 & 보안
+
+---
+
+### 8. 하네스 시스템 (v2.4)
 
 Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 
@@ -299,6 +330,13 @@ Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 | `/profile` | 프로파일링 |
 | `/bench` | 벤치마크 |
 | `/mem-check` | 메모리 누수 |
+
+### 작업 관리 (v2.6) 🆕
+| 명령어 | 설명 |
+|--------|------|
+| `/save-point` | 작업 상태 저장/복구 (세이브포인트) |
+| `/arch-review` | 아키텍처 리뷰 |
+| `/weekly-recap` | 주간 회고 |
 
 ### 시스템
 | 명령어 | 설명 |
@@ -445,7 +483,7 @@ git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v2.5.1**
+**Vibe Coding Skills for Claude v2.6.0**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 
