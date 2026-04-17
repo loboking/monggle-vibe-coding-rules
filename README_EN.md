@@ -112,6 +112,35 @@ Change mode:
 
 ## 📝 Core Features
 
+### 0. 🤖 Intent-Based Skill Execution (v2.6)
+
+Automatically detects the **intent** from natural language input and runs the appropriate skill. Based on semantic understanding, not keyword matching.
+
+**Features:**
+- ✅ Multi-language support (Korean, English)
+- ✅ Automatic recognition of various expressions
+- ✅ Context-aware intent parsing
+
+**Examples:**
+```
+User: "너무 느려" (Too slow) → Auto: /bottleneck
+User: "보안 문제 없나?" (Security?) → Auto: /audit
+User: "기획 좀 세워줘" (Plan this) → Auto: /prd
+User: "코드 올릴게" (Push code) → Auto: /push-safe
+```
+
+**Supported Intents:**
+| Intent | Skill |
+|--------|-------|
+| Planning | `/prd` |
+| Architecture review | `/arch-review` |
+| Performance issues | `/bottleneck`, `/profile`, `/bench` |
+| Security check | `/audit` |
+| Code review | `/review` |
+| Git sync | `/push-safe`, `/update` |
+
+---
+
 ### 1. PRD Generation (Multilingual Support)
 
 Generate structured PRDs through interactive questions.

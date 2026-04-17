@@ -10,7 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.6.0] - 2026-04-17
 
 ### Added
-- **작업 관리 스킬 3개 추가** (gstack 영감)
+- **🤖 의도 기반 스킬 실행 시스템 (Intent-Based Skill Routing)**
+  - 자연어 입력에서 의도(Intent)를 파악하여 자동 스킬 실행
+  - 키워드 매칭이 아닌 의미 이해 기반 (Semantic Understanding)
+  - 다국어 지원 (한국어, 영어)
+  - 21개 의도-스킬 매핑 테이블
+  - CLAUDE.md에 실행 프로세스 및 시나리오 예시 추가
+  - README에 "의도 기반 스킬 실행" 섹션 추가
+
+- **작업 관리 스킬 3개 추가**
   - `/save-point` - 세이브포인트: 작업 상태 저장/복구
     - Git 상태, 완료/진행 중/남은 작업, 결정 사항 저장
     - 브랜치 간 작업 전환 시 유용
@@ -23,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - README 버전 배지 2.6.0으로 업데이트
+- README.md, README_EN.md에 "의도 기반 스킬 실행" 섹션 추가
 - "전체 명령어" 섹션에 "작업 관리" 카테고리 추가
 
 ---
