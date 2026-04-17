@@ -349,25 +349,83 @@ Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 
 ## 🔄 업데이트
 
-### 최신 버전 확인
+### 1. 현재 버전 확인
 
 ```bash
+cat VERSION  # 또는 README 상단 배지 확인
+```
+
+### 2. 최신 버전 확인
+
+**GitHub Release 확인:**
+```bash
+# 브라우저에서
+https://github.com/loboking/monggle-vibe-coding-rules/releases
+```
+
+**또는 Git 태그 확인:**
+```bash
+git fetch origin --tags
+git tag -l | tail -5  # 최근 5개 태그
+```
+
+### 3. 업데이트 방법
+
+#### 방법 A: Git Clone (설치된 경우)
+
+```bash
+# 프로젝트 디렉토리로 이동
 cd monggle-vibe-coding-rules
+
+# 변경사항 확인 (선택사항)
+git fetch origin
+git log HEAD..origin/main --oneline  # 새로운 커밋 확인
+
+# 업데이트
 git pull origin main
+
+# 재설치 (필요시)
 ./install.sh
 ```
 
-### Curl로 업데이트
+#### 방법 B: Curl 원라인
 
 ```bash
+# 전체 재설치
 curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/main/install.sh | bash
 ```
 
-### 변경사항 확인
+> **💡 팁**: 설정 파일(`.claude/config/user.conf`)은 보존되므로 안심하고 업데이트하세요!
+
+### 4. 업데이트 후 확인
 
 ```bash
-git log --oneline -5
+# 버전 확인
+cat VERSION
+
+# 스킬 동작 테스트
+/stats  # 통계 확인
 ```
+
+### 5. 변경사항 확인
+
+```bash
+# 최근 5개 커밋
+git log --oneline -5
+
+# 최근 10개 커밋 상세
+git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
+
+# 릴리스 노트 확인
+# https://github.com/loboking/monggle-vibe-coding-rules/blob/main/CHANGELOG.md
+```
+
+### ⚠️ 업데이트 주의사항
+
+- **설정 파일 보존**: `.claude/config/user.conf`는 자동으로 백업됩니다
+- **PRD 파일 보존**: `prd/` 디렉토리는 영향받지 않습니다
+- **로그 초기화**: `logs/` 디렉토리는 초기화될 수 있습니다
+- **충돌 방지**: 작업 중인 파일은 커밋 후 업데이트하세요
 
 ---
 
