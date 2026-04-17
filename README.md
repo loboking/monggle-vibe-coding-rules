@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-2.6.2-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -107,6 +107,45 @@ CLAUDE.md에 토큰 최적화 규칙이 포함되어 있습니다:
 - 사용자 정보 (이름, 이메일)
 
 설정은 `.claude/config/user.conf`에 저장되며, 이후 모든 스킬이 이 값을 사용합니다.
+
+---
+
+## 🔑 Gemini API 키 설정 (다중 AI 협업 시 필요)
+
+Claude + Gemini 협업 기능(`/duo`, `/gemini`)을 사용하려면 Gemini API 키가 필요합니다.
+
+### 발급 방법
+
+1. **링크 접속**: https://aistudio.google.com/apikey
+2. Google 계정 로그인
+3. "API 키 만들기" 클릭
+4. 생성된 키 복사
+
+### 사용 방법
+
+```bash
+/duo 로그인 기능 추가
+# → API 키가 없으면 자동으로 입력 요청
+# → 붙여넣기 → ~/.gemini/config에 자동 저장
+```
+
+### 특징
+
+- ✅ 최초 1회만 입력
+- ✅ 이후 자동으로 불러옴
+- ⚠️ **절대 Git에 커밋 금지** (`~/.gemini/config`는 자동으로 보안 설정됨)
+
+### 수동 설정 (선택사항)
+
+```bash
+# 환경 변수로 직접 설정 (임시)
+export GEMINI_API_KEY="your-api-key-here"
+
+# 파일로 직접 저장 (영구)
+mkdir -p ~/.gemini
+echo "your-api-key-here" > ~/.gemini/config
+chmod 600 ~/.gemini/config
+```
 
 ---
 
