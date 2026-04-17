@@ -18,12 +18,15 @@
 
 개발자가 Claude Code를 사용할 때 **더 좋은 결과를 얻을 수 있도록 돕는 스킬 모음**입니다.
 
-- **PRD 템플릿**: 구조화된 요구사항 정의
-- **Agent Pipeline**: PRD 기반 자동 코드 생성 워크플로우
-- **코드 품질 도구**: 린트, 보안 스캔, 복잡도 분석
-- **문서 자동화**: CHANGELOG, API 문서 자동 생성
+- **📋 PRD 템플릿**: 구조화된 요구사항 정의 (한국어/영어/중국어/일본어)
+- **🤖 Agent Pipeline**: PRD 기반 자동 코드 생성 워크플로우
+- **🔍 코드 품질 도구**: 린트, 보안 스캔, 복잡도 분석
+- **📚 문서 자동화**: CHANGELOG, API 문서 자동 생성
+- **🔄 Git 협업 스킬**: 안전한 Git 동기화 및 충돌 해결
 
 > **솔직한 고백**: 이것은 팀 협업 도구가 아닙니다. 개발자 개인이 Claude를 더 잘 쓰기 위한 방법론입니다.
+>
+> 하지만 v2.5부터 Git 협업 스킬이 추가되어 팀 개발도 가능합니다!
 
 ---
 
@@ -36,6 +39,7 @@
 | "Claude가 쓴 코드를 모르겠어요" | 요구사항이 불명확해서 매번 다른 코드 |
 | "코드가 자꾸 달라져요" | 컨벤션 없이 일관성 부족 |
 | "리뷰가 너무 오래 걸려요" | 기본 품질 검증이 부족 |
+| "Git 충돌이 자꾸 생겨요" | 동기화 타이밍을 맞추기 어려움 |
 
 ### 제공하는 도구
 
@@ -45,6 +49,7 @@
 | **코드 품질 도구** | 프로젝트 자동 감지 후 적절한 도구 실행 |
 | **AI 사전 리뷰** | 커밋 전 자동 검증 |
 | **Verdict 시스템** | PRD 품질 판단 (PASS/FIX/FAIL) |
+| **Git 협업 스킬** | 안전한 동기화 및 충돌 해결 |
 
 ---
 
@@ -66,7 +71,7 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
-### 0. 초기 설정 (최초 1회)
+## 🎬 0. 초기 설정 (최초 1회)
 
 처음 시작할 때 기본 환경을 설정합니다.
 
@@ -85,10 +90,10 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
-### 🔄 작업 모드별 동작
+## 🔄 작업 모드별 동작
 
 **Solo 모드** (기본값):
-- PRD 없이어도 자유롭게 코드 수정 가능
+- PRD 없이도 자유롭게 코드 수정 가능
 - 빠른 프로토타이핑에 적합
 
 **Team 모드**:
@@ -105,29 +110,26 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ## 📝 핵심 기능
 
-### 1. PRD 생성
+### 1. PRD 생성 (다국어 지원)
 
 대화형 질문을 통해 구조화된 PRD를 작성합니다.
 
 ```bash
-/prd feature                # 새 기능 PRD (언어 선택 프롬프트)
-/prd bug                  # 버그 수정 PRD
-/prd api                  # API 설계 PRD
-/prd --language en feature  # 영어 PRD (언어 지정)
-/prd --language ko bug      # 한국어 PRD
+/prd                     # 대화형 PRD 생성
+/prd feature             # 새 기능 PRD
+/prd bug                 # 버그 수정 PRD
+/prd api                 # API 설계 PRD
+/prd --language en       # 영어 PRD
+/prd --language ko       # 한국어 PRD
 ```
 
 **지원 타입**: `feature`, `bug`, `refactor`, `hotfix`, `experiment`, `api`, `migration`, `ml`, `devops`
 
-**언어 옵션**:
+**지원 언어**:
 - `--language ko` - 한국어 (기본값)
 - `--language en` - 영어
 - `--language zh` - 중국어
 - `--language ja` - 일본어
-
-**언어 선택 프롬프트** (인터랙티브 모드):
-- 선택하지 않고 Enter → 영어 기본값
-- 1번 → 한국어, 2번 → 영어, 3번 → 중국어, 4번 → 일본어
 
 ---
 
@@ -141,23 +143,32 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 ```bash
 /pipeline prd/feature-xyz.md     # 전체 파이프라인 실행
-/quick prd/hotfix.md             # 빠른 실행
+/quick prd/hotfix.md             # 빠른 실행 (Gate/Fold 생략)
 ```
+
+**Verdict 시스템**:
+- **PASS** (>= 0.9): 구현 진행
+- **FIX** (>= 0.5): PRD 개선 필요
+- **FAIL** (< 0.5): 처음부터 작성
 
 ---
 
 ### 3. 코드 품질 도구
 
+프로젝트 자동 감지 후 적절한 도구를 실행합니다.
+
 ```bash
 /lint-smart      # 프로젝트 자동 감지 후 린터 실행
 /audit           # 보안 취약점 스캔
-/format-check    # 코드 포맷 검사
+/format-check    # 코드 포맷 검사만
 /complexity      # 복잡도 분석
 ```
 
 ---
 
 ### 4. 문서 자동화
+
+Git 로그과 코드에서 문서를 자동 생성합니다.
 
 ```bash
 /changelog       # Git 로그 → CHANGELOG.md
@@ -170,18 +181,20 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 ### 5. 성능 분석
 
+코드 성능을 분석하고 병목을 찾습니다.
+
 ```bash
 /bottleneck      # 병목 지점 분석
 /profile         # 프로파일링
-/bench           # 벤치마크
+/bench           # 벤치마크 실행/비교
 /mem-check       # 메모리 누수 탐지
 ```
 
 ---
 
-### 6. Git 협업 스킬 (v2.5)
+### 6. Git 협업 스킬 (v2.5) 🆕
 
-**팀 개발을 위한 안전한 Git 동기화 및 충돌 해결**
+팀 개발을 위한 안전한 Git 동기화 및 충돌 해결
 
 ```bash
 ./update                 # 또는 ./.claude/commands/update.sh
@@ -214,16 +227,16 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 - 내것: return false (나 수정)
 
 💡 해결 방안:
-1. /resolve-keep    → 내 변경 유지
-2. /resolve-theirs  → 원본 변경 유지
-3. /resolve-merge   → 둘 다 합치기
+1. git checkout --theirs src/auth.ts  → 원본 유지
+2. git checkout --ours src/auth.ts    → 내 변경 유지
+3. 수동으로 src/auth.ts 수정          → 둘 다 합치기
 ```
 
 ---
 
 ### 7. 하네스 시스템 (v2.4)
 
-**Pipeline 실행 후 자동으로 작동합니다.** (백그라운드)
+Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 
 ```bash
 /pipeline prd/feature.md
@@ -246,29 +259,52 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 
 ## 💻 전체 명령어
 
+### 워크플로우
 | 명령어 | 설명 |
 |--------|------|
-| `/init` | 초기 설정 워드 (최초 1회) |
+| `/init` | 초기 설정 (최초 1회) |
 | `/prd` | PRD 생성 (대화형) |
 | `/pipeline` | 전체 파이프라인 실행 |
 | `/quick` | 빠른 실행 (Hotfix) |
-| `/stats` | 통계 확인 |
 | `/gate` | PRD 검증 |
-| `/review` | AI 코드 리뷰 |
-| **`/update`** | **Git 동기화 (v2.5)** |
-| **`/push-safe`** | **안전 전송 (v2.5)** |
+
+### Git 협업 (v2.5)
+| 명령어 | 설명 |
+|--------|------|
+| **`./update`** | Git 동기화 (안전) |
+| **`./push-safe`** | 안전한 push + PR |
+| `/git-guardian` | Secrets 스캔 + 커밋 |
+
+### 코드 품질
+| 명령어 | 설명 |
+|--------|------|
 | `/lint-smart` | 자동 린터 |
 | `/audit` | 보안 스캔 |
 | `/format-check` | 포맷 검사 |
 | `/complexity` | 복잡도 분석 |
+| `/review` | AI 코드 리뷰 |
+
+### 문서화
+| 명령어 | 설명 |
+|--------|------|
 | `/changelog` | CHANGELOG 생성 |
 | `/bump` | 버전 업 + 태그 |
 | `/api-docs` | API 문서 |
 | `/readme-sync` | README 동기화 |
+
+### 성능 분석
+| 명령어 | 설명 |
+|--------|------|
 | `/bottleneck` | 병목 찾기 |
 | `/profile` | 프로파일링 |
 | `/bench` | 벤치마크 |
 | `/mem-check` | 메모리 누수 |
+
+### 시스템
+| 명령어 | 설명 |
+|--------|------|
+| `/stats` | 통계 확인 |
+| `/mode` | 모드 변경 |
 | `/harness` | 하네스 시스템 |
 
 ---
@@ -276,9 +312,15 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 ## 🧪 테스트
 
 ```bash
-./tests/run_tests.sh           # 전체 테스트
-./tests/run_tests.sh --python  # Python 테스트
+./tests/run_tests.sh           # 전체 테스트 (Python + bats)
+./tests/run_tests.sh --python  # Python 테스트만
+./tests/run_tests.sh --bats    # bats 테스트만
 ```
+
+**테스트 커버리지**:
+- Python unittest: 35개 테스트
+- bats-core: 34개 테스트
+- 총 69개 테스트 케이스
 
 ---
 
@@ -288,7 +330,7 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 - A: Bash fallback 모드로 제한 기능 제공되지만, Claude Code와 함께 사용할 때 최적의 성능을 발휘합니다.
 
 **Q: 어떤 언어를 지원하나요?**
-- A: PRD 생성은 **한국어, 영어, 중국어, 일본어**를 지원합니다 (`--language ko|en|zh|ja`). 코드 분석은 Python, JavaScript, TypeScript, Go, Java, Ruby, Rust 등을 지원합니다.
+- A: PRD 생성은 **한국어, 영어, 중국어, 일본어**를 지원합니다. 코드 분석은 Python, JavaScript, TypeScript, Go, Java, Ruby, Rust 등을 지원합니다.
 
 **Q: 기존 프로젝트에 적용 가능한가요?**
 - A: 네, `./install.sh /path/to/project`로 기존 프로젝트에 설치할 수 있습니다.
@@ -299,6 +341,9 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
   - `/push-safe`로 충돌 방지 전송
   - GitHub/GitLab/Bitbucket PR 자동 생성
   - 각 팀원이 설치 후 Git 워크플로우 사용 가능
+
+**Q: PRD는 언제 작성하나요?**
+- A: 복잡한 개발 작업 시작 전에 작성하는 것을 권장합니다. 간단한 수정이나 질문은 PRD 없이 자유롭게 대화 가능합니다.
 
 ---
 

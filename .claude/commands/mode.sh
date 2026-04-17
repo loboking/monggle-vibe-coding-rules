@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# mode.sh - Project Mode Management
+# mode.sh - Project Mode Management v3.0
 #
 # Usage: /mode [solo|team]
 #

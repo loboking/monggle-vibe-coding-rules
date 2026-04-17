@@ -47,6 +47,24 @@ else
     loop_check_file() { return 0; }
     loop_record_attempt() { :; }
     loop_reset_file() { :; }
+    loop_check_prd() { return 0; }
+    loop_record_prd_attempt() { :; }
+fi
+
+# Source TDD enforcer
+TDD_ENFORCER_LIB="${SCRIPT_DIR}/../lib/tdd_enforcer.sh"
+if [[ -f "$TDD_ENFORCER_LIB" ]]; then
+    source "$TDD_ENFORCER_LIB"
+else
+    tdd_pre_patch_hook() { return 0; }
+fi
+
+# Source git helper for team mode checks
+GIT_HELPER_LIB="${SCRIPT_DIR}/../lib/git_helper.sh"
+if [[ -f "$GIT_HELPER_LIB" ]]; then
+    source "$GIT_HELPER_LIB"
+else
+    is_behind_origin() { return 1; }
 fi
 
 # Flags (v2.4)
@@ -321,11 +339,13 @@ print_summary() {
     # Record result in loop detection
     if [[ $exit_code -eq 0 ]]; then
         loop_record_attempt "$prd_file" "success"
+        loop_record_prd_attempt "$prd_file" "success" "complete"
         echo -e "${GREEN}${BOLD}✓ PIPELINE COMPLETED${NC}"
         echo ""
         echo -e "${GREEN}Check the results above.${NC}"
     else
         loop_record_attempt "$prd_file" "failure"
+        loop_record_prd_attempt "$prd_file" "failure" "patch"
         echo -e "${RED}${BOLD}✗ PIPELINE FAILED${NC}"
         echo ""
         echo -e "${YELLOW}Please check the errors above and fix before proceeding.${NC}"
@@ -337,8 +357,69 @@ print_summary() {
             echo -e "${YELLOW}⚠ Warning: Multiple consecutive failures detected${NC}"
             echo "$file_status"
         fi
+
+        # Check PRD loop
+        if loop_is_prd_in_loop "$prd_file"; then
+            echo ""
+            echo -e "${RED}⚠ PRD 루프 감지: 3회 연속 실패${NC}"
+            echo "   /prd --update 로 PRD를 수정하세요"
+        fi
     fi
     echo ""
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Team Mode: Pre-pipeline Git Sync Check (v3.0)
+# ═══════════════════════════════════════════════════════════════════════════
+
+pre_pipeline_git_check() {
+    if [[ "$SKIP_VALIDATION" == true ]]; then
+        return 0
+    fi
+
+    echo -e "${BLUE}[→]${NC} Git 동기화 확인 중..."
+
+    # Git 저장소 확인
+    if ! git rev-parse --git-dir >/dev/null 2>&1; then
+        echo -e "${YELLOW}[!]${NC} Git 저장소가 아닙니다. 건너뜀니다."
+        return 0
+    fi
+
+    # 원격 저장소 확인
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo -e "${YELLOW}[!]${NC} 원격 저장소가 없습니다. 건너뜀니다."
+        return 0
+    fi
+
+    # git fetch
+    if ! git fetch origin >/dev/null 2>&1; then
+        echo -e "${YELLOW}[!]${NC} git fetch 실패. 네트워크를 확인하세요."
+        return 0  # 실패해도 진행
+    fi
+
+    # 뒤처짐 확인
+    local current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
+    local local_commit=$(git rev-parse HEAD 2>/dev/null)
+    local remote_commit=$(git rev-parse @{u} 2>/dev/null)
+
+    if [[ "$local_commit" != "$remote_commit" ]] && [[ -n "$remote_commit" ]]; then
+        echo ""
+        echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${YELLOW}║  ⚠️ 원본에 새로운 변경사항이 있습니다                        ║${NC}"
+        echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo "  현재 브랜치: ${CYAN}${current_branch}${NC}"
+        echo ""
+        echo "다음 옵션 중 선택:"
+        echo "  1. ${CYAN}/update${NC}    - 동기화 후 재시도 (권장)"
+        echo "  2. ${CYAN}/update --auto${NC} - 자동 동기화"
+        echo "  3. --skip-validation로 강제 진행"
+        echo ""
+        return 1
+    fi
+
+    echo -e "${GREEN}[✓]${NC} 최신 상태입니다"
+    return 0
 }
 
 # Main execution
@@ -377,21 +458,44 @@ main() {
     echo -e "${CYAN}Using PRD: ${prd_file}${NC}"
     echo ""
 
+    # Team Mode: Git sync check (v3.0)
+    if ! pre_pipeline_git_check; then
+        echo -e "${RED}Pipeline cancelled: 먼저 /update를 실행하세요${NC}"
+        echo "또는 --skip-validation으로 강제 진행 (권장하지 않음)"
+        return 1
+    fi
+
     # Initialize loop detection
     loop_detect_init
 
-    # Check for doom loop before running pipeline
+    # Check for PRD-level doom loop (v3.0)
+    if ! loop_check_prd "$prd_file"; then
+        echo ""
+        echo -e "${YELLOW}다음 옵션 중 선택:${NC}"
+        echo "  1. ${CYAN}/prd --update${NC} - PRD 수정"
+        echo "  2. --force로 강제 진행"
+        echo ""
+        if [[ "${@}" != *"--force"* ]]; then
+            echo -e "${CYAN}Pipeline cancelled${NC}"
+            return 1
+        fi
+        loop_reset_prd "$prd_file"
+    fi
+
+    # Check for file-level doom loop (기존)
     if ! loop_check_file "$prd_file"; then
         echo ""
         echo -e "${YELLOW}To proceed anyway:${NC}"
         echo "  1. Fix the root cause and retry"
         echo "  2. Or use --skip-validation to bypass (not recommended)"
         echo ""
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            echo -e "${CYAN}Pipeline cancelled${NC}"
-            return 1
+        if [[ "${@}" != *"--skip-validation"* ]]; then
+            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo -e "${CYAN}Pipeline cancelled${NC}"
+                return 1
+            fi
         fi
         # Reset loop count to allow retry
         loop_reset_file "$prd_file"

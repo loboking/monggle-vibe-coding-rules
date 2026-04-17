@@ -75,10 +75,12 @@ log_error() {
 # Show usage
 show_usage() {
     echo ""
-    echo -e "${CYAN}${BOLD}/prd - PRD Creator v2.4${NC}"
+    echo -e "${CYAN}${BOLD}/prd - PRD Creator v3.0${NC}"
     echo ""
     echo "Usage:"
-    echo "  /prd <type> [options]"
+    echo "  /prd                     # 기본: 핑퐁 대화 모드 (구조화된 요구사항 수집)"
+    echo "  /prd -f, --free          # 프리토킹 모드 (자유로운 대화)"
+    echo "  /prd <type> [options]    # 특정 타입으로 직접 생성"
     echo ""
     echo "Types:"
     echo "  feature        - 새로운 기능 개발"
@@ -92,19 +94,20 @@ show_usage() {
     echo "  devops         - DevOps 자동화 (v2.4)"
     echo ""
     echo "Options:"
-    echo "  --non-interactive    비대화형 모드"
-    echo "  --output <path>      출력 파일 경로"
-    echo "  --language <lang>    PRD 언어 (ko, en, zh, ja)"
-    echo "  --auto-pipeline      PRD 생성 후 자동 pipeline 실행"
-    echo "  --auto-lint          Pipeline 완료 후 자동 lint 실행"
+    echo "  -p, --pingpong         핑퐁 대화 모드 (기본)"
+    echo "  -f, --free             프리토킹 모드 (자유로운 대화)"
+    echo "  --non-interactive      비대응형 모드 (타입 필수)"
+    echo "  --output <path>        출력 파일 경로"
+    echo "  --language <lang>      PRD 언어 (ko, en, zh, ja)"
+    echo "  --auto-pipeline        PRD 생성 후 자동 pipeline 실행"
+    echo "  --auto-lint            Pipeline 완료 후 자동 lint 실행"
     echo ""
     echo "Examples:"
-    echo "  /prd feature"
+    echo "  /prd                     # 핑퐁 모드 (구조화된 Q&A)"
+    echo "  /prd -f                  # 프리토킹 모드 (자유 대화)"
+    echo "  /prd feature            # 기능 PRD 직접 생성"
+    echo "  /prd bug --output prd/fix-login.md"
     echo "  /prd api"
-    echo "  /prd --auto-pipeline feature"
-    echo "  /prd --auto-lint bug"
-    echo "  /prd --output prd/my-feature.md feature"
-    echo "  /prd --language en feature"
     echo ""
 }
 
@@ -170,7 +173,164 @@ check_python() {
     return 0
 }
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 핑퐁 대화 모드 (v3.0) - 아이디어 정리에서 PRD로
+# ═══════════════════════════════════════════════════════════════════════════
+
+# 대화 세션 저장소
+PINGPONG_SESSION_DIR="${PROJECT_ROOT}/.claude/.pingpong"
+PINGPONG_SESSION_FILE="${PINGPONG_SESSION_DIR}/current-session.json"
+
+# 대화 세션 초기화
+pingpong_init_session() {
+    mkdir -p "$PINGPONG_SESSION_DIR"
+
+    cat > "$PINGPONG_SESSION_FILE" << EOF
+{
+  "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "topic": "",
+  "messages": [],
+  "extracted": {
+    "goal": "",
+    "features": [],
+    "constraints": [],
+    "priorities": [],
+    "stakeholders": []
+  },
+  "round": 0
+}
+EOF
+}
+
+# 대화 메시지 추가
+pingpong_add_message() {
+    local role="$1"
+    local content="$2"
+
+    local temp_file=$(mktemp)
+    jq --arg role "$role" --arg content "$content" --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+        .messages += [{role: $role, content: $content, timestamp: $timestamp}] |
+        .round += 1
+    ' "$PINGPONG_SESSION_FILE" > "$temp_file"
+    mv "$temp_file" "$PINGPONG_SESSION_FILE"
+}
+
+# 컨텍스트 기반 다음 질문 생성
+pingpong_next_question() {
+    local session_data=$(cat "$PINGPONG_SESSION_FILE")
+    local round=$(echo "$session_data" | jq -r '.round')
+    local last_user_msg=$(echo "$session_data" | jq -r '.messages | reverse | .[0] | select(.role == "user") | .content' 2>/dev/null || echo "")
+
+    # 라운드별 질문
+    case $round in
+        0)
+            echo "어떤 기능이나 아이디어를 계획하고 계신가요? 자유롭게 말씀해 주세요."
+            ;;
+        1)
+            # 첫 답변 후 - 목표/기능 확인
+            if echo "$last_user_msg" | grep -qiE "기능|만들|추가|개발|구현"; then
+                echo "구체적으로 어떤 기능들을 생각하고 계신가요?"
+            elif echo "$last_user_msg" | grep -qiE "문제|이슈|버그|에러|수정"; then
+                echo "어떤 문제가 발생하고 있나요? 증상을 설명해 주시겠어요?"
+            elif echo "$last_user_msg" | grep -qiE "디자인|UI|화면|변경"; then
+                echo "어떤 스타일로 변경하고 싶으신가요?"
+            else
+                echo "조금 더 자세히 말씀해 주시겠어요? 어떤 목표를 가지고 계신가요?"
+            fi
+            ;;
+        2)
+            # 제약사항 확인
+            echo "제약사항이 있나요? (예: 성능, 마감일약, 기술 스택, 리소스 등)"
+            ;;
+        3)
+            # 우선순위 확인
+            echo "우선순위는 어떻게 되시나요? (긴급 / 높음 / 보통 / 낮음)"
+            ;;
+        4)
+            # 대상 사용자 확인
+            echo "주요 사용자나 이해관계자는 누구인가요?"
+            ;;
+        *)
+            # 추가 확인
+            echo "추가로 말씀하고 싶으신 게 있으신가요? (없으면 /done 또는 빈 줄 입력)"
+            ;;
+    esac
+}
+
+# 핑퐁 대화 모드 실행
+pingpong_mode() {
+    echo ""
+    echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}${BOLD}║     💬 핑퐁 모드 - PRD 작성 (기본 모드)            ║${NC}"
+    echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${GREEN}자연스러운 대화로 PRD를 작성합니다.${NC}"
+    echo "질문을 통해 요구사항을 명확히 정리해 드릴게요."
+    echo ""
+    echo -e "${YELLOW}명령어:${NC} /done (완료), /cancel (취소)"
+    echo ""
+
+    pingpong_init_session
+
+    local round=0
+    while true; do
+        # 질문 표시
+        local question=$(pingpong_next_question)
+        echo -e "${MAGENTA}Q${NC}: $question"
+        echo ""
+
+        # 사용자 입력 받기
+        read -p "> " user_input
+
+        # 명령어 처리
+        if [[ "$user_input" == "/done" ]] || [[ "$user_input" == "/cancel" ]] || [[ -z "$user_input" ]]; then
+            if [[ "$user_input" == "/cancel" ]]; then
+                echo ""
+                log_info "취소되었습니다."
+                return 1
+            fi
+            break
+        fi
+
+        # 메시지 저장
+        pingpong_add_message "user" "$user_input"
+
+        # 간단한 피드백
+        echo ""
+        echo -e "${GREEN}✓${NC} 입력받았습니다: $user_input"
+        echo ""
+
+        round=$((round + 1))
+        if [[ $round -ge 6 ]]; then
+            echo -e "${YELLOW}충분한 정보를 수집했습니다. /done를 입력하시면 PRD를 생성합니다.${NC}"
+            echo ""
+        fi
+    done
+
+    # PRD 생성을 위해 타입 결정
+    local session_data=$(cat "$PINGPONG_SESSION_FILE")
+    local all_messages=$(echo "$session_data" | jq -r '.messages[].content' | tr '\n' ' ')
+
+    local prd_type=$(detect_type_from_input "$all_messages")
+
+    echo ""
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}${BOLD}  PRD 생성 시작${NC}"
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "감지된 타입: ${GREEN}${prd_type}${NC}"
+    echo ""
+
+    # 세션 정보를 PRD 생성에 활용 (TODO: Python 스크립트에 전달)
+    # 현재는 기존 방식대로 진행
+
+    echo "$prd_type"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Main entry point
+# ═══════════════════════════════════════════════════════════════════════════
+
 main() {
     local prd_type=""
     local user_input=""
@@ -178,6 +338,8 @@ main() {
     local output_path=""
     local language="ko"
     local language_explicit=false  # --language 옵션 사용 여부
+    local pingpong_mode=false  # v3.0: 핑퐁 모드 (기본값으로 동작)
+    local freetalk_mode=false   # v3.0: 프리토킹 모드
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -185,6 +347,14 @@ main() {
             -h|--help)
                 show_usage
                 exit 0
+                ;;
+            --pingpong|-p)
+                pingpong_mode=true
+                shift
+                ;;
+            --free|-f)
+                freetalk_mode=true
+                shift
                 ;;
             --non-interactive)
                 non_interactive="--non-interactive"
@@ -223,6 +393,27 @@ main() {
                 ;;
         esac
     done
+
+    # 프리토킹 모드 (v3.0) - brainstorm.sh 위임
+    if [[ "$freetalk_mode" == true ]]; then
+        local BRAINSTORM_CMD="${SCRIPT_DIR}/brainstorm.sh"
+        if [[ -f "$BRAINSTORM_CMD" ]]; then
+            exec "$BRAINSTORM_CMD" --free
+        else
+            log_error "brainstorm.sh not found"
+            exit 1
+        fi
+    fi
+
+    # 핑퐁 모드 진입 (v3.0)
+    if [[ "$pingpong_mode" == true ]] || [[ -z "$prd_type" && -z "$non_interactive" ]]; then
+        prd_type=$(pingpong_mode)
+        if [[ -z "$prd_type" ]]; then
+            log_info "취소되었습니다."
+            exit 0
+        fi
+        # 핑퐁 모드에서 타입을 감지했으므로 계속 진행
+    fi
 
     # Validate language
     case "$language" in
