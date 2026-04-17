@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-2.6.1-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -73,6 +73,24 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
+## 💾 토큰 절약 규칙 (v2.6)
+
+CLAUDE.md에 토큰 최적화 규칙이 포함되어 있습니다:
+
+### 출력 최적화
+- **diff-only**: 변경 부분만 출력 (전체 파일 재출력 금지)
+- **참조 우선**: 코드 재출력 대신 `파일명:라인번호` 형식 사용
+- **중복 축약**: 반복 패턴은 "... (N more similar)" 형태로 축약
+
+### 코드 우선주의
+- 긴 설명 대신 **실행 가능한 코드** 우선
+- 주석은 복잡한 로직에만 최소화
+- 문서는 README/docs에 분리
+
+**효과**: 세션당 20-40% 토큰 절약
+
+---
+
 ## 🎬 0. 초기 설정 (최초 1회)
 
 처음 시작할 때 기본 환경을 설정합니다.
@@ -119,25 +137,23 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 **특징:**
 - ✅ 다국어 지원 (한국어, 영어)
 - ✅ 다양한 표현 자동 인식
-- ✅ 문맥 기반 의도 파악
+- ✅ 카테고리별 스킬 그룹핑
 
 **예시:**
 ```
-사용자: "너무 느려" → 자동 실행: /bottleneck
-사용자: "보안 문제 없나?" → 자동 실행: /audit
-사용자: "기획 좀 세워줘" → 자동 실행: /prd
-사용자: "코드 올릴게" → 자동 실행: /push-safe
+사용자: "너무 느려" → 자동 실행: bottleneck
+사용자: "보안 문제 없나?" → 자동 실행: audit
+사용자: "기획 좀 세워줘" → 자동 실행: prd
+사용자: "코드 올릴게" → 자동 실행: push-safe
 ```
 
-**지원 의도:**
-| 의도 | 스킬 |
-|-----|------|
-| 계획 수립 | `/prd` |
-| 구조 검토 | `/arch-review` |
-| 성능 문제 | `/bottleneck`, `/profile`, `/bench` |
-| 보안 점검 | `/audit` |
-| 코드 검토 | `/review` |
-| Git 동기화 | `/push-safe`, `/update` |
+**지원 의도 카테고리:**
+| 카테고리 | 의도 예시 | 스킬 |
+|---------|----------|------|
+| 🔍 Debug | 버그, 오류, 느려 | debug-master, bottleneck, front-bugfix |
+| ✅ QA | 작동 확인, 테스트 | qa |
+| 👁️ Review | 리뷰, 코드 검토 | review, code-reviewer |
+| 🛠️ 기타 | 계획, 보안, 배포 | prd, audit, push-safe |
 
 ---
 
