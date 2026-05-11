@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.6.2-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -70,6 +70,48 @@ cd monggle-vibe-coding-rules
 ```bash
 curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/main/install.sh | bash
 ```
+
+---
+
+## ✨ 자동 완성 & 오타 교정 (v2.6)
+
+### 설치
+
+```bash
+# ~/.bashrc 또는 ~/.zshrc에 추가
+echo 'source ~/.claude/commands/completions-v2.bash' >> ~/.bashrc
+echo 'source ~/.claude/commands/wrapper.sh' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 사용 예시
+
+```bash
+# 옵션 자동 완성 (Tab 키)
+/stats --[Tab]         # --web, --json, --filter-verdict, ...
+/qa --[Tab]            # --report, --quick, --format, ...
+
+# 오타 자동 교정
+/qaa                    # → /qa 로 자동 교정 후 실행
+/debugg                 # → /debug 로 자동 교정 후 실행
+/changlog               # → /changelog 로 자동 교정 후 실행
+```
+
+### 교정되는 명령어
+
+| 입력 | 교정됨 |
+|-----|--------|
+| `debugg`, `debuger` | `debug` |
+| `qaa`, `testt` | `qa` |
+| `log`, `logs` | `changelog` |
+| `ver`, `version` | `bump` |
+| `push`, `gitpush` | `push-safe` |
+| `lint` | `lint-smart` |
+| `idea` | `brainstorm` |
+| `save`, `checkpoint` | `save-point` |
+| `hotfix`, `fix` | `quick` |
+
+자세한 내용은 [AUTOCOMPLETE.md](.claude/commands/AUTOCOMPLETE.md)를 확인하세요.
 
 ---
 
@@ -372,7 +414,102 @@ Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 
 ---
 
+### 9. 🧠 뇌 시스템 (v3.0) 🆕
+
+**생체 모방 뇌 시스템** - 단기 기억에서 장기 기억으로의 변환, 망각 곡선, 시냅스 강화 등 실제 뇌의 인지 메커니즘을 구현합니다.
+
+```bash
+/brain                   # 뇌 통계 보기
+/brain save <type>       # 뉴런 수동 저장
+/brain query <tags>      # 태그로 검색
+/brain recall <id>       # 특정 뉴런 로드
+/brain forget <id>       # 뉴런 삭제
+/brain link <src> <tgt>  # 시냅스 연결
+/brain cleanup           # 망각 청소
+```
+
+**기능:**
+
+| 구성 요소 | 설명 |
+|-----------|------|
+| **해마 (Hippocampus)** | 단기 기억 (24시간 보관) |
+| **대뇌피질 (Neocortex)** | 장기 기억 저장소 |
+| **시냅스 (Synapses)** | 뉴런 간 연결 & 강도 관리 |
+| **편도체 (Amygdala)** | 감정 가중치 (긴급도, 중요도) |
+| **망각 곡선** | 오래된 약한 기억 자동 삭제 |
+
+**뉴런 타입:**
+
+| 타입 | 설명 | 예시 |
+|-----|------|------|
+| `decision` | 아키텍처/기술 결정 | JWT 저장소 결정 |
+| `pattern` | 코드 패턴/관용구 | Repository 패턴 |
+| `bug` | 해결된 버그 | AsyncStorage 보안 이슈 |
+| `context` | 프로젝트 컨텍스트 | Kotlin null-safety 강제 |
+| `todo` | 작업 항목 | 리팩토링 필요 |
+
+**자동 학습:**
+
+```
+세션 시작 → 해마에 컨텍스트 로드
+        ↓
+작업 중 중요 결정 감지
+        ↓
+세션 종료 → 자동 고착화 → 뉴런 생성
+        ↓
+시냅스 연결 및 감정 가중치 부여
+        ↓
+다음 세션에서 관련 기억 자동 제안
+```
+
+**망각 곡선 (Ebbinghaus):**
+
+```
+기억 유지율
+  100% ████
+   60% ████░░
+   20% ██░░░░░░░░░░░░░░░
+    0% ──────────────────→ 시간
+       20m  1h   1d   1w
+```
+
+- 반복 접근 시 유지율 향상
+- 감정 가중치가 높으면 망각 지연
+- 24시간 이상 접근 없으면 자동 청소
+
+---
+
 ## 💻 전체 명령어
+
+### 🔄 통합 명령어 (v3.0) 🆕
+
+하나의 명령어로 다양한 옵션을 처리합니다.
+
+| 명령어 | 설명 | 옵션 |
+|--------|------|------|
+| **`/debug`** | 통합 디버깅 | `--web`, `--css`, `--perf`, `--mem` |
+| **`/test`** | 통합 QA 테스트 | `--report`, `--quick` |
+| **`/review`** | 통합 리뷰 | `--code`, `--arch` |
+| **`/msg`** | 대화모드 | — |
+
+**사용 예시:**
+```bash
+/debug                  # 일반 디버깅 (debug-master)
+/debug --web           # 프론트엔드 디버깅 (front-bugfix)
+/debug --css           # CSS 디버깅 (css-bugfix)
+/debug --perf          # 성능 병목 (bottleneck)
+/debug --mem           # 메모리 누수 (mem-check)
+
+/test                   # 전체 QA (qa)
+/test --report          # 보고서만 (qa-only)
+/test --quick           # 빠른 테스트
+
+/review                 # PR diff 리뷰
+/review --code          # 코드 품질 리뷰 (code-reviewer)
+/review --arch          # 아키텍처 리뷰 (arch-review)
+
+/msg                    # 대화모드 시작
+```
 
 ### 워크플로우
 | 명령어 | 설명 |
@@ -428,6 +565,16 @@ Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 | `/stats` | 통계 확인 |
 | `/mode` | 모드 변경 |
 | `/harness` | 하네스 시스템 |
+
+### 🧠 뇌 시스템 (v3.0) 🆕
+| 명령어 | 설명 |
+|--------|------|
+| `/brain` | 뇌 통계 보기 |
+| `/brain save <type> <title>` | 뉴런 수동 저장 |
+| `/brain query <tags>` | 태그로 검색 |
+| `/brain recall <id>` | 특정 뉴런 로드 |
+| `/brain link <src> <tgt>` | 시냅스 연결 |
+| `/brain cleanup` | 망각 청소 |
 
 ---
 
@@ -567,7 +714,7 @@ git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v2.6.0**
+**Vibe Coding Skills for Claude v3.0.0**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 

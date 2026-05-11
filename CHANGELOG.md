@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0] - 2026-05-11
+
+### Added 🧠 뇌 시스템 (Brain System) - 주요 업데이트
+
+- **생체 모방 뇌 시스템 구현**
+  - 해마 (Hippocampus): 단기 기억 (24시간 보관)
+  - 대뇌피질 (Neocortex): 장기 기억 저장소
+  - 시냅스 (Synapses): 뉴런 간 연결 & 강도 관리
+  - 편도체 (Amygdala): 감정 가중치 (긴급도, 중요도)
+  - 망각 곡선: 오래된 약한 기억 자동 삭제
+
+- **뉴런 타입**
+  - `decision`: 아키텍처/기술 결정
+  - `pattern`: 코드 패턴/관용구
+  - `bug`: 해결된 버그
+  - `context`: 프로젝트 컨텍스트
+  - `todo`: 작업 항목
+  - `conversation`: 대화 요약
+
+- **자동 학습 메커니즘**
+  - 세션 시작: 컨텍스트 로드 (해마)
+  - 세션 종료: 자동 고착화 (대뇌피질)
+  - 시냅스 연결 및 감정 가중치 부여
+  - 망각 곡선에 따른 자동 청소
+
+- **Brain 커맨드**
+  - `/brain`: 뇌 통계 보기
+  - `/brain save <type> <title>`: 뉴런 수동 저장
+  - `/brain query <tags>`: 태그로 검색
+  - `/brain recall <id>`: 특정 뉴런 로드
+  - `/brain link <src> <tgt>`: 시냅스 연결
+  - `/brain cleanup`: 망각 청소
+
+- **Hook 통합**
+  - `SessionStart`: brain-session-start.sh (뇌 초기화 + 컨텍스트 로드)
+  - `SessionEnd`: brain-session-end.sh (세션 저장 + 고착화)
+
+### Added 🔀 스킬 통합 및 간소화 (Hybrid Commands)
+
+- **통합 명령어 시스템**
+  - `/debug [options]`: 통합 디버깅
+    - `--web`: 프론트엔드 (JS, React)
+    - `--css`: CSS 전용
+    - `--perf`: 성능 병목
+    - `--mem`: 메모리 누수
+  - `/test [options]`: 통합 QA 테스트
+    - `--report`: 보고서만 (수정 없음)
+    - `--quick`: 빠른 스모크 테스트
+  - `/review [options]`: 통합 리뷰
+    - `--code`: 코드 품질 리뷰
+    - `--arch`: 아키텍처 리뷰
+  - `/msg`: 대화모드 (Message Mode)
+
+- **스킬-뇌 통합**
+  - 통합 명령어 실행 시 관련 기억 자동 검색
+  - brain_query_by_tags로 컨텍스트 제공
+  - 버그/패턴/결정 태그 자동 연결
+
+- **하이브리드 호환성**
+  - 통합 명령어와 기존 별칭 모두 지원
+  - `/debug` = `/debug-master` (기본)
+  - `/debug --web` = `/front-bugfix`
+  - `/test` = `/qa`
+  - `/review` = PR diff 리뷰
+
+### Changed
+- README 버전 3.0.0으로 업데이트
+- settings.json에 뇌 시스템 설정 추가
+- wrapper.sh에 brain 관련 명령어 추가
+- wrapper.sh에 통합 명령어 처리 로직 추가 (_is_integrated_command, _exec_integrated_command)
+
+### Files Added
+- `.claude/brain/SPEC.md`: 뇌 시스템 명세서
+- `.claude/brain/brain-core.sh`: 뇌 시스템 코어 라이브러리
+- `.claude/hooks/brain-session-start.sh`: 세션 시작 훅
+- `.claude/hooks/brain-session-end.sh`: 세션 종료 훅
+- `.claude/commands/brain.sh`: 뇌 시스템 커맨드
+- `.claude/commands/debug.sh`: 통합 디버깅 커맨드
+- `.claude/commands/test.sh`: 통합 QA 커맨드
+- `.claude/commands/review-integrated.sh`: 통합 리뷰 커맨드
+- `.claude/commands/msg.sh`: 대화모드 커맨드
+- `.vscode/settings.json`: VSCode 설정 (slashCommands)
+
+---
+
 ## [2.6.0] - 2026-04-17
 
 ### Added
