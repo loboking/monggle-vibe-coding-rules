@@ -494,3 +494,17 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 [12:42:52] 수정: app/src/main/java/com/ocean/moacloud/ApplicationClass.kt
 ```
 
+
+### 2026-05-11
+
+**변경된 파일 수**: ��
+
+```
+[13:54:59] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
+[13:55:03] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
+[13:55:28] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
+[13:55:56] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/auth/OneDriveAuthManagerTest.kt
+[13:56:04] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/auth/OneDriveAuthManagerTest.kt
+[13:56:09] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
+```
+

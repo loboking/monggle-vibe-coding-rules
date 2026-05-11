@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -219,6 +219,7 @@ chmod 600 ~/.gemini/config
 - ✅ 다국어 지원 (한국어, 영어)
 - ✅ 다양한 표현 자동 인식
 - ✅ 카테고리별 스킬 그룹핑
+- ✅ **문맥 분석 후 자동 스킬 전환** (v2.6 추가)
 
 **예시:**
 ```
@@ -226,6 +227,7 @@ chmod 600 ~/.gemini/config
 사용자: "보안 문제 없나?" → 자동 실행: audit
 사용자: "기획 좀 세워줘" → 자동 실행: prd
 사용자: "코드 올릴게" → 자동 실행: push-safe
+사용자: "/prd 로그인 수정" → 문맥 분석: 기존 코드 → 자동 전환: /impact
 ```
 
 **지원 의도 카테고리:**
@@ -234,7 +236,16 @@ chmod 600 ~/.gemini/config
 | 🔍 Debug | 버그, 오류, 느려 | debug-master, bottleneck, front-bugfix |
 | ✅ QA | 작동 확인, 테스트 | qa |
 | 👁️ Review | 리뷰, 코드 검토 | review, code-reviewer |
+| 📊 Analysis | 영향도, 복잡도 | impact, complexity |
 | 🛠️ 기타 | 계획, 보안, 배포 | prd, audit, push-safe |
+
+**스킬 자동 전환 규칙 (v2.6):**
+| 요청 | 문맥 | 전환 |
+|-----|------|------|
+| `/prd 로그인 수정` | 기존 코드 수정 | → `/impact` |
+| `/prd 버고` | 오류 발생 | → `/debug` |
+| `/prd 느려` | 성능 문제 | → `/bottleneck` |
+| `/idea 구체적으로` | 상세 기획 필요 | → `/prd` |
 
 ---
 
@@ -317,6 +328,26 @@ Git 로그과 코드에서 문서를 자동 생성합니다.
 /bench           # 벤치마크 실행/비교
 /mem-check       # 메모리 누수 탐지
 ```
+
+---
+
+### 5-1. 영향도 분석 (v3.1) 🆕
+
+수정 전 사이드 이펙트와 연쇄 이슈를 미리 분석합니다.
+
+```bash
+/impact                  # 영향도 분석
+/impact <target>         # 특정 파일/함수 분석
+/impact --diff HEAD~1    # diff 기반 분석
+/impact --deep           # 심층 분석 (Agent)
+```
+
+**출력 내용:**
+- 📍 직접 의존성 (imports, calls)
+- 🔗 간접 의존성 (shared state, API contracts)
+- ⚠️ 리스크 등급 (高危/中/低)
+- 📊 연쇄 이슈 예측
+- 📋 수정 체크리스트
 
 ---
 
@@ -551,6 +582,7 @@ Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 | `/profile` | 프로파일링 |
 | `/bench` | 벤치마크 |
 | `/mem-check` | 메모리 누수 |
+| `/impact` | 영향도 분석 (사이드 이펙트) |
 
 ### 작업 관리 (v2.6) 🆕
 | 명령어 | 설명 |
@@ -714,7 +746,7 @@ git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v3.0.0**
+**Vibe Coding Skills for Claude v3.1.0**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 
