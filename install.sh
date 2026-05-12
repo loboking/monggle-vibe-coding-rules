@@ -96,7 +96,40 @@ create_directories() {
     mkdir -p "$PROJECT_ROOT/logs"
     mkdir -p "$PROJECT_ROOT/rules"
 
+    # 전역 디렉토리도 생성
+    mkdir -p "$HOME/.claude/commands"
+    mkdir -p "$HOME/.claude/skills"
+
     print_success "Directories created"
+}
+
+# 전역 설치 (스킬 복사)
+install_global() {
+    print_step "Installing skills to global ~/.claude/commands/..."
+
+    local global_dir="$HOME/.claude/commands"
+    local local_commands="$SCRIPT_DIR/.claude/commands"
+    local count=0
+
+    # 모든 .sh 파일을 전역으로 복사 (이미 있는 것은 건너뜀)
+    for script in "$local_commands"/*.sh; do
+        if [ -f "$script" ]; then
+            local basename=$(basename "$script")
+            # wrapper.sh는 이미 전역에 있을 수 있으므로 덮어쓰기
+            if [ ! -f "$global_dir/$basename" ] || [ "$basename" = "wrapper.sh" ]; then
+                cp "$script" "$global_dir/$basename"
+                chmod +x "$global_dir/$basename"
+                ((count++))
+            fi
+        fi
+    done
+
+    # completions도 복사
+    if [ -f "$local_commands/completions-v2.bash" ]; then
+        cp "$local_commands/completions-v2.bash" "$global_dir/completions-v2.bash"
+    fi
+
+    print_success "Copied/updated $count skill scripts to global"
 }
 
 # Set executable permissions
@@ -484,6 +517,9 @@ main() {
 
     # Step 2: Create directories
     create_directories
+
+    # Step 2.5: Install global skills
+    install_global
 
     # Step 3: Set permissions
     set_permissions
