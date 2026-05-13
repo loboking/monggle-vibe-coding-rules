@@ -508,3 +508,27 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 [13:56:09] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
 ```
 
+
+### 2026-05-13
+
+**변경된 파일 수**: ��
+
+```
+[09:06:09] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+[09:07:22] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+[09:07:39] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+[09:08:03] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
+[09:08:48] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
+[09:09:33] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/act/viewmodel/CloudViewModel.kt
+[09:09:43] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
+[09:11:02] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:11:26] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:11:51] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:12:12] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:12:20] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:12:32] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:12:52] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:13:00] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+[09:13:09] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
+```
+

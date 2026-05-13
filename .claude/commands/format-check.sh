@@ -15,11 +15,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/common.sh"
 
+# 하네스 래퍼 로드 (자동 추적)
+source "${SCRIPT_DIR}/../brain/skill-harness-wrapper.sh" 2>/dev/null || true
+
+# 스킬 종료 시 자동 기록 (trap)
+trap 'harness_skill_end $?' EXIT
+
 # Configuration
 PROJECT_ROOT="$(get_project_root)"
 PROJECT_TYPE="$(detect_project_type "$PROJECT_ROOT")"
 SHOW_DIFF=0
 JSON_OUTPUT=0
+
+# 하네스 추적 시작
+harness_skill_start "$@"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do

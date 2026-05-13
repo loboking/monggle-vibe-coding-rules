@@ -26,6 +26,18 @@ NC='\033[0m'
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# OS Detection for cross-platform compatibility
+detect_os() {
+    case "$OSTYPE" in
+        darwin*)  echo "macos" ;;
+        linux*)   echo "linux" ;;
+        msys*|cygwin*) echo "windows" ;;
+        *)        echo "unknown" ;;
+    esac
+}
+
+OS_TYPE=$(detect_os)
+
 # Print header
 print_header() {
     echo ""
@@ -53,6 +65,72 @@ print_warning() {
 # Print error
 print_error() {
     echo -e "${RED}[✗]${NC} $1"
+}
+
+# Portable sed -i for macOS/Linux compatibility
+sed_i() {
+    if [[ "$OS_TYPE" == "macos" ]]; then
+        sed -i "" "$@"
+    else
+        sed -i "$@"
+    fi
+}
+
+# Ensure jq is installed
+ensure_jq() {
+    if command -v jq &> /dev/null; then
+        return 0
+    fi
+
+    print_warning "jq not found, attempting to install..."
+
+    case "$OS_TYPE" in
+        macos)
+            if command -v brew &> /dev/null; then
+                brew install jq
+            else
+                print_error "Homebrew not found. Install jq manually: brew install jq"
+                return 1
+            fi
+            ;;
+        linux)
+            if command -v apt-get &> /dev/null; then
+                sudo apt-get update && sudo apt-get install -y jq
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y jq
+            elif command -v dnf &> /dev/null; then
+                sudo dnf install -y jq
+            elif command -v pacman &> /dev/null; then
+                sudo pacman -S jq
+            else
+                print_error "Package manager not found. Install jq manually"
+                return 1
+            fi
+            ;;
+        windows)
+            if command -v choco &> /dev/null; then
+                choco install jq
+            elif command -v winget &> /dev/null; then
+                winget install jqlang.jq
+            else
+                print_error "Package manager not found. Install jq manually: choco install jq"
+                return 1
+            fi
+            ;;
+        *)
+            print_error "Unknown OS. Install jq manually"
+            return 1
+            ;;
+    esac
+
+    # Verify installation
+    if command -v jq &> /dev/null; then
+        print_success "jq installed successfully"
+        return 0
+    else
+        print_error "Failed to install jq"
+        return 1
+    fi
 }
 
 # Check Python version
@@ -111,16 +189,16 @@ install_global() {
     local local_commands="$SCRIPT_DIR/.claude/commands"
     local count=0
 
-    # 모든 .sh 파일을 전역으로 복사 (이미 있는 것은 건너뜀)
+    # 전역 디렉토리 생성
+    mkdir -p "$global_dir"
+
+    # 모든 .sh 파일을 전역으로 복사 (최신 버전으로 덮어쓰기)
     for script in "$local_commands"/*.sh; do
         if [ -f "$script" ]; then
             local basename=$(basename "$script")
-            # wrapper.sh는 이미 전역에 있을 수 있으므로 덮어쓰기
-            if [ ! -f "$global_dir/$basename" ] || [ "$basename" = "wrapper.sh" ]; then
-                cp "$script" "$global_dir/$basename"
-                chmod +x "$global_dir/$basename"
-                ((count++))
-            fi
+            cp "$script" "$global_dir/$basename"
+            chmod +x "$global_dir/$basename"
+            ((count++))
         fi
     done
 
@@ -130,6 +208,52 @@ install_global() {
     fi
 
     print_success "Copied/updated $count skill scripts to global"
+
+    # 하네스 파일도 전역으로 복사
+    print_step "Installing harness system to global..."
+    local global_brain="$HOME/.claude/brain"
+    mkdir -p "$global_brain"
+
+    if [ -f "$SCRIPT_DIR/.claude/brain/harness-tracker.sh" ]; then
+        cp "$SCRIPT_DIR/.claude/brain/harness-tracker.sh" "$global_brain/harness-tracker.sh"
+        chmod +x "$global_brain/harness-tracker.sh"
+    fi
+
+    if [ -f "$SCRIPT_DIR/.claude/brain/skill-harness-wrapper.sh" ]; then
+        cp "$SCRIPT_DIR/.claude/brain/skill-harness-wrapper.sh" "$global_brain/skill-harness-wrapper.sh"
+        chmod +x "$global_brain/skill-harness-wrapper.sh"
+    fi
+
+    # Auto-compact 자동 활성화 (jq 설치 시도)
+    print_step "Enabling auto-compact in Claude settings..."
+
+    if ensure_jq; then
+        # ~/.claude.json에 autoCompact 설정 추가
+        if [ -f "$HOME/.claude.json" ]; then
+            # 현재 설정 확인
+            current_auto_compact=$(jq -r '.autoCompact // "false"' "$HOME/.claude.json" 2>/dev/null || echo "false")
+
+            if [ "$current_auto_compact" = "true" ]; then
+                print_success "Auto-compact already enabled"
+            else
+                # autoCompact 활성화 (크로스플랫폼 호환)
+                local tmp_file="$HOME/.claude.json.tmp"
+                jq '.autoCompact = true' "$HOME/.claude.json" > "$tmp_file" && mv "$tmp_file" "$HOME/.claude.json"
+                print_success "Auto-compact enabled in ~/.claude.json"
+            fi
+        else
+            # ~/.claude.json이 없으면 생성
+            cat > "$HOME/.claude.json" << 'EOF'
+{
+  "autoCompact": true
+}
+EOF
+            print_success "Created ~/.claude.json with auto-compact enabled"
+        fi
+    else
+        print_warning "jq not available, skipping auto-compact setup"
+        print_warning "Install jq manually for auto-compact feature"
+    fi
 }
 
 # Set executable permissions
@@ -144,6 +268,23 @@ set_permissions() {
     chmod +x "$SCRIPT_DIR/scripts/init_core.py" 2>/dev/null || true
     chmod +x "$SCRIPT_DIR/install.sh" 2>/dev/null || true
 
+    # Set all command scripts as executable (portable way)
+    if [ -d "$SCRIPT_DIR/.claude/commands" ]; then
+        for script in "$SCRIPT_DIR/.claude/commands"/*.sh; do
+            if [ -f "$script" ]; then
+                chmod +x "$script" 2>/dev/null || true
+            fi
+        done
+    fi
+
+    # 하네스 파일 실행 권한 설정
+    chmod +x "$SCRIPT_DIR/.claude/brain/harness-tracker.sh" 2>/dev/null || true
+    chmod +x "$SCRIPT_DIR/.claude/brain/skill-harness-wrapper.sh" 2>/dev/null || true
+
+    # 전역 하네스 파일 실행 권한
+    chmod +x "$HOME/.claude/brain/harness-tracker.sh" 2>/dev/null || true
+    chmod +x "$HOME/.claude/brain/skill-harness-wrapper.sh" 2>/dev/null || true
+
     print_success "Permissions set"
 }
 
@@ -153,12 +294,28 @@ generate_settings() {
 
     cd "$PROJECT_ROOT"
 
-    # Run Python script
-    if $PYTHON_CMD "$SCRIPT_DIR/scripts/generate_settings.py"; then
-        print_success "settings.json generated"
+    # Check if Python script exists
+    if [ -f "$SCRIPT_DIR/scripts/generate_settings.py" ]; then
+        # Run Python script
+        if $PYTHON_CMD "$SCRIPT_DIR/scripts/generate_settings.py"; then
+            print_success "settings.json generated"
+        else
+            print_error "Failed to generate settings.json"
+            return 1
+        fi
     else
-        print_error "Failed to generate settings.json"
-        return 1
+        # Fallback: Create basic settings.json manually
+        mkdir -p "$PROJECT_ROOT/.claude/config"
+        cat > "$PROJECT_ROOT/.claude/settings.json" << EOF
+{
+  "name": "monggle-vibe-coding-rules",
+  "version": "3.1.0",
+  "description": "Vibe Coding Rules for Claude Code",
+  "language": "$PRD_LANGUAGE",
+  "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+EOF
+        print_success "settings.json created (fallback)"
     fi
 }
 
@@ -334,8 +491,13 @@ EOF
         print_step "Setting up GitHub Actions..."
         mkdir -p "$PROJECT_ROOT/.github/workflows"
         if [ -f "$SCRIPT_DIR/.github/workflows/ai-reviewer.yml" ]; then
-            cp "$SCRIPT_DIR/.github/workflows/ai-reviewer.yml" "$PROJECT_ROOT/.github/workflows/ai-reviewer.yml"
-            print_success "GitHub Actions workflow created"
+            # 파일이 다를 때만 복사
+            if ! cmp -s "$SCRIPT_DIR/.github/workflows/ai-reviewer.yml" "$PROJECT_ROOT/.github/workflows/ai-reviewer.yml" 2>/dev/null; then
+                cp "$SCRIPT_DIR/.github/workflows/ai-reviewer.yml" "$PROJECT_ROOT/.github/workflows/ai-reviewer.yml"
+                print_success "GitHub Actions workflow created"
+            else
+                print_success "GitHub Actions workflow already up to date"
+            fi
         fi
     fi
 
@@ -343,15 +505,20 @@ EOF
     if [ "$GIT_PLATFORM" = "gitlab" ]; then
         print_step "Setting up GitLab CI..."
         if [ -f "$SCRIPT_DIR/.gitlab-ci.yml" ]; then
-            cp "$SCRIPT_DIR/.gitlab-ci.yml" "$PROJECT_ROOT/.gitlab-ci.yml"
-            print_success "GitLab CI configuration created"
+            # 파일이 다를 때만 복사
+            if ! cmp -s "$SCRIPT_DIR/.gitlab-ci.yml" "$PROJECT_ROOT/.gitlab-ci.yml" 2>/dev/null; then
+                cp "$SCRIPT_DIR/.gitlab-ci.yml" "$PROJECT_ROOT/.gitlab-ci.yml"
+                print_success "GitLab CI configuration created"
+            else
+                print_success "GitLab CI configuration already up to date"
+            fi
         fi
     fi
 
     # Install Python dependencies for AI reviewer
     print_step "Installing AI Reviewer dependencies..."
     if command -v pip3 &> /dev/null; then
-        pip3 install pyyaml openai 2>/dev/null || print_warning "Failed to install dependencies (install manually: pip3 install pyyaml openai)"
+        pip3 install pyyaml openai >/dev/null 2>&1 || print_warning "Failed to install dependencies (install manually: pip3 install pyyaml openai)"
     else
         print_warning "pip3 not found, skipping dependency installation"
     fi
@@ -422,6 +589,40 @@ verify_installation() {
         fi
     fi
 
+    # Check harness files
+    if [ -f "$PROJECT_ROOT/.claude/brain/harness-tracker.sh" ]; then
+        if [ -x "$PROJECT_ROOT/.claude/brain/harness-tracker.sh" ]; then
+            print_success "harness-tracker.sh is executable"
+        else
+            print_warning "harness-tracker.sh exists but not executable"
+            chmod +x "$PROJECT_ROOT/.claude/brain/harness-tracker.sh"
+        fi
+    else
+        print_warning "harness-tracker.sh not found (optional)"
+    fi
+
+    if [ -f "$PROJECT_ROOT/.claude/brain/skill-harness-wrapper.sh" ]; then
+        if [ -x "$PROJECT_ROOT/.claude/brain/skill-harness-wrapper.sh" ]; then
+            print_success "skill-harness-wrapper.sh is executable"
+        else
+            print_warning "skill-harness-wrapper.sh exists but not executable"
+            chmod +x "$PROJECT_ROOT/.claude/brain/skill-harness-wrapper.sh"
+        fi
+    else
+        print_warning "skill-harness-wrapper.sh not found (optional)"
+    fi
+
+    # Check global harness files
+    if [ -f "$HOME/.claude/brain/harness-tracker.sh" ]; then
+        print_success "Global harness-tracker.sh exists"
+    else
+        print_warning "Global harness-tracker.sh not found (optional)"
+    fi
+
+    # OS-specific info
+    echo ""
+    print_step "Platform info: OS=$OS_TYPE"
+
     return $errors
 }
 
@@ -436,6 +637,8 @@ print_summary() {
     if [ $exit_code -eq 0 ]; then
         echo -e "${GREEN}${BOLD}✓ INSTALLATION COMPLETE${NC}"
         echo ""
+        echo -e "${CYAN}Platform: ${OS_TYPE}${NC}"
+        echo ""
         echo -e "${CYAN}Next steps:${NC}"
         echo "  1. Create a PRD: cp prd/feature.md prd/feature-your-feature.md"
         echo "  2. Edit the PRD with your requirements"
@@ -446,10 +649,46 @@ print_summary() {
         echo "  /pipeline  - Run full agent pipeline"
         echo "  /trace     - View execution logs"
         echo ""
+
+        # Platform-specific tips
+        case "$OS_TYPE" in
+            macos)
+                echo -e "${CYAN}macOS tips:${NC}"
+                echo "  - Use 'brew install jq' for auto-compact feature"
+                echo "  - Bash: /bin/bash on macOS (GNU bash 3.2+)"
+                ;;
+            linux)
+                echo -e "${CYAN}Linux tips:${NC}"
+                echo "  - Use 'sudo apt install jq' or 'sudo yum install jq'"
+                echo "  - Ensure GNU bash 4.0+ for best compatibility"
+                ;;
+            windows)
+                echo -e "${CYAN}Windows tips:${NC}"
+                echo "  - Run in Git Bash or WSL for best compatibility"
+                echo "  - Use 'choco install jq' or 'winget install jqlang.jq'"
+                echo "  - PowerShell not fully supported yet"
+                ;;
+        esac
+        echo ""
     else
         echo -e "${RED}${BOLD}✗ INSTALLATION FAILED${NC}"
         echo ""
         echo "Please check the errors above and try again."
+        echo ""
+        echo -e "${CYAN}Platform-specific help:${NC}"
+        case "$OS_TYPE" in
+            macos)
+                echo "  macOS: Ensure Xcode Command Line Tools are installed"
+                echo "  xcode-select --install"
+                ;;
+            linux)
+                echo "  Linux: Ensure bash 4.0+ and coreutils are installed"
+                ;;
+            windows)
+                echo "  Windows: Use Git Bash (https://git-scm.com/download/win)"
+                echo "  WSL also supported: wsl install"
+                ;;
+        esac
         echo ""
     fi
 

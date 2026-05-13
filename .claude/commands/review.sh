@@ -10,6 +10,13 @@
 
 set -euo pipefail
 
+# 하네스 래퍼 로드 (자동 추적)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/../brain/skill-harness-wrapper.sh" 2>/dev/null || true
+
+# 스킬 종료 시 자동 기록 (trap)
+trap 'harness_skill_end $?' EXIT
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -41,6 +48,9 @@ get_diff() {
 
 # Main function
 main() {
+    # 하네스 추적 시작
+    harness_skill_start "$@"
+
     local target=""
     local file=""
 

@@ -204,14 +204,29 @@ find_prd_file() {
         return 1
     fi
 
-    # Find latest modified .md file
+    # Find latest modified .md file (portable)
     local latest
-    latest=$(find "$prd_dir" -maxdepth 1 -name "*.md" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
+    local latest_time=0
 
-    if [[ -z "$latest" ]]; then
-        # Try macOS/BSD find
-        latest=$(find "$prd_dir" -maxdepth 1 -name "*.md" -type f 2>/dev/null | while read -r f; do stat -f "%m %N" "$f"; done | sort -n | tail -1 | cut -d' ' -f2-)
-    fi
+    # Use find with ls -T for portability (works on most Unix-like systems)
+    for f in "$prd_dir"/*.md; do
+        if [[ -f "$f" ]]; then
+            # Get modification time in seconds (portable)
+            local mtime
+            if [[ "$OSTYPE" == darwin* ]]; then
+                # macOS/BSD stat
+                mtime=$(stat -f "%m" "$f" 2>/dev/null || echo "0")
+            else
+                # GNU stat
+                mtime=$(stat -c "%Y" "$f" 2>/dev/null || echo "0")
+            fi
+
+            if [[ "$mtime" -gt "$latest_time" ]]; then
+                latest_time="$mtime"
+                latest="$f"
+            fi
+        fi
+    done
 
     echo "$latest"
 }
