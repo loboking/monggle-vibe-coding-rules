@@ -394,6 +394,99 @@ get_arch() {
     esac
 }
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Upgrade Check Functions (for auto-upgrade on skill first run)
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Check for available upgrades (non-blocking, throttled to once per day)
+# Returns: 0 if upgrade available, 1 if up to date, 2 if check skipped
+check_upgrade_available() {
+    local project_root="${1:-$(get_project_root)}"
+    local force_check="${2:-false}"
+
+    # Skip if not a git repo
+    if [[ ! -d "${project_root}/.git" ]]; then
+        return 2
+    fi
+
+    # Upgrade state directory
+    local upgrade_state_dir="${project_root}/.claude/.upgrade"
+    local last_check_file="${upgrade_state_dir}/.last_check"
+    local check_interval=86400  # 24 hours
+
+    mkdir -p "$upgrade_state_dir"
+
+    # Check throttle (unless forced)
+    if [[ "$force_check" != "true" ]] && [[ -f "$last_check_file" ]]; then
+        local last_check now elapsed
+        last_check=$(cat "$last_check_file" 2>/dev/null || echo "0")
+        now=$(date +%s)
+        elapsed=$((now - last_check))
+
+        if [[ $elapsed -lt $check_interval ]]; then
+            return 2  # Skip, recently checked
+        fi
+    fi
+
+    # Record check time
+    date +%s > "$last_check_file"
+
+    # Get current version
+    local current_version="unknown"
+    if [[ -f "${project_root}/.claude/version" ]]; then
+        current_version=$(cat "${project_root}/.claude/version")
+    elif [[ -f "${project_root}/CLAUDE.md" ]]; then
+        current_version=$(sed -nE 's/.*Version:.*v([0-9.]+).*/\1/p' "${project_root}/CLAUDE.md" 2>/dev/null | head -1)
+    fi
+
+    # Get latest version from git tags
+    cd "$project_root"
+    local latest_version="unknown"
+
+    if git fetch --tags origin >/dev/null 2>&1; then
+        latest_version=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+    fi
+
+    # Compare versions
+    if [[ "$current_version" != "unknown" ]] && [[ "$latest_version" != "unknown" ]]; then
+        # Remove 'v' prefix
+        current_version="${current_version#v}"
+        latest_version="${latest_version#v}"
+
+        # Split and compare
+        local IFS=.
+        local i cur_parts=($current_version) lat_parts=($latest_version)
+
+        for ((i=0; i<${#cur_parts[@]} || i<${#lat_parts[@]}; i++)); do
+            local cur=$((10#${cur_parts[i]:-0}))
+            local lat=$((10#${lat_parts[i]:-0}))
+            if ((cur < lat)); then
+                # Upgrade available
+                echo ""
+                echo -e "${YELLOW}[!]${NC} ${BOLD}Vibe Coding Rules update available${NC}"
+                echo -e "   Current: ${DIM}${current_version}${NC} → Latest: ${GREEN}${latest_version}${NC}"
+                echo -e "   Run: ${CYAN}/monggle-upgrade${NC} to update"
+                echo ""
+                return 0
+            fi
+        done
+    fi
+
+    return 1  # Up to date
+}
+
+# Auto-check upgrade on skill load (recommended for skills)
+# Usage: add this to skill preamble: auto_check_upgrade
+auto_check_upgrade() {
+    # Only check if UPGRADE_CHECK env var is not set to "false"
+    if [[ "${UPGRADE_CHECK:-true}" != "false" ]]; then
+        check_upgrade_available >/dev/null 2>&1 || true
+    fi
+}
+
+# Export upgrade functions
+export -f check_upgrade_available auto_check_upgrade
+
 # Export functions
 export -f log_info log_success log_error log_warn log_debug log_step log_section
 export -f die command_exists check_commands

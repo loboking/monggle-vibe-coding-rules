@@ -192,8 +192,22 @@ install_global() {
     # 전역 디렉토리 생성
     mkdir -p "$global_dir"
 
-    # 모든 .sh 파일을 전역으로 복사 (최신 버전으로 덮어쓰기)
+    # monggle- 접두사 스킬들도 복사 (심볼릭 링크로)
+    for script in "$local_commands"/monggle-*.sh; do
+        if [ -f "$script" ]; then
+            local basename=$(basename "$script")
+            cp "$script" "$global_dir/$basename"
+            chmod +x "$global_dir/$basename"
+            ((count++))
+        fi
+    done
+
+    # monggle- 접두사 없는 스킬들도 복사
     for script in "$local_commands"/*.sh; do
+        # monggle- 스킬은 이미 처리됨
+        if [[ "$script" =~ monggle- ]]; then
+            continue
+        fi
         if [ -f "$script" ]; then
             local basename=$(basename "$script")
             cp "$script" "$global_dir/$basename"
@@ -223,6 +237,22 @@ install_global() {
         cp "$SCRIPT_DIR/.claude/brain/skill-harness-wrapper.sh" "$global_brain/skill-harness-wrapper.sh"
         chmod +x "$global_brain/skill-harness-wrapper.sh"
     fi
+
+    # lib도 전역으로 복사
+    print_step "Installing lib system to global..."
+    local global_lib="$HOME/.claude/lib"
+    mkdir -p "$global_lib"
+
+    if [ -d "$SCRIPT_DIR/.claude/lib" ]; then
+        for lib_file in "$SCRIPT_DIR/.claude/lib"/*.sh; do
+            if [ -f "$lib_file" ]; then
+                cp "$lib_file" "$global_lib/"
+                chmod +x "$global_lib/$(basename "$lib_file")"
+            fi
+        done
+    fi
+
+    print_success "Lib files installed to global"
 
     # Auto-compact 자동 활성화 (jq 설치 시도)
     print_step "Enabling auto-compact in Claude settings..."

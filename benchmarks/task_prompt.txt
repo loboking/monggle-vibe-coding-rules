@@ -1,0 +1,1 @@
+Use run-agent to create a calculator web app with HTML/CSS/JS. Include basic operations (+, -, *, /), clear button, and modern styling.

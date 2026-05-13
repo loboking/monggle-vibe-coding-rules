@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.0] - 2026-05-13
+
+### Added 🔧 업그레이드 시스템
+
+- **`/monggle-upgrade` 스킬**
+  - GitHub 원격 저장소에서 최신 버전 확인
+  - 자동 업그레이드 (git pull + install.sh)
+  - 24시간 체크 쓰로틀링 (너무 잦은 체크 방지)
+  - `--check-only`: 확인만 하고 설치 안함
+  - `--force`: 강제 업그레이드 체크
+
+- **자동 업그레이드 체크**
+  - `common.sh`에 `check_upgrade_available()` 함수 추가
+  - 스킬 최초 실행시 자동 업그레이드 체크
+  - 알림만 표시하고 사용자가 직접 업그레이드 결정
+  - `UPGRADE_CHECK=false` 환경변수로 비활성화 가능
+
+### Added 📦 자동 등록 강화
+
+- **install.sh 개선**
+  - `monggle-*.sh` 스킬들도 전역 자동 복사
+  - `~/.claude/lib/` 디렉토리로 라이브러리 전역 복사
+  - 모든 .sh 파일 실행 권한 자동 부여
+  - 전역 하네스 파일 자동 설치
+
+### Fixed 🐛 크로스플랫폼 호환성
+
+- **macOS stat 명령어 호환성**
+  - `platform.sh`의 `stat_mtime()` 함수로 해결
+  - macOS: `stat -f "%m"` / Linux: `stat -c "%Y"`
+  - 크로스플랫폼 QA 28개 테스트 전체 통과
+
+### Changed 📝
+
+- **`.claude/version` 파일 추가**
+  - 버전 관리를 위한 별도 파일
+  - 업그레이드 체크시 참조
+
+---
+
 ## [3.0.0] - 2026-05-11
 
 ### Added 🧠 뇌 시스템 (Brain System) - 주요 업데이트
