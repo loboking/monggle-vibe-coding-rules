@@ -24,6 +24,10 @@ team:
       name: "loboking"
     - email: "5001422+loboking@users.noreply.github.com"
       name: "loboking"
+    - email: "5001422+loboking@users.noreply.github.com"
+      name: "loboking"
+    - email: "5001422+loboking@users.noreply.github.com"
+      name: "loboking"
     - email: "{{ADMIN_EMAIL}}"
       name: "{{ADMIN_NAME}}"
 
