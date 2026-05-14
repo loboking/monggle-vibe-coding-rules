@@ -5,7 +5,7 @@
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
@@ -73,7 +73,7 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
-## ✨ 자동 완성 & 오타 교정 (v2.6)
+## ✨ 자동 완성 & 오타 교정 (v3.2)
 
 ### 설치
 
@@ -211,7 +211,34 @@ chmod 600 ~/.gemini/config
 
 ## 📝 핵심 기능
 
-### 0. 🤖 의도 기반 스킬 실행 (v2.6)
+### 0. 💡 대화형 도움말 (v3.2) 🆕
+
+카테고리별 스킬 검색 및 퍼지 매칭으로 원하는 명령어를 쉽게 찾을 수 있습니다.
+
+```bash
+/help                    # 전체 목록 (카테고리별)
+/help debug             # 디버그 스킬만
+/help --search "test"    # 검색
+/help --list             # 간단 목록
+/help --summary          # 카테고리 요약
+```
+
+**카테고리:**
+- 🔍 디버그 (debug, bottleneck, front-bugfix, css-bugfix, mem-check)
+- ✅ QA (qa, qa-only)
+- 👁️ 리뷰 (review, code-reviewer, arch-review)
+- ⚙️ 핵심 (prd, gate, pipeline, trace, stats)
+- 📊 분석 (audit, complexity, impact)
+- 📝 문서 (api-docs, changelog, readme-sync)
+- 🔧 Git (bump, push-safe)
+- 💻 개발 (quick, format-check, lint-smart)
+- 🛠️ 유틸리티 (bench, profile, save-point, brainstorm)
+- ⚙️ 설정 (init, mode, monggle-upgrade)
+- 🧰 툴킷 (duo, run, super, gemini, planner, doc-writer)
+
+---
+
+### 1. 🤖 의도 기반 스킬 실행 (v2.6)
 
 사용자의 자연어 입력에서 **의도(Intent)**를 파악하여 자동으로 적절한 스킬을 실행합니다. 키워드 매칭이 아니라 **의미 이해**가 핵심입니다.
 
@@ -597,6 +624,8 @@ Pipeline 실행 후 자동으로 작동합니다. (백그라운드)
 | `/stats` | 통계 확인 |
 | `/mode` | 모드 변경 |
 | `/harness` | 하네스 시스템 |
+| `/monggle-upgrade` | 업그레이드 체크 및 설치 (v3.2) |
+| `/compact` | 컨텍스트 정리 (토큰 절약) |
 
 ### 🧠 뇌 시스템 (v3.0) 🆕
 | 명령어 | 설명 |
@@ -746,7 +775,7 @@ git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v3.1.0**
+**Vibe Coding Skills for Claude v3.2.0**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 
