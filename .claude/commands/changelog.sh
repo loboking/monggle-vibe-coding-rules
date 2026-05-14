@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# changelog.sh - Generate CHANGELOG.md from git commits
+# changelog.sh - monggle: Generate CHANGELOG.md from git commits
 #
 # Usage: /changelog [options]
 #

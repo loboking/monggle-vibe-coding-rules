@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lint-smart.sh - Smart project auto-detection linter
+# lint-smart.sh - monggle: Smart linter
 #
 # Usage: /lint-smart [options] [files...]
 #

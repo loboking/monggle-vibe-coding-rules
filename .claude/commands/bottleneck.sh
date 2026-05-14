@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# bottleneck.sh - Find performance bottlenecks
+# bottleneck.sh - monggle: Find performance bottlenecks
 #
 # Usage: /bottleneck [options]
 #

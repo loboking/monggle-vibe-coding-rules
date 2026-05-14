@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# prd.sh - Interactive PRD Creation Command v2.4
+# prd.sh - monggle: PRD Creator
 #
 # Usage: /prd [type] [options]
 #

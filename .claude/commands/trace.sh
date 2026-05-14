@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# /trace - Log Viewer
+# trace.sh - monggle: Pipeline Trace
 #
 # View and analyze Vibe Coding pipeline logs.
 # Shows validation results, agent outputs, and execution traces.

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# /gate - PRD Validation Command
+# gate.sh - monggle: PRD Validation Command
 #
 # Validates PRD file existence, format, and required sections.
 # Part of the Vibe Coding Rules enforcement system.

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# bump.sh - Bump version and create git tag
+# bump.sh - monggle: Bump version and create git tag
 #
 # Usage: /bump [major|minor|patch] [options]
 #

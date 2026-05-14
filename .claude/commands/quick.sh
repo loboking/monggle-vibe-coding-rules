@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# quick.sh - Fast Track Hotfix Pipeline
+# quick.sh - monggle: Quick hotfix
 #
 # Usage: /quick [prd_file]
 #

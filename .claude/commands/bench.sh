@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# bench.sh - Run benchmarks
+# bench.sh - monggle: Run benchmarks
 #
 # Usage: /bench [options] [target]
 #

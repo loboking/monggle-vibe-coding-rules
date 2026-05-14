@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# review.sh - Code Review Command for Claude Code
+# review.sh - monggle: AI Code Review
 #
 # Usage:
 #   /review                    # Review current changes

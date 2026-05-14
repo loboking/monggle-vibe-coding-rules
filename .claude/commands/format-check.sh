@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# format-check.sh - Code format checker (no auto-fix)
+# format-check.sh - monggle: Code format checker
 #
 # Usage: /format-check [options]
 #

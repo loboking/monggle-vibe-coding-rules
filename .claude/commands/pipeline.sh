@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# /pipeline - Agent Pipeline Executor v2.4
+# pipeline.sh - monggle: Agent Pipeline
 #
 # Executes the full Vibe Coding agent pipeline:
 # 1. Gate (PRD validation)

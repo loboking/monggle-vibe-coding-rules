@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# api-docs.sh - Extract API documentation from code
+# api-docs.sh - monggle: Extract API documentation from code
 #
 # Usage: /api-docs [options]
 #

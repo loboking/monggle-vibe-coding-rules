@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# mem-check.sh - Memory leak detection
+# mem-check.sh - monggle: Memory leak detector
 #
 # Usage: /mem-check [options] [command]
 #

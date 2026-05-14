@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# profile.sh - Run profiling
+# profile.sh - monggle: Performance profiler
 #
 # Usage: /profile [options] [command]
 #

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# audit.sh - Security vulnerability scanner
+# audit.sh - monggle: Security vulnerability scanner
 #
 # Usage: /audit [options]
 #

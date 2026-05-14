@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# init.sh - Initial Setup Wizard for Claude Code
+# init.sh - monggle: Initial Setup Wizard
 #
 # Usage: /init [--reset]
 #

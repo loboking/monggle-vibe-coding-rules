@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# new.sh - Quick PRD Creation Alias
+# new.sh - monggle: Quick PRD Creation
 #
 # Usage: /new <description>
 #

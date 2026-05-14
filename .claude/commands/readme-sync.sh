@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# readme-sync.sh - Sync README with code changes
+# readme-sync.sh - monggle: Keep README in sync
 #
 # Usage: /readme-sync [options]
 #

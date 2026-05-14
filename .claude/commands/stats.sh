@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# stats.sh - Pipeline Statistics Command v2.4
+# stats.sh - monggle: Pipeline Statistics
 #
 # Usage: /stats [options]
 #

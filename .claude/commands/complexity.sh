@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# complexity.sh - Code complexity analysis
+# complexity.sh - monggle: Code complexity analysis
 #
 # Usage: /complexity [options]
 #

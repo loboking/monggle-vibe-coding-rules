@@ -216,9 +216,31 @@ install_global() {
         fi
     done
 
+    # .md 파일도 복사 (스킬 메타데이터용)
+    local md_count=0
+    for md_file in "$local_commands"/*.md; do
+        if [ -f "$md_file" ]; then
+            local basename=$(basename "$md_file")
+            # 이미 존재하고 내용이 같으면 건너뜀
+            if [ -f "$global_dir/$basename" ]; then
+                if ! cmp -s "$md_file" "$global_dir/$basename" 2>/dev/null; then
+                    cp "$md_file" "$global_dir/$basename"
+                    ((md_count++))
+                fi
+            else
+                cp "$md_file" "$global_dir/$basename"
+                ((md_count++))
+            fi
+        fi
+    done
+
     # completions도 복사
     if [ -f "$local_commands/completions-v2.bash" ]; then
         cp "$local_commands/completions-v2.bash" "$global_dir/completions-v2.bash"
+    fi
+
+    if [ $md_count -gt 0 ]; then
+        print_success "Copied/updated $md_count skill metadata files to global"
     fi
 
     print_success "Copied/updated $count skill scripts to global"
