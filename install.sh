@@ -417,24 +417,29 @@ setup_ai_reviewer() {
         EXISTING_MEMBERS=$(sed -n '/members:/,/^[^ ]/p' "$TEAM_CONFIG" | tail -n +2)
     fi
 
-    # Ask for AI reviewer mode
-    echo ""
-    echo -e "${CYAN}Select AI Reviewer mode:${NC}"
-    echo "  1) Manual    - Review only when /review command is used"
-    echo "  2) Semi-Auto - Auto-review on PR, merge requires admin approval"
-    echo "  3) Auto      - Auto-review + auto-merge if confidence >= threshold"
-    echo ""
-    read -p "Enter mode [1-3] (default: 1): " mode_choice
-    mode_choice=${mode_choice:-1}
+    # Ask for AI reviewer mode (skip in auto mode)
+    if [ "${AUTO_MODE:-false}" = true ]; then
+        REVIEW_MODE="manual"  # Default in auto mode
+        print_success "Selected mode: $REVIEW_MODE (auto-selected)"
+    else
+        echo ""
+        echo -e "${CYAN}Select AI Reviewer mode:${NC}"
+        echo "  1) Manual    - Review only when /review command is used"
+        echo "  2) Semi-Auto - Auto-review on PR, merge requires admin approval"
+        echo "  3) Auto      - Auto-review + auto-merge if confidence >= threshold"
+        echo ""
+        read -p "Enter mode [1-3] (default: 1): " mode_choice
+        mode_choice=${mode_choice:-1}
 
-    case $mode_choice in
-        1) REVIEW_MODE="manual" ;;
-        2) REVIEW_MODE="semi-auto" ;;
-        3) REVIEW_MODE="auto" ;;
-        *) REVIEW_MODE="manual" ;;
-    esac
+        case $mode_choice in
+            1) REVIEW_MODE="manual" ;;
+            2) REVIEW_MODE="semi-auto" ;;
+            3) REVIEW_MODE="auto" ;;
+            *) REVIEW_MODE="manual" ;;
+        esac
 
-    print_success "Selected mode: $REVIEW_MODE"
+        print_success "Selected mode: $REVIEW_MODE"
+    fi
 
     # Create team.yaml
     cat > "$TEAM_CONFIG" << EOF
@@ -765,9 +770,26 @@ EOF
 main() {
     print_header
 
+    # Parse arguments
+    AUTO_MODE=false
+    TARGET_DIR=""
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --auto)
+                AUTO_MODE=true
+                shift
+                ;;
+            *)
+                TARGET_DIR="$1"
+                shift
+                ;;
+        esac
+    done
+
     # Get target directory
-    if [ $# -gt 0 ]; then
-        PROJECT_ROOT="$(cd "$1" && pwd)"
+    if [ -n "$TARGET_DIR" ]; then
+        PROJECT_ROOT="$(cd "$TARGET_DIR" && pwd)"
     else
         PROJECT_ROOT="$SCRIPT_DIR"
     fi
@@ -776,7 +798,23 @@ main() {
     echo ""
 
     # Step 0: Configuration
-    prompt_configuration
+    if [ "$AUTO_MODE" = true ]; then
+        print_step "Configuration (auto mode)"
+        PRD_LANGUAGE="ko"  # Default to Korean in auto mode
+        print_success "PRD Language: $PRD_LANGUAGE (auto-selected)"
+
+        # Save configuration
+        mkdir -p "$PROJECT_ROOT/.claude/config"
+        cat > "$PROJECT_ROOT/.claude/config/install.conf" << EOF
+# Installation Configuration
+# Generated: $(date +%Y-%m-%d)
+
+PRD_LANGUAGE="$PRD_LANGUAGE"
+EOF
+        echo ""
+    else
+        prompt_configuration
+    fi
 
     # Step 1: Check Python
     if ! check_python; then
