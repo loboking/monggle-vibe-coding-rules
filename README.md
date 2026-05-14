@@ -73,36 +73,37 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 ---
 
-## ✨ 자동 완성 & 오타 교정 (v3.2)
+## ✨ 오타 자동 교정 & 대화형 도움말 (v3.2)
 
-### 설치
+### 오타 자동 교정
 
-```bash
-# ~/.bashrc 또는 ~/.zshrc에 추가
-echo 'source ~/.claude/commands/completions-v2.bash' >> ~/.bashrc
-echo 'source ~/.claude/commands/wrapper.sh' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### 사용 예시
+Levenshtein 거리 기반으로 오타를 자동 교정합니다.
 
 ```bash
-# 옵션 자동 완성 (Tab 키)
-/stats --[Tab]         # --web, --json, --filter-verdict, ...
-/qa --[Tab]            # --report, --quick, --format, ...
-
-# 오타 자동 교정
+# 설치 후 바로 사용 가능 (재시작 불필요)
 /qaa                    # → /qa 로 자동 교정 후 실행
 /debugg                 # → /debug 로 자동 교정 후 실행
 /changlog               # → /changelog 로 자동 교정 후 실행
+```
+
+### 대화형 도움말
+
+카테고리별 스킬 검색 및 퍼지 매칭을 제공합니다.
+
+```bash
+/help                    # 전체 목록 (카테고리별)
+/help debug             # 디버그 스킬만
+/help --search "test"    # 검색
+/help --list             # 간단 목록
+/help --summary          # 카테고리 요약
 ```
 
 ### 교정되는 명령어
 
 | 입력 | 교정됨 |
 |-----|--------|
+| `qaa`, `qaaa` | `qa` |
 | `debugg`, `debuger` | `debug` |
-| `qaa`, `testt` | `qa` |
 | `log`, `logs` | `changelog` |
 | `ver`, `version` | `bump` |
 | `push`, `gitpush` | `push-safe` |
@@ -110,8 +111,6 @@ source ~/.bashrc
 | `idea` | `brainstorm` |
 | `save`, `checkpoint` | `save-point` |
 | `hotfix`, `fix` | `quick` |
-
-자세한 내용은 [AUTOCOMPLETE.md](.claude/commands/AUTOCOMPLETE.md)를 확인하세요.
 
 ---
 
