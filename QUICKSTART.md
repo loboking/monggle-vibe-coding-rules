@@ -32,7 +32,6 @@
 | `/monggle` | monggle 전체 | `/monggle` |
 | `/monggle-upgrade` | 업그레이드 | `/monggle-upgrade` |
 | `/save-point` | 상태 저장 | `/save-point` |
-| `/compact` | 컨텍스트 정리 | `/compact` |
 
 ---
 
@@ -83,8 +82,6 @@
 /brain timeline  # 활동 타임라인
 /brain heatmap   # 활동 히트맵
 /brain when      # 특정 날짜 활동 조회
-/compact         # 컨텍스트 정리
-/compact --status # 상태 확인
 ```
 
 ---
@@ -132,8 +129,6 @@
 |------|--------|
 | 스킬이 안 먹힘 | `./install.sh` 재실행 |
 | 오타 나옴 | 오타 자동 교정 작동 중 |
-| 컨텍스트 찾음 | `/compact` 실행 |
-| "context window limit" 에러 | `/compact --force` 실행 |
 | 명령어 찾기 | `/help --search <keyword>` |
 | 업그레이드 | `/monggle-upgrade` |
 
