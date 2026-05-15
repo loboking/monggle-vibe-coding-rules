@@ -35,12 +35,14 @@ qa-only|qa|보고서만 (수정 없음) (/qa --report)
 review|review|PR diff 리뷰
 code-reviewer|review|코드 품질 (SOLID, 보안) (/review-code)
 arch-review|review|아키텍처 리뷰 (/review-arch)
+verify|review|AI 응답 검증 (읽기 전용)
 prd|core|PRD 생성 (기획서 작성)
 gate|core|PRD 유효성 검사 (/prd 검증)
 pipeline|core|전체 에이전트 파이프라인 실행
 trace|core|실행 로그 추적
 stats|core|파이프라인 통계/현황
 audit|analysis|보안 점검, 취약점 스캔
+security|analysis|보안성 검증 (OWASP, STRIDE) (/verify --safety)
 complexity|analysis|코드 복잡도 분석
 impact|analysis|영향도 분석, 사이드 이펙트 예측
 api-docs|docs|API 문서 자동 생성
@@ -54,6 +56,7 @@ lint-smart|dev|프로젝트 자동 감지 린터
 bench|utils|벤치마크 실행/비교
 profile|utils|성능 프로파일링
 save-point|utils|작업 상태 저장/복구
+auto-compact|utils|자동 컴팩트 on/off (80% 기준)
 brainstorm|utils|아이디어 브레인스토밍
 init|config|초기화 마법사
 mode|config|작업 모드 변경 (solo/team)

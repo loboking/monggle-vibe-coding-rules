@@ -138,7 +138,8 @@ generate_changelog() {
     fi
 
     # Build git log array (safe, no eval)
-    local git_log_args=()
+    local git_log_args
+    git_log_args=()
     git_log_args+=("--pretty=format:%h|%s|%an|%ad")
     git_log_args+=("--date=short")
 

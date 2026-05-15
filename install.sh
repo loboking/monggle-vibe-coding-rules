@@ -95,13 +95,29 @@ ensure_jq() {
             ;;
         linux)
             if command -v apt-get &> /dev/null; then
-                sudo apt-get update && sudo apt-get install -y jq
+                if command -v sudo &> /dev/null; then
+                    sudo apt-get update && sudo apt-get install -y jq
+                else
+                    apt-get update && apt-get install -y jq
+                fi
             elif command -v yum &> /dev/null; then
-                sudo yum install -y jq
+                if command -v sudo &> /dev/null; then
+                    sudo yum install -y jq
+                else
+                    yum install -y jq
+                fi
             elif command -v dnf &> /dev/null; then
-                sudo dnf install -y jq
+                if command -v sudo &> /dev/null; then
+                    sudo dnf install -y jq
+                else
+                    dnf install -y jq
+                fi
             elif command -v pacman &> /dev/null; then
-                sudo pacman -S jq
+                if command -v sudo &> /dev/null; then
+                    sudo pacman -S jq
+                else
+                    pacman -S jq
+                fi
             else
                 print_error "Package manager not found. Install jq manually"
                 return 1
@@ -181,6 +197,118 @@ create_directories() {
     print_success "Directories created"
 }
 
+# 스킬 메타데이터 생성 (Claude Code v1.7+ 호환)
+create_skill_metadata() {
+    local global_dir="$HOME/.claude/commands"
+    local skills_dir="$HOME/.claude/skills"
+
+    # 스킬 정의 배열
+    local skills=(
+        "debug|체계적 버그 분석"
+        "debug-perf|성능 병목 찾기"
+        "debug-web|프론트엔드 디버깅"
+        "debug-css|CSS 디버깅"
+        "debug-m|메모리 누수 탐지"
+        "qa|Smart QA testing"
+        "qa-only|QA 보고서만"
+        "investigate|시스템적 디버깅"
+        "bottleneck|성능 병목 탐지"
+        "front-bugfix|프론트엔드 버그 수정"
+        "css-bugfix|CSS 버그 수정"
+        "mem-check|메모리 체크"
+        "review|코드 리뷰"
+        "review-code|코드 품질 리뷰"
+        "review-arch|아키텍처 리뷰"
+        "code-reviewer|코드 리뷰어"
+        "arch-review|아키텍처 리뷰어"
+        "prd|PRD 작성기"
+        "brainstorm|브레인스토밍"
+        "idea|아이디어 수집기"
+        "gate|PRD 게이트"
+        "pipeline|에이전트 파이프라인"
+        "stats|통계"
+        "trace|파이프라인 추적"
+        "mode|작업 모드"
+        "changelog|Changelog 생성"
+        "bump|버전 업"
+        "push-safe|안전한 푸시"
+        "format-check|포맷 체크"
+        "lint-smart|스마트 린터"
+        "complexity|복잡도 분석"
+        "bench|벤치마크"
+        "api-docs|API 문서"
+        "profile|프로파일링"
+        "audit|보안 감사"
+        "security|보안성 검증"
+        "save-point|저장 포인트"
+        "quick|빠른 핫픽스"
+        "init|초기화"
+        "weekly-recap|주간 회고"
+        "verify|AI 응답 검증"
+        "pattern|패턴 계약"
+        "monggle|Monggle 툴킷"
+    )
+
+    local created_count=0
+
+    for skill_info in "${skills[@]}"; do
+        IFS='|' read -r skill_name description <<< "$skill_info"
+        local skill_dir="$skills_dir/$skill_name"
+
+        mkdir -p "$skill_dir"
+
+        # skill.json 생성
+        cat > "$skill_dir/skill.json" << SKILL_EOF
+{
+  "name": "$skill_name",
+  "description": "$description",
+  "version": "1.0.0"
+}
+SKILL_EOF
+
+        # skill.md도 생성 (하위 호환성)
+        cat > "$skill_dir/skill.md" << SKILL_MD_EOF
+# $skill_name
+
+$description
+SKILL_MD_EOF
+
+        ((created_count++))
+    done
+
+    # .sh 파일이 있는데 메타데이터가 없는 스킬도 처리
+    for script in "$global_dir"/*.sh; do
+        if [ -f "$script" ]; then
+            local skill_name=$(basename "$script" .sh)
+            # 이미 처리됐으면 건너뜀
+            if [ ! -f "$skills_dir/$skill_name/skill.json" ]; then
+                # monggle- 접두사 제거
+                local clean_name="${skill_name#monggle-}"
+                local skill_dir="$skills_dir/$clean_name"
+                mkdir -p "$skill_dir"
+
+                cat > "$skill_dir/skill.json" << SKILL_EOF2
+{
+  "name": "$clean_name",
+  "description": "Monggle $clean_name skill",
+  "version": "1.0.0"
+}
+SKILL_EOF2
+
+                cat > "$skill_dir/skill.md" << SKILL_MD_EOF2
+# $clean_name
+
+Monggle $clean_name skill
+SKILL_MD_EOF2
+
+                ((created_count++))
+            fi
+        fi
+    done
+
+    print_success "Created/updated $created_count skill metadata files"
+}
+
 # 전역 설치 (스킬 복사)
 install_global() {
     print_step "Installing skills to global ~/.claude/commands/..."
@@ -234,10 +362,60 @@ install_global() {
         fi
     done
 
-    # completions도 복사
-    if [ -f "$local_commands/completions-v2.bash" ]; then
-        cp "$local_commands/completions-v2.bash" "$global_dir/completions-v2.bash"
-    fi
+    # completions-v2.bash 자동 생성
+    print_step "Creating completions-v2.bash..."
+    cat > "$global_dir/completions-v2.bash" << 'COMPLETION_EOF'
+#!/bin/bash
+#
+# completions-v2.bash - Vibe Coding Rules 자동 완성
+#
+
+_vibe_skills_complete() {
+    local cur prev words cword
+    _init_completion || return
+
+    local cmd="${words[0]#/}"
+    cmd="${cmd#monggle-}"
+
+    case "$cmd" in
+        stats) COMPREPLY=($(compgen -W "--verbose --web --json --filter-verdict --filter-type --filter-agent --since --help" -- "$cur")) ;;
+        qa) COMPREPLY=($(compgen -W "--report --quick --format --android --ios --web --mobile --server --code --help" -- "$cur")) ;;
+        prd) COMPREPLY=($(compgen -W "--non-interactive --output --language --type --help feature bug refactor hotfix experiment api migration ml devops" -- "$cur")) ;;
+        debug) COMPREPLY=($(compgen -W "--web --css --perf --mem --verbose --help" -- "$cur")) ;;
+        review) COMPREPLY=($(compgen -W "--code --arch --diff --help" -- "$cur")) ;;
+        impact) COMPREPLY=($(compgen -W "--diff --deep --verbose --help" -- "$cur")) ;;
+        save-point) COMPREPLY=($(compgen -W "list resume restore cleanup --help" -- "$cur")) ;;
+        mode) COMPREPLY=($(compgen -W "solo team manual semi-auto auto --help" -- "$cur")) ;;
+        complexity) COMPREPLY=($(compgen -W "--threshold --output --format --help" -- "$cur")) ;;
+        audit) COMPREPLY=($(compgen -W "--severity --output --format --help" -- "$cur")) ;;
+        bench) COMPREPLY=($(compgen -W "--iterations --warmup --output --format --help" -- "$cur")) ;;
+        bottleneck) COMPREPLY=($(compgen -W "--threshold --output --format --help" -- "$cur")) ;;
+        changelog) COMPREPLY=($(compgen -W "--since --until --output --format --help" -- "$cur")) ;;
+        bump) COMPREPLY=($(compgen -W "--major --minor --patch --pre --tag --help" -- "$cur")) ;;
+        push-safe) COMPREPLY=($(compgen -W "--dry --force --help" -- "$cur")) ;;
+        quick) COMPREPLY=($(compgen -W "--help" -- "$cur")) ;;
+        format-check) COMPREPLY=($(compgen -W "--fix --help" -- "$cur")) ;;
+        lint-smart) COMPREPLY=($(compgen -W "--fix --help" -- "$cur")) ;;
+        brainstorm) COMPREPLY=($(compgen -W "--count --output --format --help" -- "$cur")) ;;
+        gate) COMPREPLY=($(compgen -W "--strict --help" -- "$cur")) ;;
+        pipeline) COMPREPLY=($(compgen -W "--dry-run --verbose --retry --parallel --help" -- "$cur")) ;;
+        trace) COMPREPLY=($(compgen -W "--last --detail --help" -- "$cur")) ;;
+        init) COMPREPLY=($(compgen -W "--force --help" -- "$cur")) ;;
+        *)
+            local skills="$(ls ~/.claude/commands/*.sh 2>/dev/null | xargs -n1 basename | sed 's/\.sh$//' | sort | uniq)"
+            COMPREPLY=($(compgen -W "$skills" -- "$cur"))
+            ;;
+    esac
+}
+
+for cmd in stats qa prd debug review impact save-point mode complexity audit bench bottleneck changelog bump push-safe quick format-check lint-smart brainstorm gate pipeline trace init help; do
+    complete -F _vibe_skills_complete $cmd
+    complete -F _vibe_skills_complete monggle-$cmd
+done
+COMPLETION_EOF
+
+    chmod +x "$global_dir/completions-v2.bash"
+    print_success "completions-v2.bash created"
 
     if [ $md_count -gt 0 ]; then
         print_success "Copied/updated $md_count skill metadata files to global"
@@ -276,36 +454,10 @@ install_global() {
 
     print_success "Lib files installed to global"
 
-    # Auto-compact 자동 활성화 (jq 설치 시도)
-    print_step "Enabling auto-compact in Claude settings..."
+    # 스킬 메타데이터 생성 (skill.json, skill.md)
+    print_step "Creating skill metadata for Claude Code v1.7+..."
+    create_skill_metadata
 
-    if ensure_jq; then
-        # ~/.claude.json에 autoCompact 설정 추가
-        if [ -f "$HOME/.claude.json" ]; then
-            # 현재 설정 확인
-            current_auto_compact=$(jq -r '.autoCompact // "false"' "$HOME/.claude.json" 2>/dev/null || echo "false")
-
-            if [ "$current_auto_compact" = "true" ]; then
-                print_success "Auto-compact already enabled"
-            else
-                # autoCompact 활성화 (크로스플랫폼 호환)
-                local tmp_file="$HOME/.claude.json.tmp"
-                jq '.autoCompact = true' "$HOME/.claude.json" > "$tmp_file" && mv "$tmp_file" "$HOME/.claude.json"
-                print_success "Auto-compact enabled in ~/.claude.json"
-            fi
-        else
-            # ~/.claude.json이 없으면 생성
-            cat > "$HOME/.claude.json" << 'EOF'
-{
-  "autoCompact": true
-}
-EOF
-            print_success "Created ~/.claude.json with auto-compact enabled"
-        fi
-    else
-        print_warning "jq not available, skipping auto-compact setup"
-        print_warning "Install jq manually for auto-compact feature"
-    fi
 }
 
 # Set executable permissions
@@ -683,6 +835,59 @@ verify_installation() {
     return $errors
 }
 
+# Shell 설정 자동 추가 (zsh/bash)
+setup_shell_config() {
+    print_step "Setting up shell configuration..."
+
+    # 쉘 파일 결정
+    local shell_config=""
+    if [ -n "${ZSH_VERSION:-}" ] || [ -f "$HOME/.zshrc" ]; then
+        shell_config="$HOME/.zshrc"
+    elif [ -n "${BASH_VERSION:-}" ] || [ -f "$HOME/.bashrc" ]; then
+        shell_config="$HOME/.bashrc"
+    else
+        print_warning "Unable to detect shell config file"
+        return 1
+    fi
+
+    # 이미 설정되어 있는지 확인
+    local need_add=0
+
+    if ! grep -q "# Vibe Coding Rules - PATH" "$shell_config" 2>/dev/null; then
+        need_add=1
+    fi
+
+    if [ $need_add -eq 1 ]; then
+        # 설정 추가
+        cat >> "$shell_config" << 'SHELL_EOF'
+
+# ═══════════════════════════════════════════════════════════════
+# Vibe Coding Rules - Auto-generated by install.sh
+# ═══════════════════════════════════════════════════════════════
+
+# PATH 추가
+export PATH="$HOME/.claude/commands:$PATH"
+
+# 오타 자동 교정 래퍼
+source ~/.claude/commands/wrapper.sh 2>/dev/null || true
+
+# 자동 완성
+source ~/.claude/commands/completions-v2.bash 2>/dev/null || true
+SHELL_EOF
+
+        print_success "Added to $shell_config"
+    else
+        print_success "Shell config already set up"
+    fi
+
+    # 현재 세션에도 적용
+    export PATH="$HOME/.claude/commands:$PATH"
+    source ~/.claude/commands/wrapper.sh 2>/dev/null || true
+    source ~/.claude/commands/completions-v2.bash 2>/dev/null || true
+
+    print_success "Applied to current session"
+}
+
 # Print summary
 print_summary() {
     local exit_code=$1
@@ -697,14 +902,17 @@ print_summary() {
         echo -e "${CYAN}Platform: ${OS_TYPE}${NC}"
         echo ""
         echo -e "${CYAN}Next steps:${NC}"
+        echo "  ✓ Shell config applied - just restart your terminal or run: source ~/.zshrc"
         echo "  1. Create a PRD: cp prd/feature.md prd/feature-your-feature.md"
         echo "  2. Edit the PRD with your requirements"
         echo "  3. Run: /pipeline prd/feature-your-feature.md"
         echo ""
         echo -e "${CYAN}Available commands:${NC}"
-        echo "  /gate      - Validate PRD"
-        echo "  /pipeline  - Run full agent pipeline"
-        echo "  /trace     - View execution logs"
+        echo "  /stats     - 통계"
+        echo "  /mode      - 모드 변경"
+        echo "  /gate      - PRD 검증"
+        echo "  /pipeline  - 파이프라인 실행"
+        echo "  /trace     - 실행 로그"
         echo ""
 
         # Platform-specific tips
@@ -867,6 +1075,9 @@ EOF
 
     # Step 7: Verify
     if verify_installation; then
+        # Step 8: Shell 설정 (항상 실행)
+        setup_shell_config
+
         print_summary 0
         exit 0
     else

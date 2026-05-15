@@ -25,9 +25,21 @@ validate_file_path() {
     # 3. 실제 경로 확인 (realpath가 있으면 사용)
     if command -v realpath &>/dev/null; then
         local real_path
-        real_path=$(realpath -m "$path" 2>/dev/null || echo "$path")
         local project_root
         project_root=$(pwd)
+
+        # realpath -m는 존재하지 않는 파일도 처리 가능
+        # 하지만 먼저 상대 경로인지 확인하고 절대 경로로 변환
+        if [[ "$path" = /* ]]; then
+            # 이미 절대 경로
+            real_path="$path"
+        else
+            # 상대 경로 -> 절대 경로 변환
+            real_path="${project_root}/${path}"
+        fi
+
+        # 정규화 (.. 해결 등)
+        real_path=$(realpath -m "$real_path" 2>/dev/null || echo "$real_path")
 
         # 프로젝트 루트 밖인지 확인
         case "$real_path" in

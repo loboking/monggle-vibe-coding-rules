@@ -83,7 +83,8 @@ list_logs() {
         return 0
     fi
 
-    local log_files=()
+    local log_files
+    log_files=()
     while IFS= read -r -d '' file; do
         log_files+=("$file")
     done < <(find "$LOG_DIR" -type f -name "*.log" -print0 2>/dev/null | sort -z -r)

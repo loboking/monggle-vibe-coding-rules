@@ -122,7 +122,8 @@ EOF
 
 # Detect project type and features
 detect_project_features() {
-    local features=()
+    local features
+    features=()
 
     # Check for testing framework
     if [[ -f "pytest.ini" ]] || [[ -f "tests/__init__.py" ]] || grep -q "pytest" requirements.txt 2>/dev/null; then

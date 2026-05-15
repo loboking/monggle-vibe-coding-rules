@@ -147,8 +147,10 @@ levenshtein() {
     fi
 
     # 최적화: bash 배열 없이 계산
-    local prev=()
-    local curr=()
+    local prev
+    local curr
+    prev=()
+    curr=()
 
     for ((i=0; i<=len2; i++)); do
         prev[$i]=$i

@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.1] - 2026-05-15
+
+### Changed 🔧
+
+- **`/compact` 명령어 제거**
+  - Claude Code 내장 compact 기능과 중복 제거
+  - install.sh에서 compact 스킬 메타데이터 생성 제거
+
+- **Auto-compact 자동 활성화 제거**
+  - install.sh에서 설치 시 자동 활성화 로직 제거
+  - 사용자가 직접 제어하도록 변경
+
+### Added ✨
+
+- **`/auto-compact` 스킬 추가**
+  - `/auto-compact on`: auto-compact 활성화
+  - `/auto-compact off`: auto-compact 비활성화
+  - `/auto-compact status`: 현재 상태 확인
+  - 80% 기준 (Claude Code 내장 설정과 동일)
+
+- **`/verify` 스킬 추가** (AI 응답 검증 전용)
+  - **읽기 전용** (Edit, Write 권한 제거)
+  - 정확성, 안전성, 완결성, 실행성 4가지 카테고리 검증
+  - `/verify "AI 응답"`: 전체 검증
+  - `/verify --code`: 코드 구현 검증
+  - `/verify --safety`: 보안 집중 검증
+  - `/verify --duo`: Claude + Gemini 교차 검증
+
+- **`/security` 스킬 추가** (보안성 검증 전용)
+  - **읽기 전용** (Edit, Write 권한 제거)
+  - OWASP Top 10 (2021) 기반 검증
+  - STRIDE 위협 모델링 지원
+  - `/security "코드"`: 전체 보안 검증
+  - `/security --owasp`: OWASP 기반
+  - `/security --stride`: 위협 모델링
+  - `/security --auth`, `--sql`, `--xss`, `--crypto` 옵션
+
+---
+
+## [3.2.0] - 2026-05-14
+
+### Added 🔥
+
+- **사용자 편의성 고도화**
+  - 자주 쓰는 기능 상단 배치
+  - 직관적인 카테고리 분류
+  - 예제 중심 설명
+
+---
+
 ## [3.1.0] - 2026-05-13
 
 ### Added 🔧 업그레이드 시스템
