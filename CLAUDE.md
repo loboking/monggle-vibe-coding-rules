@@ -551,3 +551,21 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 [09:35:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/Config.kt
 ```
 
+
+### 2026-05-18
+
+**변경된 파일 수**: ��
+
+```
+[12:34:36] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+```
+
+
+### 2026-05-19
+
+**변경된 파일 수**: ��
+
+```
+[13:56:32] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+```
+

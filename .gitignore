@@ -13,3 +13,12 @@ __pycache__/
 *.pyc
 *.pyo
 .gstack/
+# Logs
+logs/*.log
+logs/*.json
+
+# Pipeline
+.harness/
+
+# Agents
+agents/

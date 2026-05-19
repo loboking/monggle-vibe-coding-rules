@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import argparse
+import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -17,12 +18,10 @@ from datetime import datetime
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "agents"))
 
-from base_agent import BaseAgent, PRDContent, AgentResult
-from scan_agent import ScanAgent
-from fold_agent import FoldAgent
-from verdict_agent import VerdictAgent
-from patch_agent import PatchAgent
-from trace_agent import TraceAgent
+from base_agent import (
+    BaseAgent, PRDContent, AgentResult,
+    ScanAgent, FoldAgent, VerdictAgent, PatchAgent, TraceAgent
+)
 
 
 class AgentPipeline:
@@ -59,6 +58,9 @@ class AgentPipeline:
         self.verbose = False
         self.retry_count = 0
         self.parallel_mode = False
+
+        # 시냅스 메모리 캐시
+        self._synapse_memory_cache: Optional[str] = None
 
     def log(self, message: str, level: str = "info"):
         """로그 출력"""
@@ -105,7 +107,6 @@ class AgentPipeline:
         prd_path = self.project_root / "prd" / f"{prd.feature_type}-temp.md"
 
         # Hook 실행
-        import subprocess
         try:
             result = subprocess.run(
                 [str(hook_file), str(prd_path)],
@@ -164,6 +165,46 @@ class AgentPipeline:
             self.log(f"Agent {name} failed after {max_attempts} attempts", "error")
         return last_result or AgentResult(success=False, error="Max retries exceeded")
 
+    def _load_synapse_memory(self, prd_path: Path) -> str:
+        """PRD를 기반으로 과거 시냅스(세션 기억)를 로드합니다.
+
+        Args:
+            prd_path: PRD 파일 경로
+
+        Returns:
+            str: 로드된 시냅스 메모리 내용 (없으면 빈 문자열)
+        """
+        try:
+            print("\n🧠 [BRAIN] 시냅스 기억 동기화 시작...")
+            activator_script = self.project_root / ".claude" / "lib" / "synapse_activator.sh"
+
+            if not activator_script.exists():
+                self.log("시냅스 활성기 스크립트가 없습니다", "warning")
+                return ""
+
+            result = subprocess.run(
+                ["bash", str(activator_script), str(prd_path)],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=self.project_root
+            )
+
+            # 스크립트 출력 표시
+            if result.stdout:
+                print(result.stdout.strip())
+
+            synapse_file = self.project_root / ".claude" / "session" / "current" / "active_synapses.md"
+            if synapse_file.exists() and synapse_file.stat().st_size > 5:
+                with open(synapse_file, "r", encoding='utf-8') as f:
+                    memory_content = f.read()
+                    return f"\n\n### 🧠 [Synapse Memory] 과거 관련 작업 컨텍스트\n다음은 이 작업과 연관된 과거 당신의 작업 기억입니다. 타겟 파일 선정 및 로직 작성에 반드시 참고하세요:\n{memory_content}\n"
+        except subprocess.TimeoutExpired:
+            self.log("시냅스 로드 타임아웃", "warning")
+        except Exception as e:
+            self.log(f"시냅스 로드 실패: {e}", "warning")
+        return ""
+
     def run_pipeline(self, prd_path: Path, skip_gate: bool = False, skip_fold: bool = False, prd_type_override: str = None) -> bool:
         """전체 파이프라인 실행
 
@@ -193,6 +234,12 @@ class AgentPipeline:
 
         context = {}
         exit_code = 0
+
+        # 시냅스 메모리 로드 (v3.5)
+        synapse_memory = self._load_synapse_memory(prd_path)
+        if synapse_memory:
+            context["synapse_memory"] = synapse_memory
+            self.log("시냅스 메모리가 컨텍스트에 추가되었습니다", "success")
 
         # 1. Gate
         if not skip_gate:

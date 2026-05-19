@@ -1,0 +1,13 @@
+# Monggle Vibe Coding Rules - Python Dependencies
+# Core dependencies for agent system
+
+# LangGraph for multi-agent orchestration
+langgraph>=0.2.0
+langchain-anthropic>=0.1.0
+langchain-core>=0.1.0
+
+# Optional: For visual graph debugging
+langgraph-cli>=0.1.0
+
+# Existing dependencies (if any)
+# Add project-specific dependencies below

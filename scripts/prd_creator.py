@@ -500,6 +500,18 @@ class PRDCreator:
                 # 비대화형 모드
                 self.answers[key] = self._get_pending_text()
 
+        # v3.5: 하드락 질문 (항상 마지막에 추가)
+        if self.config.interactive:
+            print("\n" + "=" * 50)
+            print("🔒 [v3.5] AI 타겟팅 가이드라인 설정 (Hard-Lock)")
+            print("=" * 50)
+
+            target_files = input("🎯 AI가 집중적으로 수정해야 할 '타겟 파일' (쉼표 구분, 모르면 엔터):\n> ").strip()
+            read_only_files = input("🛡️ AI가 절대 건드리면 안 되는 '보호 대상 글로벌/공통 파일':\n> ").strip()
+
+            self.answers["target_files"] = target_files
+            self.answers["read_only_files"] = read_only_files
+
     def _get_pending_text(self) -> str:
         """언어별 '추가 예정' 텍스트 반환"""
         pending_map = {
@@ -601,6 +613,55 @@ class PRDCreator:
         }
 
         self.prd.sections = section_mapping.get(self.config.prd_type, {})
+
+        # v3.5: 하드락 섹션 추가 (모든 PRD 타입에 공통)
+        target_files = self.answers.get("target_files", "").strip()
+        read_only_files = self.answers.get("read_only_files", "").strip()
+
+        # 언어별 하드락 텍스트
+        hl_target_label = {"ko": "🎯 핵심 수정 타겟", "en": "🎯 Core Target Files", "zh": "🎯 核心修改目标", "ja": "🎯 コア修正対象"}.get(self.config.language, "🎯 Core Target Files")
+        hl_protected_label = {"ko": "🛡️ 절대 수정 금지 구역", "en": "🛡️ Read-Only Protected Areas", "zh": "🛡️ 绝对禁止修改区域", "ja": "🛡️ 絶対修正禁止エリア"}.get(self.config.language, "🛡️ Read-Only Protected Areas")
+        hl_warning_title = {"ko": "🔒 [System Hard-Lock] 의존성 및 타겟 바운더리", "en": "🔒 [System Hard-Lock] Dependency & Target Boundary", "zh": "🔒 [System Hard-Lock] 依赖与目标边界", "ja": "🔒 [System Hard-Lock] 依存関係とターゲット境界"}.get(self.config.language, "🔒 [System Hard-Lock] Dependency & Target Boundary")
+        hl_warning_text = {"ko": "⚠️ **AGENT WARNING:** 본 PRD를 수행하는 에이전트는 아래 명시된 타겟 파일 외의 모듈은 **어떠한 이유에서도 임의 수정할 수 없습니다.** 에러가 발생하면 타겟 파일 내부에서만 해결책을 찾으십시오.",
+                           "en": "⚠️ **AGENT WARNING:** Agents executing this PRD must NOT arbitrarily modify any modules other than the target files specified below. If an error occurs, find solutions only within the target files.",
+                           "zh": "⚠️ **AGENT WARNING:** 执行本PRD的代理不得随意修改以下指定目标文件之外的任何模块。如果发生错误，请仅在目标文件内寻找解决方案。",
+                           "ja": "⚠️ **AGENT WARNING:** 本PRDを実行するエージェントは、以下に指定されたターゲットファイル以外のモジュールをいかなる理由でも任意に変更してはなりません。エラーが発生した場合は、ターゲットファイル内でのみ解決策を見つけてください。"}.get(self.config.language, "⚠️ **AGENT WARNING:** Agents executing this PRD must NOT arbitrarily modify any modules other than the target files specified below.")
+        hl_tdd_title = {"ko": "🧪 TDD 격리 조건 (Mocking Sandwich)", "en": "🧪 TDD Isolation (Mocking Sandwich)", "zh": "🧪 TDD隔离条件(Mocking Sandwich)", "ja": "🧪 TDD分離条件(Mocking Sandwich)"}.get(self.config.language, "🧪 TDD Isolation (Mocking Sandwich)")
+        hl_tdd_text = {"ko": "- 테스트 코드(`test_*.py` 등) 작성 시, 위 '수정 금지 구역'의 파일들은 **반드시 Mocking 처리**하여 레거시 환경 오염을 방지할 것.",
+                       "en": "- When writing test code (`test_*.py`, etc.), files in the 'Read-Only Protected Areas' above **must be Mocked** to prevent legacy environment contamination.",
+                       "zh": "- 编写测试代码（`test_*.py` 等）时，上方 '禁止修改区域' 的文件 **必须进行Mock处理**，以防止遗留环境污染。",
+                       "ja": "- テストコード（`test_*.py` 等）を作成する際、上記「修正禁止エリア」のファイルは **必ずMock化**して、レガシー環境の汚染を防ぐこと。"}.get(self.config.language, "- When writing test code (`test_*.py`, etc.), files in the 'Read-Only Protected Areas' above **must be Mocked** to prevent legacy environment contamination.")
+        hl_default_target = {"ko": "- [AI 스캔 후 제안된 파일만 수정 허용]", "en": "- [Only AI-scanned suggested files allowed for modification]", "zh": "- [仅允许修改AI扫描后建议的文件]", "ja": "- [AIスキャン後に提案されたファイルのみ修正許可]"}.get(self.config.language, "- [Only AI-scanned suggested files allowed for modification]")
+        hl_default_protected = {"ko": "- 프로젝트 최상위 설정 및 글로벌 미들웨어", "en": "- Project root configuration and global middleware", "zh": "- 项目根配置和全局中间件", "ja": "- プロジェクトルート設定とグローバルミドルウェア"}.get(self.config.language, "- Project root configuration and global middleware")
+
+        # 타겟 파일 목록 생성
+        if target_files:
+            target_list = "\n".join([f"- {f.strip()}" for f in target_files.split(",")])
+        else:
+            target_list = hl_default_target
+
+        # 보호 파일 목록 생성
+        if read_only_files:
+            protected_list = "\n".join([f"- {f.strip()}" for f in read_only_files.split(",")])
+        else:
+            protected_list = hl_default_protected
+
+        # 하드락 섹션 생성
+        hard_lock_section = f"""## {hl_warning_title}
+> {hl_warning_text}
+
+### {hl_target_label}
+{target_list}
+
+### {hl_protected_label}
+{protected_list}
+
+### {hl_tdd_title}
+{hl_tdd_text}
+"""
+
+        # 섹션에 추가 (어떤 PRD 타입에도 추가됨)
+        self.prd.sections["system_hardlock"] = hard_lock_section
 
     def validate(self) -> bool:
         """PRD 검증"""
