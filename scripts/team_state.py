@@ -3,8 +3,15 @@
 Team State Management System
 
 Tracks team and agent status in real-time.
+
+Features:
+- Real-time state tracking
+- Audit logging (event trail)
+- File system locking (fcntl)
+- Zombie state cleanup
 """
 
+import fcntl
 import json
 import os
 import threading
@@ -80,11 +87,29 @@ class TeamStateManager:
         self.project_root = Path(project_root)
         self.teams_dir = self.project_root / ".claude" / "teams"
         self.state_dir = self.teams_dir / "state"
+        self.history_dir = self.teams_dir / "history"
         self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.history_dir.mkdir(parents=True, exist_ok=True)
 
         self._lock = threading.Lock()
         self._states: Dict[str, TeamState] = {}
         self._load_all_states()
+
+    def _audit_log(self, team_name: str, old_status: str, new_status: str, task_desc: str = "", session: str = ""):
+        """감사 로그 기록"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        log_file = self.history_dir / f"{team_name}_audit.log"
+
+        parts = [f"[{timestamp}]", f"{old_status.upper()} -> {new_status.upper()}"]
+        if task_desc:
+            parts.append(f"Task: {task_desc}")
+        if session:
+            parts.append(f"Session: {session[-4:]}")  # 세션 ID 뒤 4자리만
+
+        log_line = " | ".join(parts) + "\n"
+
+        with open(log_file, 'a') as f:
+            f.write(log_line)
 
     def _state_file(self, team_name: str) -> Path:
         return self.state_dir / f"{team_name}_state.json"
@@ -146,19 +171,24 @@ class TeamStateManager:
     def set_status(self, team_name: str, status: TeamStatus):
         """팀 상태 변경"""
         with self._lock:
-            state = self.get_state(team_name)
+            state = self._get_state_unlocked(team_name)
             if state:
+                old_status = state.status
                 state.status = status.value
-                self._save_state(team_name)
+                self._save_state(team_name, old_status)
 
-    def set_current_task(self, team_name: str, task: TaskState):
+    def set_current_task(self, team_name: str, task: TaskState, session_id: str = ""):
         """현재 작업 설정"""
         with self._lock:
             state = self._get_state_unlocked(team_name)
             if state:
+                old_status = state.status
                 state.current_task = task
                 state.status = TeamStatus.BUSY.value
-                self._save_state(team_name)
+                if session_id:
+                    state.locked_by = session_id
+                    state.locked_at = datetime.now().isoformat()
+                self._save_state(team_name, old_status)
 
     def update_progress(self, team_name: str, progress: int):
         """진행률 업데이트"""
@@ -166,11 +196,12 @@ class TeamStateManager:
             state = self._get_state_unlocked(team_name)
             if state and state.current_task:
                 state.current_task.progress = min(100, max(0, progress))
+                old_status = state.status
                 if progress >= 100:
                     state.current_task.status = "completed"
                     state.current_task.completed_at = datetime.now().isoformat()
                     state.status = TeamStatus.IDLE.value
-                self._save_state(team_name)
+                self._save_state(team_name, old_status)
 
     def add_to_queue(self, team_name: str, task: Dict):
         """대기열에 작업 추가"""
@@ -261,22 +292,40 @@ class TeamStateManager:
                         result[team_name] = state
             return result
 
-    def _save_state(self, team_name: str):
-        """상태 저장"""
+    def _save_state(self, team_name: str, old_status: str = None):
+        """상태 저장 (파일 시스템 락 포함)"""
         state = self._states.get(team_name)
-        if state:
-            data = {
-                "name": state.name,
-                "status": state.status,
-                "current_task": asdict(state.current_task) if state.current_task else None,
-                "queue": state.queue,
-                "stats": state.stats,
-                "locked_by": state.locked_by,
-                "locked_at": state.locked_at,
-                "updated_at": datetime.now().isoformat()
-            }
-            with open(self._state_file(team_name), 'w') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+        if not state:
+            return
+
+        data = {
+            "name": state.name,
+            "status": state.status,
+            "current_task": asdict(state.current_task) if state.current_task else None,
+            "queue": state.queue,
+            "stats": state.stats,
+            "locked_by": state.locked_by,
+            "locked_at": state.locked_at,
+            "updated_at": datetime.now().isoformat()
+        }
+
+        state_file = self._state_file(team_name)
+
+        # 파일 시스템 락 (fcntl)
+        with open(state_file, 'w') as f:
+            try:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # 배타적 락
+                f.write(json.dumps(data, indent=2, ensure_ascii=False))
+                f.flush()
+                os.fsync(f.fileno())  # 디스크에 강제 쓰기
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # 락 해제
+
+        # 감사 로그 (상태 변경 시)
+        if old_status and old_status != state.status:
+            task_desc = state.current_task.description if state.current_task else ""
+            session = state.locked_by or ""
+            self._audit_log(team_name, old_status, state.status, task_desc, session)
 
 
 class StatusFormatter:
