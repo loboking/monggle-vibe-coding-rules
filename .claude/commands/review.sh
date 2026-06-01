@@ -1,6 +1,9 @@
 #!/bin/bash
 #
-# review.sh - monggle: AI Code Review
+# review.sh - monggle: AI Code Review (READ-ONLY)
+#
+# 순수 리뷰 전용: 코드를 검토만 하고 수정하지 않는다.
+# 실제 수정 + 영향도/회귀 분석이 필요하면 /fix 를 사용한다.
 #
 # Usage:
 #   /review                    # Review current changes
@@ -92,7 +95,10 @@ main() {
     # Output review request for Claude Code
     cat <<'EOF'
 
-## 🔍 Code Review Request
+## 🔍 Code Review Request (READ-ONLY — 검토만, 수정 금지)
+
+⚠️ This is a REVIEW. Do NOT modify any code. Only assess and report.
+   실제 수정이 필요하면 사용자에게 /fix 사용을 안내하라.
 
 Please review the following code changes for:
 
@@ -118,6 +124,9 @@ Please provide:
 2. **Issues Found** (if any) - list with severity [HIGH/MEDIUM/LOW]
 3. **Suggestions** - specific improvements
 4. **Positive Notes** - what was done well
+
+> 💡 If changes are needed, do NOT edit here. Run `/fix` to apply with
+>    impact analysis (dependents + regression check) before/after the edit.
 
 EOF
 

@@ -7,6 +7,7 @@ logs/*.log
 !.claude/hooks/
 !.claude/lib/
 !.claude/config/
+!.claude/brain/
 
 # Python
 __pycache__/
@@ -20,5 +21,11 @@ logs/*.json
 # Pipeline
 .harness/
 
-# Agents
-agents/
+# Agents (런타임 산출물은 무시하되, 파이프라인 핵심 모듈은 추적)
+agents/*
+!agents/base_agent.py
+
+# Session & local config (global gitignore에만 의존하지 않도록 프로젝트에서도 명시)
+.claude/settings.local.json
+.claude/.prd-session.json
+.claude/session/
