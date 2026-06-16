@@ -13,6 +13,7 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 triggers:
+  - /qa
   - /smart-qa
   - /code-qa
   - monggle qa

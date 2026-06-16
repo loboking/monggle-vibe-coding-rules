@@ -49,7 +49,7 @@ cd monggle-vibe-coding-rules
 | `monggle-gemini` | `gemini.md` | 자연어: `Use monggle-gemini to analyze...` |
 | `monggle-brain` | `smart-brain.md` | 자연어: `Use monggle-brain to remember...` |
 | `monggle-init` | `project-init.md` | 자연어: `Use monggle-init to setup...` |
-| `monggle-planner` | `planner.md` | 자연어: `Use monggle-planner to plan...` |
+| `monggle-planner` | `product-manager.md` | 자연어: `Use monggle-planner to plan...` |
 
 **참고:** 이 스킬들은 Agent 형태로 제공되며 자연어로 호출합니다.
 
