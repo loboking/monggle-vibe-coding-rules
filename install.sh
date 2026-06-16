@@ -332,12 +332,12 @@ install_global() {
 
     # monggle- 접두사 없는 스킬들도 복사
     for script in "$local_commands"/*.sh; do
-        # monggle- 스킬은 이미 처리됨
-        if [[ "$script" =~ monggle- ]]; then
+        local basename=$(basename "$script")
+        # monggle- 스킬은 이미 처리됨 (경로가 아닌 파일명 기준으로 판별)
+        if [[ "$basename" == monggle-* ]]; then
             continue
         fi
         if [ -f "$script" ]; then
-            local basename=$(basename "$script")
             cp "$script" "$global_dir/$basename"
             chmod +x "$global_dir/$basename"
             ((count++))
