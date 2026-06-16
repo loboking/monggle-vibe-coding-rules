@@ -10,6 +10,7 @@
 # Usage:
 #   ./install.sh              # 현재 디렉토리에 설치
 #   ./install.sh /path/to/project  # 특정 프로젝트에 설치
+#   ./install.sh --sync       # 저장소에 없는 전역 스킬 잔재 정리(백업 후 제거)
 #
 
 set -euo pipefail
@@ -361,6 +362,31 @@ install_global() {
             fi
         fi
     done
+
+    # 동기화 모드(--sync): 저장소에 없는 전역 스킬 잔재 정리 (백업 후 제거)
+    if [ "${SYNC_MODE:-false}" = true ]; then
+        local pruned=0
+        local backup_dir="$HOME/.claude/_skill_backup_$(date +%Y%m%d_%H%M%S)"
+        for installed in "$global_dir"/*.sh "$global_dir"/*.md; do
+            [ -f "$installed" ] || continue
+            local ib=$(basename "$installed")
+            local stem="${ib%.*}"
+            # 보조 파일은 보존
+            case "$ib" in
+                completions-v2.bash|wrapper.sh) continue ;;
+            esac
+            # 저장소(local_commands)에 동일 stem의 .sh 또는 .md가 있으면 공식 → 보존
+            if [ -f "$local_commands/$stem.sh" ] || [ -f "$local_commands/$stem.md" ]; then
+                continue
+            fi
+            # 잔재 → 백업 후 제거
+            mkdir -p "$backup_dir"
+            mv "$installed" "$backup_dir/" 2>/dev/null && ((pruned++)) || true
+        done
+        if [ "$pruned" -gt 0 ]; then
+            print_success "Pruned $pruned stale global skill files (backup: $backup_dir)"
+        fi
+    fi
 
     # completions-v2.bash 자동 생성
     print_step "Creating completions-v2.bash..."
@@ -1000,12 +1026,17 @@ main() {
 
     # Parse arguments
     AUTO_MODE=false
+    SYNC_MODE=false
     TARGET_DIR=""
 
     while [[ $# -gt 0 ]]; do
         case $1 in
             --auto)
                 AUTO_MODE=true
+                shift
+                ;;
+            --sync)
+                SYNC_MODE=true
                 shift
                 ;;
             *)
