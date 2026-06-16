@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] - 2026-06-16
+
+### Fixed 🐛
+
+다중 에이전트 버그 헌팅으로 스킬 스크립트 79개(shell 71 + Python 8)를 검토하여 확정된 **버그 136건 일괄 수정**. review/judge 검수 최종 승인 완료. (`7469ab3`)
+
+- **데이터 손실 2건 (Critical/High)**
+  - `update.sh`: rebase 성공 후 stash `drop`을 `pop` 성공 후에만 실행 → 미커밋 작업 영구 손실 방지
+  - `cleanup-zombies.sh`: status 2줄을 `sed 1p/2p`로 분리해 timestamp 보존 → busy 상태 무차별 삭제 방지
+
+- **명령어 불능 버그 (High)**
+  - `test.sh`: 존재하지 않는 `qa.sh`/`qa-only.sh` exec 경로 → `smart-qa.sh`/`smart-qa-read.sh`로 교체
+  - `api-docs.sh`: 함수 정의 순서로 인한 `set -e` 즉사 수정
+  - `impact.sh`: 파이프 서브셸 카운터 유실(항상 0/LOW) 수정
+  - `git_helper.sh`: ahead/behind rev-list 범위 반전 수정 (push-safe 오작동)
+  - `pr_helper.sh`: PR 제목 raw 삽입 JSON injection 수정
+  - `base_agent.py`: 마크다운 `---`에서 frontmatter 파서 오작동 → verdict 손상 수정
+  - `save-point.sh`: `latest` symlink vs `latest.md` 불일치로 load/resume 실패 수정
+  - `team_state.py`: flock 전 파일 truncate(TOCTOU) 수정
+  - `prd.sh`: `MAGENTA` 미정의 / pingpong stdout 오염 수정
+  - `stats.sh`: 인자 없이 실행 시 `set -u` 크래시 가드
+
+- **회귀/크래시**
+  - `brainstorm.sh`, `idea.sh`: jq 배열 필드 `+= "..."` 구문 오류로 인한 exit 5 크래시 해소
+  - `smart-qa.sh`: server `console.*` 디버그문 탐지 복구 (`grep -rw` → `grep -rE`)
+  - `brainstorm.sh`, `idea.sh`: `$msg_count회` unbound variable 수정 (`--analyze` 크래시)
+
+- **이식성/로직 (Medium/Low)**: `handover.sh`, `mem-check.sh`, `refactor.sh`, `bench.sh`, `common.sh`, `loop_detection.sh` 등 다수 (macOS bash 3.2 / BSD 도구 호환, 색상 변수 미정의, 버전 비교 반전 등)
+
+검증: shell 21/21 + Python 6/6 문법 통과, 핵심 실행 경로 exit 0 확인.
+
+---
+
 ## [3.2.1] - 2026-05-15
 
 ### Changed 🔧
