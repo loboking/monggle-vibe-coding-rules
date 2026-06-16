@@ -224,7 +224,7 @@ show_improvements() {
         if [[ $count -gt 0 ]]; then
             echo -e "${CYAN}Auto-generated suggestions (${count} items):${NC}"
             jq -r '.suggestions[] |
-                "  \(.severity | ascii_upcase): \(.recommendation)"' "$suggestion_file" 2-head -20 2>/dev/null || true
+                "  \(.severity | ascii_upcase): \(.recommendation)"' "$suggestion_file" 2>/dev/null | head -20 || true
             echo ""
             echo -e "${BLUE}Full report: /harness improve show${NC}"
             echo ""
