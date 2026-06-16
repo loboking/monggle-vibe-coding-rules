@@ -80,6 +80,96 @@ def load_synapse_memory(prd_path: Path) -> str:
     return ""
 
 
+# =============================================================================
+# team_state 연동 (실행 상태를 /team-status 에 노출)
+# =============================================================================
+
+def resolve_team_name(prd_content: str, prd_path: Optional[Path]) -> str:
+    """PRD/intent 기반 팀 이름 결정. 실패 시 'default' 폴백."""
+    # 1) PRD 본문에서 명시적 팀 지정 (예: "team: backend")
+    if prd_content:
+        for line in prd_content.split("\n"):
+            stripped = line.strip().lower()
+            if stripped.startswith("team:") or stripped.startswith("팀:"):
+                name = line.split(":", 1)[1].strip()
+                if name:
+                    return name
+    # 2) PRD 파일명 stem 사용
+    if prd_path is not None:
+        stem = prd_path.stem.strip()
+        if stem:
+            return stem
+    return "default"
+
+
+def _ensure_team_state_manager():
+    """team_state.TeamStateManager 인스턴스 반환 (호출만, 수정하지 않음).
+
+    team_state 모듈이 없거나 에러가 나면 None 반환하여 메인 흐름이 깨지지 않게 한다.
+    """
+    try:
+        # scripts/ 디렉터리는 이 파일과 동일 위치이므로 import 가능
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+        from team_state import TeamStateManager  # noqa: WPS433
+        return TeamStateManager(PROJECT_ROOT)
+    except Exception as e:  # noqa: BLE001 - 연동 실패가 메인을 막지 않도록
+        print(f"⚠️ team_state 연동을 건너뜁니다: {e}")
+        return None
+
+
+def _ensure_team_exists(team_name: str) -> None:
+    """팀 상태가 존재하도록 최소 config 파일을 생성한다.
+
+    set_status/complete_task 는 상태가 없으면 no-op 이므로,
+    config({team}.json)가 없을 때 한 번 만들어 부트스트랩한다.
+    team_state.py 코드 자체는 수정하지 않고 파일만 보장한다.
+    """
+    try:
+        teams_dir = PROJECT_ROOT / ".claude" / "teams"
+        teams_dir.mkdir(parents=True, exist_ok=True)
+        config_file = teams_dir / f"{team_name}.json"
+        if not config_file.exists():
+            config_file.write_text(
+                json.dumps(
+                    {"name": team_name, "created_at": datetime.now().isoformat()},
+                    indent=2,
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠️ 팀 config 생성을 건너뜁니다: {e}")
+
+
+def team_state_start(manager, team_name: str) -> None:
+    """실행 시작: 팀을 BUSY 로 표시."""
+    if manager is None:
+        return
+    try:
+        from team_state import TeamStatus  # noqa: WPS433
+        _ensure_team_exists(team_name)
+        manager.set_status(team_name, TeamStatus.BUSY)
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠️ team_state 시작 기록 실패: {e}")
+
+
+def team_state_finish(manager, team_name: str, success: bool) -> None:
+    """실행 종료: 결과를 기록하고 IDLE 로 복귀."""
+    if manager is None:
+        return
+    try:
+        from team_state import TeamStatus  # noqa: WPS433
+        # complete_task 가 stats 기록 + IDLE 복귀를 함께 처리
+        manager.complete_task(team_name, success=success)
+        if not success:
+            # 실패는 ERROR 로 명확히 표시
+            manager.set_status(team_name, TeamStatus.ERROR)
+        else:
+            manager.set_status(team_name, TeamStatus.IDLE)
+    except Exception as e:  # noqa: BLE001
+        print(f"⚠️ team_state 종료 기록 실패: {e}")
+
+
 def planner_node(state: TeamState) -> dict:
     """
     👨‍💼 시니어 아키텍트 (Planner)
@@ -200,10 +290,6 @@ def reviewer_node(state: TeamState) -> dict:
     # 검증 3: 에러 핸들링 확인
     if "open(" in code and "try:" not in code and "with" not in code:
         errors.append("파일 열기에 에러 핸들링이 없습니다.")
-
-    # 시뮬레이션: 처음에는 무조건 에러를 반환하여 루프를 테스트
-    if state["retry_count"] == 0:
-        errors.append("🧪 (테스트) 첫 실행이므로 재시도를 유도합니다.")
 
     if errors:
         error_msg = "❌ 검증 실패:\n" + "\n".join(f"  - {e}" for e in errors)
@@ -414,69 +500,89 @@ Examples:
     print(f"📋 PRD: {prd_path}")
     print(f"🔄 최대 재시도: {args.max_retries}")
 
-    # LangGraph가 없으면 대체 모드
-    if not LANGGRAPH_AVAILABLE:
-        return run_fallback_pipeline(prd_path)
-
-    # 팀 빌딩
-    team = build_team()
-    if not team:
-        return run_fallback_pipeline(prd_path)
-
-    # 초기 상태 설정
+    # PRD 로드 (팀 이름 결정 및 실행에 사용)
     prd_content, prd_type = load_prd(prd_path)
-    synapse_memory = load_synapse_memory(prd_path)
 
-    initial_state: TeamState = {
-        "messages": [HumanMessage(content=f"PRD: {prd_content}")],
-        "prd_path": str(prd_path),
-        "prd_content": prd_content,
-        "prd_type": prd_type,
-        "synapse_memory": synapse_memory,
-        "current_file": "",
-        "current_code": "",
-        "original_code": "",
-        "errors": [],
-        "retry_count": 0,
-        "max_retries": args.max_retries,
-        "verdict": "",
-        "success": False,
-    }
+    # team_state 연동: 팀 이름 결정 + 시작(BUSY) 기록
+    team_name = resolve_team_name(prd_content, prd_path)
+    state_manager = _ensure_team_state_manager()
+    team_state_start(state_manager, team_name)
+    print(f"👥 팀: {team_name} (상태: BUSY 기록)")
 
-    # 팀 실행 (config에 thread_id를 넣어 체크포인팅)
-    print("\n" + "=" * 60)
-    print("  👥 가상 개발팀 작업 시작")
-    print("=" * 60)
+    exit_code = 1
+    success = False
+    try:
+        # LangGraph가 없으면 대체 모드
+        if not LANGGRAPH_AVAILABLE:
+            exit_code = run_fallback_pipeline(prd_path)
+            success = (exit_code == 0)
+            return exit_code
 
-    config = {"configurable": {"thread_id": "team-session-1"}}
-    result = team.invoke(initial_state, config)
+        # 팀 빌딩
+        team = build_team()
+        if not team:
+            exit_code = run_fallback_pipeline(prd_path)
+            success = (exit_code == 0)
+            return exit_code
 
-    # 결과 요약
-    print("\n" + "=" * 60)
-    print("  📊 작업 결과 요약")
-    print("=" * 60)
+        # 초기 상태 설정
+        synapse_memory = load_synapse_memory(prd_path)
 
-    success = result.get("success", False)
-    verdict = result.get("verdict", "UNKNOWN")
+        initial_state: TeamState = {
+            "messages": [HumanMessage(content=f"PRD: {prd_content}")],
+            "prd_path": str(prd_path),
+            "prd_content": prd_content,
+            "prd_type": prd_type,
+            "synapse_memory": synapse_memory,
+            "current_file": "",
+            "current_code": "",
+            "original_code": "",
+            "errors": [],
+            "retry_count": 0,
+            "max_retries": args.max_retries,
+            "verdict": "",
+            "success": False,
+        }
 
-    print(f"상태: {'✅ 성공' if success else '❌ 실패'}")
-    print(f"판정: {verdict}")
-    print(f"재시도: {result.get('retry_count', 0)}회")
+        # 팀 실행 (config에 thread_id를 넣어 체크포인팅)
+        print("\n" + "=" * 60)
+        print("  👥 가상 개발팀 작업 시작")
+        print("=" * 60)
 
-    if result.get("errors"):
-        print("\n남은 에러:")
-        for error in result["errors"][-3:]:  # 최근 3개만
-            print(f"  - {error}")
+        config = {"configurable": {"thread_id": "team-session-1"}}
+        result = team.invoke(initial_state, config)
 
-    # 메시지 기록
-    if args.verbose:
-        print("\n💬 대화 기록:")
-        for msg in result.get("messages", []):
-            print(f"  {type(msg).__name__}: {msg.content[:100]}...")
+        # 결과 요약
+        print("\n" + "=" * 60)
+        print("  📊 작업 결과 요약")
+        print("=" * 60)
 
-    print("\n" + "=" * 60)
+        success = result.get("success", False)
+        verdict = result.get("verdict", "UNKNOWN")
 
-    return 0 if success else 1
+        print(f"상태: {'✅ 성공' if success else '❌ 실패'}")
+        print(f"판정: {verdict}")
+        print(f"재시도: {result.get('retry_count', 0)}회")
+
+        if result.get("errors"):
+            print("\n남은 에러:")
+            for error in result["errors"][-3:]:  # 최근 3개만
+                print(f"  - {error}")
+
+        # 메시지 기록
+        if args.verbose:
+            print("\n💬 대화 기록:")
+            for msg in result.get("messages", []):
+                print(f"  {type(msg).__name__}: {msg.content[:100]}...")
+
+        print("\n" + "=" * 60)
+
+        exit_code = 0 if success else 1
+        return exit_code
+    finally:
+        # team_state 연동: 종료(IDLE/ERROR) + 결과 기록 (항상 실행)
+        team_state_finish(state_manager, team_name, success)
+        print(f"👥 팀: {team_name} (상태: {'IDLE' if success else 'ERROR'} 기록)")
 
 
 if __name__ == "__main__":

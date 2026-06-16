@@ -56,6 +56,33 @@ harness_get_classification() {
 }
 
 # ============================================================================
+# Time helpers (millisecond resolution)
+# ============================================================================
+
+# 현재 시각을 밀리초(epoch ms)로 반환.
+# BSD date(macOS)는 %3N(나노초)을 지원하지 않으므로 호환 방법 사용:
+#   1) GNU date(%s%3N) 시도  2) python3  3) perl  4) 초*1000 fallback
+harness_now_ms() {
+    local ms
+    ms=$(date +%s%3N 2>/dev/null)
+    # GNU date 가 아니면 "...N" 같은 리터럴이 남으므로 숫자만인지 검증
+    if [[ "$ms" =~ ^[0-9]+$ ]]; then
+        echo "$ms"
+        return 0
+    fi
+    if command -v python3 &>/dev/null; then
+        python3 -c 'import time; print(int(time.time()*1000))'
+        return 0
+    fi
+    if command -v perl &>/dev/null; then
+        perl -MTime::HiRes=time -e 'printf("%d\n", time()*1000)'
+        return 0
+    fi
+    # 최후 fallback: 초 해상도
+    echo "$(($(date +%s) * 1000))"
+}
+
+# ============================================================================
 # Initialization
 # ============================================================================
 
@@ -174,11 +201,12 @@ harness_track_start() {
 
     harness_init
 
-    local start_time=$(date +%s)
+    # 밀리초 단위로 측정 (초 단위는 1초 미만 스킬이 항상 0)
+    local start_time=$(harness_now_ms)
     export HARNESS_SKILL_START="$start_time"
     export HARNESS_SKILL_NAME="$skill_name"
 
-    # DEBUG: echo "[HARNESS] Started: $skill_name at $start_time" >&2
+    # DEBUG: echo "[HARNESS] Started: $skill_name at ${start_time}ms" >&2
 }
 
 # 스킬 실행 종료 기록
@@ -188,15 +216,16 @@ harness_track_end() {
     shift 2
     local output="$*"
 
-    local end_time=$(date +%s)
-    local duration=$((end_time - ${HARNESS_SKILL_START:-$end_time}))
+    # 밀리초 단위 측정 (avg_duration_ms 로 기록 → 1초 미만도 0이 아님)
+    local end_time=$(harness_now_ms)
+    local duration_ms=$((end_time - ${HARNESS_SKILL_START:-$end_time}))
 
     # 에이전트 메트릭 업데이트
     local tmp_file="${AGENT_METRICS}.tmp"
 
     jq --arg agent "$skill_name" \
        --argjson code "$exit_code" \
-       --argjson duration "$duration" \
+       --argjson duration "$duration_ms" \
        '
        if .agents[$agent] then
          .agents[$agent].total += 1 |
@@ -206,25 +235,76 @@ harness_track_end() {
            .agents[$agent].failure += 1
          end |
          .agents[$agent].last_run = (now | todate) |
-         .agents[$agent].avg_duration = ((.agents[$agent].avg_duration // 0 * (.agents[$agent].total - 1) + $duration) / .agents[$agent].total)
+         .agents[$agent].avg_duration_ms = (((.agents[$agent].avg_duration_ms // 0) * (.agents[$agent].total - 1) + $duration) / .agents[$agent].total)
        else
          .agents[$agent] = {
            total: 1,
            success: (if $code == 0 then 1 else 0 end),
            failure: (if $code != 0 then 1 else 0 end),
            last_run: (now | todate),
-           avg_duration: $duration
+           avg_duration_ms: $duration
          }
        end
        ' "$AGENT_METRICS" > "$tmp_file"
     mv "$tmp_file" "$AGENT_METRICS"
+
+    # Guide/Sensor 분류 통계 갱신 (분류 함수가 정의만 되고 호출 안 되던 문제 해결)
+    harness_update_classification "$skill_name"
 
     # 실패 시 개선 로그 기록
     if [[ "$exit_code" != "0" ]]; then
         harness_log_failure "$skill_name" "$exit_code" "$output"
     fi
 
-    # DEBUG: echo "[HARNESS] Ended: $skill_name (exit: $exit_code, duration: ${duration}s)" >&2
+    # DEBUG: echo "[HARNESS] Ended: $skill_name (exit: $exit_code, duration: ${duration_ms}ms)" >&2
+}
+
+# 스킬의 guide/sensor 분류를 조회해 guide-sensor-stats.json 카운트 증가
+harness_update_classification() {
+    local skill_name="$1"
+
+    local classification
+    classification=$(harness_get_classification "$skill_name")
+
+    # "category:kind:metric" 형식 파싱 (예: sensor:computational:tests)
+    local category="${classification%%:*}"          # guide | sensor
+    local rest="${classification#*:}"
+    local kind="${rest%%:*}"                          # computational | inferential
+    local metric="${rest##*:}"                        # tests, code_review, ...
+
+    [[ -n "$category" && -n "$kind" && -n "$metric" ]] || return 0
+
+    local stats_file="$GUIDE_SENSOR_STATS"
+    # 파일/스키마 초기화
+    if [[ ! -f "$stats_file" ]]; then
+        mkdir -p "$(dirname "$stats_file")"
+        cat > "$stats_file" << 'EOF'
+{
+  "version": "1.0.0",
+  "guides": {
+    "computational": {"lint": 0, "type_check": 0, "template": 0},
+    "inferential": {"code_review": 0, "design_advice": 0}
+  },
+  "sensors": {
+    "computational": {"tests": 0, "ci": 0, "format": 0},
+    "inferential": {"llm_judge": 0, "semantic": 0}
+  }
+}
+EOF
+    fi
+
+    # category 단수형(guide/sensor) → JSON 키 복수형(guides/sensors)
+    local top_key="${category}s"
+
+    local tmp_file="${stats_file}.tmp"
+    jq --arg top "$top_key" \
+       --arg kind "$kind" \
+       --arg metric "$metric" \
+       '
+       .[$top] = (.[$top] // {}) |
+       .[$top][$kind] = (.[$top][$kind] // {}) |
+       .[$top][$kind][$metric] = ((.[$top][$kind][$metric] // 0) + 1)
+       ' "$stats_file" > "$tmp_file" && mv "$tmp_file" "$stats_file"
 }
 
 # ============================================================================
@@ -238,7 +318,8 @@ harness_log_failure() {
 
     local timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-    jq -n \
+    # -c (compact): 한 줄 = 한 객체 (JSONL 무결성 유지)
+    jq -nc \
         --arg ts "$timestamp" \
         --arg agent "$skill_name" \
         --argjson code "$exit_code" \
@@ -261,7 +342,8 @@ harness_log_improvement() {
 
     local timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-    jq -n \
+    # -c (compact): 한 줄 = 한 객체 (JSONL 무결성 유지)
+    jq -nc \
         --arg ts "$timestamp" \
         --arg sev "$severity" \
         --arg agent "$agent" \
@@ -350,11 +432,33 @@ harness_warn_excessive_changes() {
         echo "   • 변경은 최소한으로 (필요한 부분만)" >&2
         echo "   • diff-only 출력 (전체 파일 재출력 금지)" >&2
         echo "   • 확장이 꼭 필요하면 전체 수정 OK" >&2
-        harness_log_improvement "major" "$skill_name" "Excessive changes: $files_changed files, $total_changes lines" "Review changes. Split into smaller commits or reduce scope."
+
+        # Dedup: git diff HEAD 는 누적이라 동일 change observation 이 매번 반복 로깅된다.
+        # 직전 improvement 로그와 (agent, observation)이 같으면 skip.
+        local observation="Excessive changes: $files_changed files, $total_changes lines"
+        if ! harness_is_duplicate_change "$skill_name" "$observation"; then
+            harness_log_improvement "major" "$skill_name" "$observation" "Review changes. Split into smaller commits or reduce scope."
+        fi
         return 1
     fi
 
     return 0
+}
+
+# 직전 change observation 과 동일한지 확인 (중복 로깅 방지)
+# 반환: 0 = 중복(skip), 1 = 신규(로깅 진행)
+harness_is_duplicate_change() {
+    local skill_name="$1"
+    local observation="$2"
+
+    [[ -f "$IMPROVEMENT_LOG" ]] || return 1
+
+    # 마지막 improvement 엔트리(같은 type/agent)의 observation 추출
+    local last_obs
+    last_obs=$(jq -rc 'select(.type=="improvement" and .agent==$a) | .observation' \
+        --arg a "$skill_name" "$IMPROVEMENT_LOG" 2>/dev/null | tail -1)
+
+    [[ "$last_obs" == "$observation" ]]
 }
 
 # ============================================================================
@@ -388,6 +492,10 @@ harness_analyze() {
 # Export
 # ============================================================================
 
+export -f harness_now_ms
+export -f harness_get_classification
+export -f harness_update_classification
+export -f harness_is_duplicate_change
 export -f harness_init
 export -f harness_check_loops
 export -f harness_record_modification

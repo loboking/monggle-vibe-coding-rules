@@ -540,11 +540,47 @@ generate_settings() {
   "version": "3.1.0",
   "description": "Vibe Coding Rules for Claude Code",
   "language": "$PRD_LANGUAGE",
-  "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "\$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "\$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh", "timeout": 30 }
+        ]
+      }
+    ]
+  }
 }
 EOF
-        print_success "settings.json created (fallback)"
+        print_success "settings.json created (fallback, brain hooks 포함)"
     fi
+
+    # generate_settings.py 가 hooks 를 넣지 않을 수 있으므로, brain 훅 등록을 보장
+    _ensure_brain_hooks "$PROJECT_ROOT/.claude/settings.json"
+}
+
+# settings.json 에 brain SessionStart/End 훅이 없으면 주입 (멱등)
+_ensure_brain_hooks() {
+    local settings_file="$1"
+    [ -f "$settings_file" ] || return 0
+    command -v jq &> /dev/null || { print_warning "jq 없음 - brain 훅 자동등록 건너뜀"; return 0; }
+    if jq -e '.hooks.SessionStart[]?.hooks[]?.command | select(test("brain-session-start"))' "$settings_file" &> /dev/null; then
+        return 0  # 이미 등록됨
+    fi
+    local tmp; tmp=$(mktemp)
+    jq '.hooks = (.hooks // {})
+        | .hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh","timeout":10}]}])
+        | .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh","timeout":30}]}])' \
+        "$settings_file" > "$tmp" && mv "$tmp" "$settings_file" && print_success "brain 훅 등록(SessionStart/End)"
 }
 
 # Copy PRD templates
@@ -607,12 +643,13 @@ setup_ai_reviewer() {
     # Create config directory
     mkdir -p "$PROJECT_ROOT/.claude/config"
 
-    # Check if team.yaml already exists
+    # team.yaml is regenerated idempotently on every run.
+    # Only the current git user is registered (1 admin + 1 member).
+    # We intentionally do NOT parse/re-append existing members, since that
+    # caused unbounded duplicate accumulation across repeated installs.
     TEAM_CONFIG="$PROJECT_ROOT/.claude/config/team.yaml"
     if [ -f "$TEAM_CONFIG" ]; then
-        print_warning "team.yaml already exists, updating..."
-        # Extract existing members to preserve them
-        EXISTING_MEMBERS=$(sed -n '/members:/,/^[^ ]/p' "$TEAM_CONFIG" | tail -n +2)
+        print_warning "team.yaml already exists, regenerating (idempotent)..."
     fi
 
     # Ask for AI reviewer mode (skip in auto mode)
@@ -655,22 +692,15 @@ team:
       name: "$GIT_USER_NAME"
 EOF
 
-    # Append existing members if any
-    if [ -n "${EXISTING_MEMBERS:-}" ]; then
-        echo "$EXISTING_MEMBERS" >> "$TEAM_CONFIG"
-    fi
-
     cat >> "$TEAM_CONFIG" << EOF
 
 ai_reviewer:
   enabled: true
   mode: "$REVIEW_MODE"
 
-  # AI Model Configuration
-  model: "gpt-4"
-  api_key_env: "OPENAI_API_KEY"
-  max_tokens: 2000
-  temperature: 0.3
+  # Analysis engine: reviewer 는 규칙 기반(rule-based) 정적 분석을 수행하며
+  # 외부 LLM API 를 호출하지 않는다. (LLM 심층 리뷰는 Claude Code 내장 /review 사용)
+  engine: "rule-based"
 
   # Auto Review Settings
   auto_review_on_pr: true

@@ -3,7 +3,7 @@
 AI Reviewer - Automated Code Review System
 
 Part of monggle-vibe-coding-rules
-Reviews PRs/MRs using AI models (GPT-4, Claude, etc.)
+Reviews PRs/MRs using RULE-BASED static analysis (no external LLM call by design).
 
 Usage:
     python3 ai_reviewer.py --pr-url <url> [--mode <mode>]
@@ -136,10 +136,11 @@ class AIReviewer:
         checks = self.config.get("ai_reviewer", {}).get("checks", [])
         prompt = self._build_review_prompt(diff, checks)
 
-        # Call AI API
+        # NOTE: This reviewer is RULE-BASED (no external LLM call by design).
+        # 정규식/패턴 기반 정적 검사(eval/exec/shell=True/하드코딩 시크릿/TODO 등)만 수행한다.
+        # team.yaml 의 model 설정은 메타데이터일 뿐 실제 API 호출에 쓰이지 않는다.
+        # LLM 기반 심층 리뷰가 필요하면 Claude Code 내장 /review 스킬을 사용할 것.
         try:
-            # Always use rule-based analysis (API-free)
-            # For AI-powered review, use Claude Code's built-in capabilities
             analysis = self._rule_based_analysis(diff, checks)
 
             # Parse analysis and calculate confidence

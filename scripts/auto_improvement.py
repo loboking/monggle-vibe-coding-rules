@@ -47,7 +47,10 @@ except ImportError:
             self.verdict_stats = type('obj', (object,), {'pass_count': 0, 'fix_count': 0, 'fail_count': 0, 'history': []})()
 
 # Paths
-HARNESS_DIR = PROJECT_ROOT / ".harness"
+# 하네스 데이터 경로는 tracker(harness-tracker.sh)와 반드시 일치해야 한다.
+# tracker 는 HARNESS_HOME(기본값 ~/.claude/.harness)에 기록하므로 분석기도 동일 경로를 읽는다.
+# (분석기를 tracker 쪽에 맞춤 - 둘이 같은 폴더를 보게 통일)
+HARNESS_DIR = Path(os.environ.get("HARNESS_HOME", Path.home() / ".claude" / ".harness"))
 IMPROVEMENT_LOG = HARNESS_DIR / "improvement-log.jsonl"
 AGENT_METRICS = HARNESS_DIR / "metrics" / "agent-success-rate.json"
 GUIDE_SENSOR_STATS = HARNESS_DIR / "metrics" / "guide-sensor-stats.json"

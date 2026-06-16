@@ -14,6 +14,7 @@ Features:
 import fcntl
 import json
 import os
+import sys
 import threading
 import time
 from datetime import datetime, timedelta
@@ -21,6 +22,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
+
+
+# mutator 가 "변경 없음"을 알리는 센티넬 (None 은 정상 반환값으로 쓰이므로 구분 필요)
+_NO_CHANGE = object()
 
 
 class TeamStatus(Enum):
@@ -172,94 +177,28 @@ class TeamStateManager:
                     return None
         return self._states.get(team_name)
 
-    def set_status(self, team_name: str, status: TeamStatus):
-        """팀 상태 변경"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state:
-                old_status = state.status
-                state.status = status.value
-                self._save_state(team_name, old_status)
+    def _mutate(self, team_name: str, mutator, *, require_task: bool = False):
+        """원자적 read-modify-write.
 
-    def set_current_task(self, team_name: str, task: TaskState, session_id: str = ""):
-        """현재 작업 설정"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state:
-                old_status = state.status
-                state.current_task = task
-                state.status = TeamStatus.BUSY.value
-                if session_id:
-                    state.locked_by = session_id
-                    state.locked_at = datetime.now().isoformat()
-                self._save_state(team_name, old_status)
+        프로세스 간 배타 락(flock)을 잡은 채로 디스크의 최신 상태를 재독한 뒤
+        mutator 를 적용하고 저장한다. 이로써 __init__ 시점의 stale 메모리로 인한
+        lost-update 를 방지한다.
 
-    def update_progress(self, team_name: str, progress: int):
-        """진행률 업데이트"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state and state.current_task:
-                state.current_task.progress = min(100, max(0, progress))
-                old_status = state.status
-                if progress >= 100:
-                    state.current_task.status = "completed"
-                    state.current_task.completed_at = datetime.now().isoformat()
-                    state.status = TeamStatus.IDLE.value
-                self._save_state(team_name, old_status)
-
-    def add_to_queue(self, team_name: str, task: Dict):
-        """대기열에 작업 추가"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state:
-                state.queue.append(task)
-                if state.status == TeamStatus.IDLE.value:
-                    state.status = TeamStatus.QUEUED.value
-                self._save_state(team_name)
-
-    def get_next_task(self, team_name: str) -> Optional[Dict]:
-        """대기열에서 다음 작업 가져오기"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state and state.queue:
-                return state.queue.pop(0)
-            return None
-
-    def complete_task(self, team_name: str, success: bool = True):
-        """작업 완료 처리"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state:
-                state.stats["total_jobs"] += 1
-                if success:
-                    # 성공률 업데이트
-                    total = state.stats["total_jobs"]
-                    current_rate = state.stats.get("success_count", 0)
-                    success_count = current_rate + 1
-                    state.stats["success_count"] = success_count
-                    state.stats["success_rate"] = success_count / total
-                state.stats["last_job"] = datetime.now().isoformat()
-                state.current_task = None
-                state.status = TeamStatus.IDLE.value
-                state.locked_by = None
-                state.locked_at = None
-                self._save_state(team_name)
-
-    def acquire_lock(self, team_name: str, session_id: str) -> bool:
-        """팀 잠금 획득 (프로세스 간 원자적)"""
+        mutator(state) 의 반환값이 이 메서드의 반환값이 된다.
+        mutator 가 None 을 반환하면 변경 없음으로 간주하여 저장하지 않는다.
+        require_task=True 인데 current_task 가 없으면 mutator 를 호출하지 않는다.
+        """
         with self._lock:
             state = self._get_state_unlocked(team_name)
             if not state:
-                return False
+                return None
 
-            # 프로세스 간 배타 락을 잡은 채로 디스크 상태를 다시 읽어
-            # read-modify-write 전체를 원자적으로 수행
             state_file = self._state_file(team_name)
             lock_file = state_file.with_suffix(state_file.suffix + ".lock")
             with open(lock_file, 'w') as lf:
                 fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
                 try:
-                    # 디스크의 최신 상태로 갱신 (다른 프로세스가 쓴 락 반영)
+                    # 락을 잡은 상태에서 디스크 최신본으로 재독 (다른 프로세스 반영)
                     if state_file.exists():
                         try:
                             with open(state_file, 'r') as f:
@@ -269,50 +208,157 @@ class TeamStateManager:
                         except (json.JSONDecodeError, OSError, KeyError, ValueError):
                             pass
 
-                    # 이미 잠겨있으면 확인
-                    if state.locked_by:
-                        # 같은 세션이면 OK
-                        if state.locked_by == session_id:
-                            return True
-                        # 잠금 시간 확인 (30분 타임아웃)
-                        if state.locked_at:
-                            locked_time = datetime.fromisoformat(state.locked_at)
-                            if datetime.now() - locked_time < timedelta(minutes=30):
-                                return False
-                            # 타임아웃이면 잠금 해제
-                            state.locked_by = None
-                            state.locked_at = None
+                    if require_task and not state.current_task:
+                        return None
 
-                    state.locked_by = session_id
-                    state.locked_at = datetime.now().isoformat()
+                    old_status = state.status
+                    result = mutator(state)
+                    if result is _NO_CHANGE:
+                        return None
+
+                    # 락을 보유한 채로 기록
                     self._write_state_locked(team_name)
-                    return True
+
+                    # 감사 로그 (상태 변경 시)
+                    if old_status != state.status:
+                        task_desc = state.current_task.description if state.current_task else ""
+                        session = state.locked_by or ""
+                        self._audit_log(team_name, old_status, state.status, task_desc, session)
+
+                    return result
                 finally:
                     fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
-    def release_lock(self, team_name: str, session_id: str) -> bool:
-        """팀 잠금 해제"""
-        with self._lock:
-            state = self._get_state_unlocked(team_name)
-            if state and state.locked_by == session_id:
-                state.locked_by = None
-                state.locked_at = None
-                self._save_state(team_name)
-                return True
+    def set_status(self, team_name: str, status: TeamStatus):
+        """팀 상태 변경"""
+        def _m(state):
+            state.status = status.value
+        self._mutate(team_name, _m)
+
+    def set_current_task(self, team_name: str, task: TaskState, session_id: str = ""):
+        """현재 작업 설정"""
+        def _m(state):
+            state.current_task = task
+            state.status = TeamStatus.BUSY.value
+            if session_id:
+                state.locked_by = session_id
+                state.locked_at = datetime.now().isoformat()
+        self._mutate(team_name, _m)
+
+    def update_progress(self, team_name: str, progress: int):
+        """진행률 업데이트"""
+        def _m(state):
+            state.current_task.progress = min(100, max(0, progress))
+            if progress >= 100:
+                state.current_task.status = "completed"
+                state.current_task.completed_at = datetime.now().isoformat()
+                state.status = TeamStatus.IDLE.value
+        self._mutate(team_name, _m, require_task=True)
+
+    def add_to_queue(self, team_name: str, task: Dict):
+        """대기열에 작업 추가"""
+        def _m(state):
+            state.queue.append(task)
+            if state.status == TeamStatus.IDLE.value:
+                state.status = TeamStatus.QUEUED.value
+        self._mutate(team_name, _m)
+
+    def get_next_task(self, team_name: str) -> Optional[Dict]:
+        """대기열에서 다음 작업 가져오기 (큐에서 pop 후 영속화)"""
+        popped = {"task": None}
+
+        def _m(state):
+            if not state.queue:
+                return _NO_CHANGE
+            popped["task"] = state.queue.pop(0)
+            return None
+
+        self._mutate(team_name, _m)
+        return popped["task"]
+
+    def complete_task(self, team_name: str, success: bool = True):
+        """작업 완료 처리"""
+        def _m(state):
+            state.stats["total_jobs"] += 1
+            if success:
+                # 성공률 업데이트
+                total = state.stats["total_jobs"]
+                current_rate = state.stats.get("success_count", 0)
+                success_count = current_rate + 1
+                state.stats["success_count"] = success_count
+                state.stats["success_rate"] = success_count / total
+            state.stats["last_job"] = datetime.now().isoformat()
+            state.current_task = None
+            state.status = TeamStatus.IDLE.value
+            state.locked_by = None
+            state.locked_at = None
+        self._mutate(team_name, _m)
+
+    def acquire_lock(self, team_name: str, session_id: str) -> bool:
+        """팀 잠금 획득 (프로세스 간 원자적)"""
+        if not session_id:
             return False
 
+        result = {"ok": False}
+
+        def _m(state):
+            # 이미 잠겨있으면 확인
+            if state.locked_by:
+                # 같은 세션이면 OK (변경 없음)
+                if state.locked_by == session_id:
+                    result["ok"] = True
+                    return _NO_CHANGE
+                # 잠금 시간 확인 (30분 타임아웃)
+                if state.locked_at:
+                    locked_time = datetime.fromisoformat(state.locked_at)
+                    if datetime.now() - locked_time < timedelta(minutes=30):
+                        result["ok"] = False
+                        return _NO_CHANGE
+                    # 타임아웃이면 잠금 해제 후 계속 진행
+                    state.locked_by = None
+                    state.locked_at = None
+
+            state.locked_by = session_id
+            state.locked_at = datetime.now().isoformat()
+            result["ok"] = True
+
+        self._mutate(team_name, _m)
+        return result["ok"]
+
+    def release_lock(self, team_name: str, session_id: str) -> bool:
+        """팀 잠금 해제"""
+        if not session_id:
+            return False
+
+        result = {"ok": False}
+
+        def _m(state):
+            if state.locked_by == session_id:
+                state.locked_by = None
+                state.locked_at = None
+                result["ok"] = True
+            else:
+                # 소유자가 아니면 변경 없음
+                return _NO_CHANGE
+
+        self._mutate(team_name, _m)
+        return result["ok"]
+
     def get_all_states(self) -> Dict[str, TeamState]:
-        """모든 팀 상태 조회"""
+        """모든 팀 상태 조회
+
+        state/ 하위의 *_state.json 만 '팀 상태'로 인식한다.
+        .claude/teams/*.json 의 구성 템플릿(backend/frontend 등)은
+        팀 상태가 아니므로 제외한다.
+        """
         with self._lock:
-            # 등록된 팀 모두 확인
             result = {}
-            for team_file in self.teams_dir.glob("*.json"):
-                if not team_file.name.endswith("_state.json"):
-                    team_name = team_file.stem
-                    # 내부 함수 사용 (데드락 방지)
-                    state = self._get_state_unlocked(team_name)
-                    if state:
-                        result[team_name] = state
+            for state_file in self.state_dir.glob("*_state.json"):
+                team_name = state_file.stem.replace("_state", "")
+                # 내부 함수 사용 (데드락 방지)
+                state = self._get_state_unlocked(team_name)
+                if state:
+                    result[team_name] = state
             return result
 
     def _write_state_locked(self, team_name: str):
@@ -340,29 +386,6 @@ class TeamStateManager:
             f.flush()
             os.fsync(f.fileno())  # 디스크에 강제 쓰기
         os.replace(tmp_file, state_file)  # 원자적 교체
-
-    def _save_state(self, team_name: str, old_status: str = None):
-        """상태 저장 (파일 시스템 락 포함)"""
-        state = self._states.get(team_name)
-        if not state:
-            return
-
-        state_file = self._state_file(team_name)
-
-        # 파일 시스템 락 (fcntl) + 원자적 쓰기
-        lock_file = state_file.with_suffix(state_file.suffix + ".lock")
-        with open(lock_file, 'w') as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)  # 배타적 락
-            try:
-                self._write_state_locked(team_name)
-            finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)  # 락 해제
-
-        # 감사 로그 (상태 변경 시)
-        if old_status and old_status != state.status:
-            task_desc = state.current_task.description if state.current_task else ""
-            session = state.locked_by or ""
-            self._audit_log(team_name, old_status, state.status, task_desc, session)
 
 
 class StatusFormatter:
@@ -462,10 +485,21 @@ def main():
 
     if args.unlock:
         session_id = os.environ.get("SESSION_ID", "")
+        if not session_id:
+            print("✗ SESSION_ID is required to unlock (set the SESSION_ID env var "
+                  "to the session that holds the lock)")
+            state = manager.get_state(args.unlock)
+            if state and state.locked_by:
+                print(f"  Currently locked by: {state.locked_by}")
+            sys.exit(1)
         if manager.release_lock(args.unlock, session_id):
             print(f"✓ Released lock on {args.unlock}")
         else:
-            print(f"✗ Failed to release lock on {args.unlock}")
+            print(f"✗ Failed to release lock on {args.unlock} "
+                  f"(not held by session '{session_id}')")
+            state = manager.get_state(args.unlock)
+            if state and state.locked_by:
+                print(f"  Currently locked by: {state.locked_by}")
         return
 
     # 상태 조회

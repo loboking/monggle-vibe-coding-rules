@@ -1,0 +1,33 @@
+{
+  "name": "monggle-vibe-coding-rules",
+  "version": "3.1.0",
+  "description": "Vibe Coding Rules for Claude Code",
+  "language": "ko",
+  "created": "2026-06-16T07:58:21Z",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
