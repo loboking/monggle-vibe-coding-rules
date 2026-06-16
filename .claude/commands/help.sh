@@ -170,7 +170,7 @@ print_simple_list() {
         # 빈 라인 건너뜀
         [[ -z "$skill" ]] && continue
 
-        echo -n "  ${GREEN}/$skill${NC}   "
+        echo -en "  ${GREEN}/$skill${NC}   "
         ((count++))
         # 3개마다 줄바꿈
         if [[ $((count % 3)) -eq 0 ]]; then

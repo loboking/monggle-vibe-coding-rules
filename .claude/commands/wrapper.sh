@@ -10,7 +10,25 @@
 #   # 이후 모든 명령어가 자동 교정됨
 #
 
-set -eo pipefail
+# 이 파일은 source로 로드되는 것이 기본 사용법이므로,
+# source 된 경우에는 set -e/pipefail/exec 가 사용자 셸을 망가뜨린다.
+# 직접 실행(standalone)일 때만 strict mode 와 exec 를 사용한다.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    _WRAPPER_SOURCED=0
+    set -eo pipefail
+else
+    _WRAPPER_SOURCED=1
+fi
+
+# 스킬 실행 헬퍼: standalone 이면 exec, sourced 면 일반 호출
+run_script() {
+    if [[ "$_WRAPPER_SOURCED" -eq 0 ]]; then
+        exec "$@"
+    else
+        "$@"
+        return $?
+    fi
+}
 
 # 스킬 목록 (skill|script_name)
 SKILL_LIST="
@@ -237,7 +255,8 @@ wrap_command() {
     script_path=$(get_script_path "$clean_input")
 
     if [[ -n "$script_path" ]] && [[ -f "$script_path" ]]; then
-        exec "$script_path" "${args[@]}"
+        run_script "$script_path" "${args[@]}"
+        return $?
     fi
 
     # 퍼지 매칭
@@ -248,7 +267,8 @@ wrap_command() {
         echo -e "\033[1;33m[오타 교정]\033[0m '$clean_input' → '$closest'"
         script_path=$(get_script_path "$closest")
         if [[ -f "$script_path" ]]; then
-            exec "$script_path" "${args[@]}"
+            run_script "$script_path" "${args[@]}"
+            return $?
         fi
     fi
 

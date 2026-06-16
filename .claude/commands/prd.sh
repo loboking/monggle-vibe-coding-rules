@@ -27,6 +27,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
 
@@ -70,6 +71,14 @@ log_success() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_step() {
+    echo -e "${CYAN}[STEP]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 # Show usage
@@ -259,16 +268,16 @@ pingpong_next_question() {
 
 # 핑퐁 대화 모드 실행
 pingpong_mode() {
-    echo ""
-    echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}${BOLD}║     💬 핑퐁 모드 - PRD 작성 (기본 모드)            ║${NC}"
-    echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "${GREEN}자연스러운 대화로 PRD를 작성합니다.${NC}"
-    echo "질문을 통해 요구사항을 명확히 정리해 드릴게요."
-    echo ""
-    echo -e "${YELLOW}명령어:${NC} /done (완료), /cancel (취소)"
-    echo ""
+    echo "" >&2
+    echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════╗${NC}" >&2
+    echo -e "${CYAN}${BOLD}║     💬 핑퐁 모드 - PRD 작성 (기본 모드)            ║${NC}" >&2
+    echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════╝${NC}" >&2
+    echo "" >&2
+    echo -e "${GREEN}자연스러운 대화로 PRD를 작성합니다.${NC}" >&2
+    echo "질문을 통해 요구사항을 명확히 정리해 드릴게요." >&2
+    echo "" >&2
+    echo -e "${YELLOW}명령어:${NC} /done (완료), /cancel (취소)" >&2
+    echo "" >&2
 
     pingpong_init_session
 
@@ -276,8 +285,8 @@ pingpong_mode() {
     while true; do
         # 질문 표시
         local question=$(pingpong_next_question)
-        echo -e "${MAGENTA}Q${NC}: $question"
-        echo ""
+        echo -e "${MAGENTA}Q${NC}: $question" >&2
+        echo "" >&2
 
         # 사용자 입력 받기
         read -p "> " user_input
@@ -285,8 +294,8 @@ pingpong_mode() {
         # 명령어 처리
         if [[ "$user_input" == "/done" ]] || [[ "$user_input" == "/cancel" ]] || [[ -z "$user_input" ]]; then
             if [[ "$user_input" == "/cancel" ]]; then
-                echo ""
-                log_info "취소되었습니다."
+                echo "" >&2
+                log_info "취소되었습니다." >&2
                 return 1
             fi
             break
@@ -296,14 +305,14 @@ pingpong_mode() {
         pingpong_add_message "user" "$user_input"
 
         # 간단한 피드백
-        echo ""
-        echo -e "${GREEN}✓${NC} 입력받았습니다: $user_input"
-        echo ""
+        echo "" >&2
+        echo -e "${GREEN}✓${NC} 입력받았습니다: $user_input" >&2
+        echo "" >&2
 
         round=$((round + 1))
         if [[ $round -ge 6 ]]; then
-            echo -e "${YELLOW}충분한 정보를 수집했습니다. /done를 입력하시면 PRD를 생성합니다.${NC}"
-            echo ""
+            echo -e "${YELLOW}충분한 정보를 수집했습니다. /done를 입력하시면 PRD를 생성합니다.${NC}" >&2
+            echo "" >&2
         fi
     done
 
@@ -313,13 +322,13 @@ pingpong_mode() {
 
     local prd_type=$(detect_type_from_input "$all_messages")
 
-    echo ""
-    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}${BOLD}  PRD 생성 시작${NC}"
-    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "감지된 타입: ${GREEN}${prd_type}${NC}"
-    echo ""
+    echo "" >&2
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════${NC}" >&2
+    echo -e "${CYAN}${BOLD}  PRD 생성 시작${NC}" >&2
+    echo -e "${CYAN}${BOLD}═══════════════════════════════════════════════════${NC}" >&2
+    echo "" >&2
+    echo -e "감지된 타입: ${GREEN}${prd_type}${NC}" >&2
+    echo "" >&2
 
     # 세션 정보를 PRD 생성에 활용 (TODO: Python 스크립트에 전달)
     # 현재는 기존 방식대로 진행
@@ -524,9 +533,12 @@ main() {
     log_info "PRD Creator 실행 중... (Language: $language)"
     echo ""
 
-    local args="--type $prd_type --output $output_path --language $language $non_interactive"
+    local args=(--type "$prd_type" --output "$output_path" --language "$language")
+    if [[ -n "$non_interactive" ]]; then
+        args+=("$non_interactive")
+    fi
 
-    if python3 "$PRD_CREATOR" $args; then
+    if python3 "$PRD_CREATOR" "${args[@]}"; then
         # Success
         save_session "$prd_type" "$output_path" "completed"
 
@@ -545,10 +557,12 @@ main() {
 
             if [[ $exit_code -ne 0 ]] && [[ -n "$improvement_output" ]]; then
                 echo ""
+                local separator
+                separator=$(printf '=%.0s' $(seq 1 60))
                 echo -e "${YELLOW}${BOLD}💡 하네스 개선 제안${NC}"
-                echo "=" "=" 60
+                echo "$separator"
                 echo "$improvement_output"
-                echo "=" "=" 60
+                echo "$separator"
                 echo -e "Run ${CYAN}/harness improve${NC} for details"
                 echo ""
             fi
@@ -561,8 +575,8 @@ main() {
             echo ""
 
             if [[ -f "$PIPELINE_SCRIPT" ]]; then
-                "$PIPELINE_SCRIPT" "$output_path"
-                local pipeline_exit=$?
+                local pipeline_exit=0
+                "$PIPELINE_SCRIPT" "$output_path" || pipeline_exit=$?
 
                 if [[ $pipeline_exit -eq 0 ]] && [[ "$AUTO_LINT" == true ]]; then
                     echo ""

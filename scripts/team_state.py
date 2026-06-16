@@ -122,7 +122,7 @@ class TeamStateManager:
                 with open(state_file, 'r') as f:
                     data = json.load(f)
                     self._states[team_name] = self._parse_state(data)
-            except Exception as e:
+            except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
                 print(f"[WARN] Failed to load state for {team_name}: {e}", flush=True)
 
     def _parse_state(self, data: Dict) -> TeamState:
@@ -153,9 +153,13 @@ class TeamStateManager:
         if team_name not in self._states:
             state_file = self._state_file(team_name)
             if state_file.exists():
-                with open(state_file, 'r') as f:
-                    data = json.load(f)
-                    self._states[team_name] = self._parse_state(data)
+                try:
+                    with open(state_file, 'r') as f:
+                        data = json.load(f)
+                        self._states[team_name] = self._parse_state(data)
+                except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
+                    print(f"[WARN] Failed to load state for {team_name}: {e}", flush=True)
+                    return None
             else:
                 # 팀 설정 파일이 있으면 초기 상태 생성
                 config_file = self.teams_dir / f"{team_name}.json"
@@ -242,30 +246,49 @@ class TeamStateManager:
                 self._save_state(team_name)
 
     def acquire_lock(self, team_name: str, session_id: str) -> bool:
-        """팀 잠금 획득"""
+        """팀 잠금 획득 (프로세스 간 원자적)"""
         with self._lock:
             state = self._get_state_unlocked(team_name)
             if not state:
                 return False
 
-            # 이미 잠겨있으면 확인
-            if state.locked_by:
-                # 같은 세션이면 OK
-                if state.locked_by == session_id:
-                    return True
-                # 잠금 시간 확인 (30분 타임아웃)
-                if state.locked_at:
-                    locked_time = datetime.fromisoformat(state.locked_at)
-                    if datetime.now() - locked_time < timedelta(minutes=30):
-                        return False
-                    # 타임아웃이면 잠금 해제
-                    state.locked_by = None
-                    state.locked_at = None
+            # 프로세스 간 배타 락을 잡은 채로 디스크 상태를 다시 읽어
+            # read-modify-write 전체를 원자적으로 수행
+            state_file = self._state_file(team_name)
+            lock_file = state_file.with_suffix(state_file.suffix + ".lock")
+            with open(lock_file, 'w') as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    # 디스크의 최신 상태로 갱신 (다른 프로세스가 쓴 락 반영)
+                    if state_file.exists():
+                        try:
+                            with open(state_file, 'r') as f:
+                                data = json.load(f)
+                            state = self._parse_state(data)
+                            self._states[team_name] = state
+                        except (json.JSONDecodeError, OSError, KeyError, ValueError):
+                            pass
 
-            state.locked_by = session_id
-            state.locked_at = datetime.now().isoformat()
-            self._save_state(team_name)
-            return True
+                    # 이미 잠겨있으면 확인
+                    if state.locked_by:
+                        # 같은 세션이면 OK
+                        if state.locked_by == session_id:
+                            return True
+                        # 잠금 시간 확인 (30분 타임아웃)
+                        if state.locked_at:
+                            locked_time = datetime.fromisoformat(state.locked_at)
+                            if datetime.now() - locked_time < timedelta(minutes=30):
+                                return False
+                            # 타임아웃이면 잠금 해제
+                            state.locked_by = None
+                            state.locked_at = None
+
+                    state.locked_by = session_id
+                    state.locked_at = datetime.now().isoformat()
+                    self._write_state_locked(team_name)
+                    return True
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     def release_lock(self, team_name: str, session_id: str) -> bool:
         """팀 잠금 해제"""
@@ -292,8 +315,8 @@ class TeamStateManager:
                         result[team_name] = state
             return result
 
-    def _save_state(self, team_name: str, old_status: str = None):
-        """상태 저장 (파일 시스템 락 포함)"""
+    def _write_state_locked(self, team_name: str):
+        """상태를 원자적으로 디스크에 기록 (flock은 호출자가 보유한다고 가정)"""
         state = self._states.get(team_name)
         if not state:
             return
@@ -310,16 +333,30 @@ class TeamStateManager:
         }
 
         state_file = self._state_file(team_name)
+        # 원자적 쓰기 (temp + os.replace)
+        tmp_file = state_file.with_suffix(state_file.suffix + ".tmp")
+        with open(tmp_file, 'w') as f:
+            f.write(json.dumps(data, indent=2, ensure_ascii=False))
+            f.flush()
+            os.fsync(f.fileno())  # 디스크에 강제 쓰기
+        os.replace(tmp_file, state_file)  # 원자적 교체
 
-        # 파일 시스템 락 (fcntl)
-        with open(state_file, 'w') as f:
+    def _save_state(self, team_name: str, old_status: str = None):
+        """상태 저장 (파일 시스템 락 포함)"""
+        state = self._states.get(team_name)
+        if not state:
+            return
+
+        state_file = self._state_file(team_name)
+
+        # 파일 시스템 락 (fcntl) + 원자적 쓰기
+        lock_file = state_file.with_suffix(state_file.suffix + ".lock")
+        with open(lock_file, 'w') as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)  # 배타적 락
             try:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # 배타적 락
-                f.write(json.dumps(data, indent=2, ensure_ascii=False))
-                f.flush()
-                os.fsync(f.fileno())  # 디스크에 강제 쓰기
+                self._write_state_locked(team_name)
             finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # 락 해제
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)  # 락 해제
 
         # 감사 로그 (상태 변경 시)
         if old_status and old_status != state.status:
@@ -353,7 +390,7 @@ class StatusFormatter:
             progress_bar = "█" * (task.progress // 10) + "░" * (10 - task.progress // 10)
             lines.append(f"     ├─ Task: {task.description}")
             lines.append(f"     ├─ Progress: [{progress_bar}] {task.progress}%")
-            if task.started_at:
+            if task.agent:
                 lines.append(f"     ├─ Agent: {task.agent}")
         elif state.queue:
             lines.append(f"     ├─ Queue: {len(state.queue)} tasks pending")
@@ -373,8 +410,7 @@ class StatusFormatter:
         total_jobs = sum(s.stats.get("total_jobs", 0) for s in states.values())
         success_rate = 0
         if total_jobs > 0:
-            success_jobs = sum(s.stats.get("success_count", s.stats.get("total_jobs", 0)) * s.stats.get("success_rate", 0)
-                              for s in states.values())
+            success_jobs = sum(s.stats.get("success_count", 0) for s in states.values())
             success_rate = (success_jobs / total_jobs) * 100
 
         lines = [

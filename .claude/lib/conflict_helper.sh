@@ -259,19 +259,19 @@ resolve_merge_guide() {
     echo -e "${BOLD}충돌 내용:${NC}"
     echo
 
-    awk '
+    awk -v red="$RED" -v yellow="$YELLOW" -v green="$GREEN" -v nc="$NC" '
     /^<<<<<<</ {
-        print "\n${RED}━━─ 내 변경 (ours) ━━━${NC}"
+        print "\n" red "━━─ 내 변경 (ours) ━━━" nc
         flag=1
         next
     }
     /^=======/ {
-        print "\n${YELLOW}━━─ 원본 변경 (theirs) ━━━${NC}"
+        print "\n" yellow "━━─ 원본 변경 (theirs) ━━━" nc
         flag=2
         next
     }
     /^>>>>>>>/ {
-        print "${GREEN}━━─ 끝 ━━━${NC}\n"
+        print green "━━─ 끝 ━━━" nc "\n"
         flag=0
         next
     }

@@ -128,7 +128,7 @@ bump_version() {
     # Split version into parts
     local major minor patch pre
 
-    if [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[^0-9][0-9a-zA-Z.]*)?$ ]]; then
+    if [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9a-zA-Z.-]+)?(\+[0-9a-zA-Z.-]+)?$ ]]; then
         major="${BASH_REMATCH[1]}"
         minor="${BASH_REMATCH[2]}"
         patch="${BASH_REMATCH[3]}"

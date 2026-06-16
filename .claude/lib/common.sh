@@ -116,7 +116,7 @@ detect_project_type() {
        [[ -f "${project_root}/pnpm-lock.yaml" ]]; then
         # Check if TypeScript
         if [[ -f "${project_root}/tsconfig.json" ]] || \
-           [[ -d "${project_root}/src" ]] && find "${project_root}/src" -name "*.ts" | head -1 | grep -q .; then
+           { [[ -d "${project_root}/src" ]] && find "${project_root}/src" -maxdepth 3 -name "*.ts" 2>/dev/null | head -1 | grep -q .; }; then
             echo "typescript"
         else
             echo "nodejs"
@@ -223,10 +223,18 @@ print_header() {
     local title="$1"
     local width=60
 
+    local line
+    line=$(printf "%*s" $width | tr ' ' '=')
+    local title_text="  $title  "
+    local pad=$(( (width - ${#title_text}) / 2 ))
+    [[ $pad -lt 0 ]] && pad=0
+    local rpad=$(( width - pad - ${#title_text} ))
+    [[ $rpad -lt 0 ]] && rpad=0
+
     echo ""
-    printf "${BOLD}${CYAN}%*s${NC}\n" $width | tr ' ' '='
-    printf "${BOLD}${CYAN}%s%*s${NC}\n" "  $title  " $width | tr ' ' '='
-    printf "${BOLD}${CYAN}%*s${NC}\n" $width | tr ' ' '='
+    printf "${BOLD}${CYAN}%s${NC}\n" "$line"
+    printf "${BOLD}${CYAN}%*s%s%*s${NC}\n" $pad "" "$title_text" $rpad ""
+    printf "${BOLD}${CYAN}%s${NC}\n" "$line"
     echo ""
 }
 
@@ -303,6 +311,11 @@ show_progress() {
     local current=$1
     local total=$2
     local width=50
+
+    if [[ $total -le 0 ]]; then
+        return 0
+    fi
+
     local percent=$((current * 100 / total))
     local filled=$((width * current / total))
 
@@ -373,15 +386,7 @@ backup_file() {
     fi
 }
 
-# Get OS type
-get_os() {
-    case "$(uname -s)" in
-        Linux*)     echo "linux";;
-        Darwin*)    echo "macos";;
-        MINGW*|MSYS*|CYGWIN*) echo "windows";;
-        *)          echo "unknown";;
-    esac
-}
+# Note: get_os() is defined in platform.sh (sourced above) and re-exported below.
 
 # Get architecture
 get_arch() {
@@ -436,16 +441,21 @@ check_upgrade_available() {
     if [[ -f "${project_root}/.claude/version" ]]; then
         current_version=$(cat "${project_root}/.claude/version")
     elif [[ -f "${project_root}/CLAUDE.md" ]]; then
-        current_version=$(sed -nE 's/.*Version:.*v([0-9.]+).*/\1/p' "${project_root}/CLAUDE.md" 2>/dev/null | head -1)
+        # 첫 번째 'v<숫자>' 만 잡도록 anchor + 비-v 문자 클래스로 greedy 매칭 방지
+        current_version=$(sed -nE 's/^[^v]*v([0-9]+\.[0-9.]+).*/\1/p' "${project_root}/CLAUDE.md" 2>/dev/null | head -1)
     fi
 
-    # Get latest version from git tags
-    cd "$project_root"
+    # Get latest version from git tags (run in subshell to preserve caller CWD)
     local latest_version="unknown"
 
-    if git fetch --tags origin >/dev/null 2>&1; then
-        latest_version=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
-    fi
+    latest_version=$(
+        cd "$project_root" || exit 1
+        if git fetch --tags origin >/dev/null 2>&1; then
+            git describe --tags --abbrev=0 2>/dev/null || echo "unknown"
+        else
+            echo "unknown"
+        fi
+    )
 
     # Compare versions
     if [[ "$current_version" != "unknown" ]] && [[ "$latest_version" != "unknown" ]]; then
@@ -468,6 +478,9 @@ check_upgrade_available() {
                 echo -e "   Run: ${CYAN}/monggle-upgrade${NC} to update"
                 echo ""
                 return 0
+            elif ((cur > lat)); then
+                # Current is newer than latest; no upgrade
+                return 1
             fi
         done
     fi

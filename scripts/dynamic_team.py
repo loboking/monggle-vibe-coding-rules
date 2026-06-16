@@ -118,9 +118,12 @@ def build_dynamic_graph(team_config: dict, context: dict) -> str:
             from_name = from_part.split("(")[0].strip()
             to_name = to_part.split("(")[0].strip()
 
-            # 에이전트 인덱스 찾기
-            from_idx = next((i for i, a in enumerate(agents) if a["name"] == from_name), 0)
-            to_idx = next((i for i, a in enumerate(agents) if a["name"] == to_name), 0)
+            # 에이전트 인덱스 찾기 (미등록 이름은 건너뜀)
+            from_idx = next((i for i, a in enumerate(agents) if a["name"] == from_name), None)
+            to_idx = next((i for i, a in enumerate(agents) if a["name"] == to_name), None)
+
+            if from_idx is None or to_idx is None:
+                continue
 
             from_first = agents[from_idx]["name"][0].upper()
             to_first = agents[to_idx]["name"][0].upper()
@@ -134,7 +137,9 @@ def build_dynamic_graph(team_config: dict, context: dict) -> str:
                     p_name_clean = p_name.split("(")[0].strip()
                     if not p_name_clean:
                         continue
-                    p_idx = next((i for i, a in enumerate(agents) if a["name"] == p_name_clean), 0)
+                    p_idx = next((i for i, a in enumerate(agents) if a["name"] == p_name_clean), None)
+                    if p_idx is None:
+                        continue
                     p_first = agents[p_idx]["name"][0].upper()
                     p_node = f"N{p_first}{p_idx}"
                     mermaid += f"    {from_node} --> {p_node}\n"
@@ -332,7 +337,7 @@ Examples:
     try:
         from langgraph.graph import StateGraph
         print("✅ LangGraph가 설치되어 있습니다. 실제 그래프를 생성할 수 있습니다!")
-        print("🚀 실행: python scripts/langgraph_team.py --intent {intent}")
+        print(f"🚀 실행: python scripts/langgraph_team.py --intent {intent}")
     except ImportError:
         print("⚠️ LangGraph가 설치되지 않았습니다.")
         print("📦 설치: pip install langgraph langchain-anthropic")

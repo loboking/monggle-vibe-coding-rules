@@ -5,7 +5,7 @@
 **"Knowing how to use Claude is different from using it well"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.6.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Skills collection to get better results with Claude Code**
@@ -512,7 +512,7 @@ git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 <div align="center">
 
-**Vibe Coding Skills for Claude v2.6.0**
+**Vibe Coding Skills for Claude v3.2.0**
 
 Made with ❤️ by [loboking](https://github.com/loboking)
 

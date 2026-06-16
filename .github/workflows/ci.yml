@@ -63,7 +63,7 @@ jobs:
         run: black --check scripts/
 
       - name: Run Pylint
-        run: pylint scripts/init_core.py
+        run: pylint scripts/
         continue-on-error: true
 
   test-python:
@@ -81,9 +81,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
-      - name: Run init_core tests
-        run: python3 tests/test_init_core.py
 
       - name: Run Bash library tests (TDD)
         run: python3 tests/test_lib_sh.py
@@ -132,86 +129,7 @@ jobs:
             !.github/**/*.md
           config: .markdownlint.json
 
-  validate-templates:
-    name: Validate PRD Template
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Validate PRD template
-        run: |
-          # Check if template exists
-          test -f scripts/templates/prd.md.template || exit 1
-
-          # Validate YAML frontmatter in template
-          python3 -c "
-import re
-template = open('scripts/templates/prd.md.template').read()
-frontmatter = re.match(r'^---\n(.*?)\n---', template, re.DOTALL)
-if not frontmatter:
-    print('ERROR: No YAML frontmatter found')
-    exit(1)
-print('✓ PRD template validated')
-"
-
-  check-ci-cd-templates:
-    name: Check CI/CD Templates
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check required templates
-        run: |
-          templates=(
-            "scripts/templates/github-actions/basic.yml"
-            "scripts/templates/github-actions/docker.yml"
-            "scripts/templates/github-actions/kubernetes.yml"
-            "scripts/templates/github-actions/monorepo.yml"
-          )
-
-          for tpl in "${templates[@]}"; do
-            if [ -f "$tpl" ]; then
-              echo "✓ Found $tpl"
-            else
-              echo "✗ Missing $tpl"
-              exit 1
-            fi
-          done
-
-  test-init-script:
-    name: Test Init Script
-    runs-on: ${{ matrix.os }}
-    needs: test-python
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create test PRD
-        run: |
-          cat > test-project-prd.md << 'EOF'
-          ---
-          project_name: "Test CI Project"
-          type: "cli"
-          language: "python"
-          framework: "none"
-          git_default_branch: "main"
-          ci_cd_provider: "none"
-          ---
-          # Test PRD
-          EOF
-
-      - name: Run init script
-        run: |
-          mkdir test-output
-          cd test-output
-          python3 ../scripts/init_core.py ../test-project-prd.md
-
-      - name: Verify outputs
-        run: |
-          test -d test-output/.github || echo "WARNING: .github not created"
+# validate-templates / check-ci-cd-templates / test-init-script 잡은
+# scripts/templates/ 및 scripts/init_core.py 가 refactor(ca15896)로 제거되면서
+# 항상 실패하던 죽은 잡이라 삭제됨.
           test -f test-output/CLAUDE.md || echo "WARNING: CLAUDE.md not created"

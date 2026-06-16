@@ -160,12 +160,15 @@ EOF
                 print_success "이미 활성화되어 있습니다"
             else
                 # 간단한 텍스트 추가 (주의: 완전하지 않을 수 있음)
-                if ! grep -q 'autoCompact' "$CLAUDE_JSON"; then
-                    # 파일 끝에 콤마가 있으면 추가, 없으면 콤마와 함께 추가
-                    if tail -c1 "$CLAUDE_JSON" | grep -q '}'; then
-                        # 마지막 } 전에 추가
-                        sed_i 's/}$/,\n  "autoCompact": true\n}/' "$CLAUDE_JSON"
+                if ! grep -q '"autoCompact"' "$CLAUDE_JSON"; then
+                    # 마지막 닫는 중괄호 라인을 찾아 그 앞에 키 추가 (후행 개행 무관)
+                    if grep -q '^[[:space:]]*}[[:space:]]*$' "$CLAUDE_JSON"; then
+                        sed_i 's/^\([[:space:]]*\)}\([[:space:]]*\)$/\1,\
+\1  "autoCompact": true\
+\1}\2/' "$CLAUDE_JSON"
                         print_success "Auto-compact 활성화됨 (jq 설치 권장)"
+                    else
+                        print_error "JSON 형식을 인식할 수 없어 활성화하지 못했습니다 (jq 설치 권장)"
                     fi
                 fi
             fi
@@ -204,9 +207,9 @@ disable_auto_compact() {
         print_success "Auto-compact 비활성화됨"
     else
         # jq가 없으면 수동으로 처리
-        if grep -q 'autoCompact' "$CLAUDE_JSON"; then
-            # autoCompact 라인 제거 (간단 구현)
-            sed_i '/autoCompact/d' "$CLAUDE_JSON"
+        if grep -q '"autoCompact"[[:space:]]*:' "$CLAUDE_JSON"; then
+            # autoCompact 키 라인만 제거 (다른 키 보호)
+            sed_i '/^[[:space:]]*"autoCompact"[[:space:]]*:/d' "$CLAUDE_JSON"
             print_success "Auto-compact 비활성화됨 (jq 설치 권장)"
         else
             print_success "이미 비활성화되어 있습니다"

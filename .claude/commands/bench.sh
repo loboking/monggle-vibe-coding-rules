@@ -136,7 +136,7 @@ benchmark_nodejs() {
 
     # Check for benchmark files
     local bench_files
-    bench_files=$(find . -name "*.bench.js" -o -name "*.bench.ts" -o -name "*.test.js" -o -name "*.test.ts" 2>/dev/null | head -5)
+    bench_files=$(find . \( -name "*.bench.js" -o -name "*.bench.ts" \) 2>/dev/null | head -5)
 
     if [[ -n "$bench_files" ]]; then
         log_info "Found benchmark files:"
@@ -150,10 +150,11 @@ benchmark_nodejs() {
 
         # Try ts-mocha with mocha-bench
         if command_exists mocha; then
-            for file in $bench_files; do
+            while IFS= read -r file; do
+                [[ -z "$file" ]] && continue
                 log_info "Running $file..."
                 mocha "$file" 2>/dev/null || true
-            done
+            done <<< "$bench_files"
         fi
     else
         log_warn "No benchmark files found"
@@ -214,9 +215,18 @@ benchmark_go() {
                 log_info "Using benchstat for comparison..."
                 # Save current
                 go test -bench=. -benchmem -run=^$ . > new.txt 2>/dev/null
-                # Save old
-                git show "$compare_ref":$(find . -name "*_test.go" | head -1) 2>/dev/null > /dev/null || true
-                benchstat old.txt new.txt 2>/dev/null || true
+                # Save old: run baseline in an isolated worktree (non-destructive)
+                local bench_worktree
+                bench_worktree=$(mktemp -d 2>/dev/null || echo "")
+                if [[ -n "$bench_worktree" ]] && git worktree add --detach "$bench_worktree" "$compare_ref" 2>/dev/null; then
+                    ( cd "$bench_worktree" && go test -bench=. -benchmem -run=^$ . ) > old.txt 2>/dev/null || true
+                    git worktree remove --force "$bench_worktree" 2>/dev/null || true
+                fi
+                if [[ -f old.txt ]]; then
+                    benchstat old.txt new.txt 2>/dev/null || true
+                else
+                    log_warn "Could not generate baseline for $compare_ref"
+                fi
             fi
         else
             log_info "Install benchstat: go install golang.org/x/perf/cmd/benchstat@latest"
@@ -255,7 +265,7 @@ benchmark_rust() {
         # Comparison if ref provided
         if [[ -n "$compare_ref" ]]; then
             log_info "Comparing against $compare_ref..."
-            cargo bench --bench ** -- --baseline "$compare_ref" 2>/dev/null || true
+            cargo bench -- --baseline "$compare_ref" 2>/dev/null || true
         fi
     fi
 

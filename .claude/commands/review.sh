@@ -82,7 +82,7 @@ main() {
     local diff
     diff=$(get_diff "$target" "$file")
 
-    if [ -z "$diff" ] || [ "$(echo "$diff" | wc -l)" -lt 2 ]; then
+    if [ -z "$diff" ]; then
         echo -e "${YELLOW}⚠️ No changes to review${NC}"
         echo ""
         echo "Tips:"

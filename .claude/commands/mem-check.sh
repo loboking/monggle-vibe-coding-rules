@@ -109,7 +109,8 @@ check_python_memory() {
             # Try memray
             if command_exists memray; then
                 log_info "Using memray..."
-                memray run "$command"
+                # shellcheck disable=SC2086
+                memray run $command
                 memray flamegraph
                 log_success "Flame graph generated"
             else
@@ -118,7 +119,11 @@ check_python_memory() {
 
             # Try tracemalloc
             log_info "Using tracemalloc..."
-            cat > /tmp/check_leaks.py << 'EOF'
+            local TEMP_SCRIPT
+            TEMP_SCRIPT=$(mktemp "${TMPDIR:-/tmp}/check_leaks.XXXXXX")
+            mv "$TEMP_SCRIPT" "${TEMP_SCRIPT}.py"
+            TEMP_SCRIPT="${TEMP_SCRIPT}.py"
+            cat > "$TEMP_SCRIPT" << 'EOF'
 import tracemalloc
 import sys
 
@@ -136,12 +141,14 @@ print("[INFO] Top 10 memory allocations:")
 for stat in top_stats[:10]:
     print(stat)
 EOF
-            python /tmp/check_leaks.py $command 2>/dev/null || true
+            python "$TEMP_SCRIPT" $command 2>/dev/null || true
+            rm -f "$TEMP_SCRIPT"
 
             # Try memory_profiler
             if command_exists mprof; then
                 log_info "Using mprof..."
-                mprof run --include-children python "$command"
+                # shellcheck disable=SC2086
+                mprof run --include-children $command
                 mprof plot --output memory-profile.png
                 log_success "Memory profile saved to memory-profile.png"
             fi
@@ -209,7 +216,8 @@ check_nodejs_memory() {
 
             # Use Node.js built-in flags
             log_info "Running with --inspect flag..."
-            node --inspect --expose-gc "$command" &
+            # shellcheck disable=SC2086
+            node --inspect --expose-gc $command &
             local pid=$!
             sleep 2
 
@@ -261,9 +269,9 @@ check_nodejs_memory_patterns() {
     find . -name "*.js" -o -name "*.ts" 2>/dev/null | \
         while read -r file; do
             local add_listeners
-            add_listeners=$(grep -c "addEventListener\|on(" "$file" 2>/dev/null || echo 0)
+            add_listeners=$(grep -c "addEventListener\|on(" "$file" 2>/dev/null || true)
             local remove_listeners
-            remove_listeners=$(grep -c "removeEventListener\|off(" "$file" 2>/dev/null || echo 0)
+            remove_listeners=$(grep -c "removeEventListener\|off(" "$file" 2>/dev/null || true)
 
             if [[ $add_listeners -gt 0 && $remove_listeners -eq 0 ]]; then
                 log_warn "Possible event listener leak in: $file"

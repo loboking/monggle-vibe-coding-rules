@@ -76,9 +76,9 @@ print_header() {
 run_python_tests() {
     print_header "Python Tests (unittest)"
 
+    # test_init_core.py / test_agents.py 는 refactor(ca15896)로 소스 통합·삭제되어
+    # API가 어긋난 dead test 였으므로 제거됨. 현재 유효한 Python 테스트는 test_lib_sh.py 뿐.
     local python_tests=(
-        "tests/test_init_core.py"
-        "tests/test_agents.py"
         "tests/test_lib_sh.py"
     )
 

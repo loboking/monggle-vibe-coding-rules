@@ -33,7 +33,7 @@ class AgentStats:
     failed_runs: int = 0
     total_duration_ms: int = 0
     avg_duration_ms: float = 0.0
-    min_duration_ms: int = float('inf')
+    min_duration_ms: float = float('inf')
     max_duration_ms: int = 0
     duration_history: List[int] = field(default_factory=list)
 
@@ -83,6 +83,16 @@ class PipelineStats:
     duration_by_prd_type: Dict[str, List[int]] = field(default_factory=lambda: defaultdict(list))
     recent_runs: List[Dict[str, Any]] = field(default_factory=list)
     date_range: Tuple[datetime, datetime] = None
+
+    def add_verdict(self, verdict: str, timestamp: str = ""):
+        """Verdict 통계를 위임 기록"""
+        self.verdict_stats.update(verdict, timestamp)
+
+    def add_agent_stat(self, agent_name: str, duration_ms: int, success: bool):
+        """에이전트별 통계 기록 (없으면 생성)"""
+        if agent_name not in self.agent_stats:
+            self.agent_stats[agent_name] = AgentStats(name=agent_name)
+        self.agent_stats[agent_name].update(duration_ms, success)
 
 
 class ASCIIChart:
@@ -248,13 +258,13 @@ class StatsCollector:
 
         # Verdict filter
         if self.filters.get("verdict"):
-            verdict = results.get("verdict", {}).get("verdict", "UNKNOWN")
+            verdict = str(results.get("verdict", {}).get("verdict", "UNKNOWN"))
             if verdict.upper() != self.filters["verdict"]:
                 return False
 
         # PRD type filter
         if self.filters.get("prd_type"):
-            prd_type = results.get("gate", {}).get("prd_type", "unknown")
+            prd_type = str(results.get("gate", {}).get("prd_type", "unknown"))
             if prd_type.lower() != self.filters["prd_type"]:
                 return False
 

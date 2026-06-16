@@ -58,29 +58,6 @@ print_header "API Documentation Generator - Project: $PROJECT_TYPE"
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Generate docs based on project type
-case "$PROJECT_TYPE" in
-    python)
-        generate_python_docs
-        ;;
-    typescript|nodejs)
-        generate_nodejs_docs
-        ;;
-    go)
-        generate_go_docs
-        ;;
-    rust)
-        generate_rust_docs
-        ;;
-    java)
-        generate_java_docs
-        ;;
-    *)
-        log_warn "No API doc generator configured for: $PROJECT_TYPE"
-        run_generic_docs
-        ;;
-esac
-
 # Python API documentation
 generate_python_docs() {
     log_step "Generating Python API documentation..."
@@ -140,7 +117,7 @@ extract_python_docstrings() {
 
 extract_docstrings_from_file() {
     local file="$1"
-    local relative_path="${file#$PROJECT_ROOT/}"
+    local relative_path="${file#"$PROJECT_ROOT"/}"
     local output_file="${OUTPUT_DIR}/${relative_path%.py}.md"
     local output_dir
     output_dir=$(dirname "$output_file")
@@ -183,8 +160,12 @@ generate_nodejs_docs() {
     # Check for JSDoc
     if command_exists jsdoc; then
         log_info "Using JSDoc..."
-        jsdoc -c "$PROJECT_ROOT/jsdoc.conf.json" -d "$OUTPUT_DIR" 2>/dev/null || \
-        jsdoc -d "$OUTPUT_DIR" "$PROJECT_ROOT"/**/*.js 2>/dev/null || true
+        if [[ -f "$PROJECT_ROOT/jsdoc.conf.json" ]]; then
+            jsdoc -c "$PROJECT_ROOT/jsdoc.conf.json" -d "$OUTPUT_DIR" 2>/dev/null || true
+        else
+            find "$PROJECT_ROOT" -name "*.js" -not -path "*/node_modules/*" -print0 2>/dev/null \
+                | xargs -0 jsdoc -d "$OUTPUT_DIR" 2>/dev/null || true
+        fi
         log_success "JSDoc docs generated in: $OUTPUT_DIR"
     else
         log_warn "Install JSDoc: npm install -D jsdoc"
@@ -246,10 +227,9 @@ generate_rust_docs() {
 
     if command_exists cargo; then
         log_info "Using cargo doc..."
-        cargo doc --no-deps --output-dir "$OUTPUT_DIR" 2>/dev/null || \
         cargo doc --no-deps 2>/dev/null || true
 
-        log_success "Rust docs generated"
+        log_success "Rust docs generated in: target/doc"
         echo ""
         log_info "To view docs, run:"
         echo "  cargo doc --open"
@@ -311,11 +291,34 @@ run_generic_docs() {
             -not -path "*/.git/*" -not -path "*/build/*" \
             -not -path "*/dist/*" -not -path "*/target/*" 2>/dev/null | \
         while read -r file; do
-            local relative_path="${file#$PROJECT_ROOT/}"
+            local relative_path="${file#"$PROJECT_ROOT"/}"
             echo "- [$relative_path]($relative_path.md)"
         done
     } > "${OUTPUT_DIR}/index.md"
 }
+
+# Generate docs based on project type
+case "$PROJECT_TYPE" in
+    python)
+        generate_python_docs
+        ;;
+    typescript|nodejs)
+        generate_nodejs_docs
+        ;;
+    go)
+        generate_go_docs
+        ;;
+    rust)
+        generate_rust_docs
+        ;;
+    java)
+        generate_java_docs
+        ;;
+    *)
+        log_warn "No API doc generator configured for: $PROJECT_TYPE"
+        run_generic_docs
+        ;;
+esac
 
 # Main execution
 cd "$PROJECT_ROOT"

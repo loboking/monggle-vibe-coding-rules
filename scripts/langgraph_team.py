@@ -12,7 +12,7 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import TypedDict, Annotated, Sequence, Optional, Literal
+from typing import TypedDict, Annotated, Sequence, Optional, Literal, List, Tuple
 from datetime import datetime
 
 # 프로젝트 루트 설정
@@ -55,7 +55,7 @@ if LANGGRAPH_AVAILABLE:
         original_code: str
 
         # 피드백 루프
-        errors: list[str]
+        errors: List[str]
         retry_count: int
         max_retries: int
 
@@ -296,24 +296,28 @@ def build_team() -> Optional[object]:
 # 메인 실행
 # =============================================================================
 
-def run_fallback_pipeline(prd_path: Path) -> bool:
-    """LangGraph가 없을 때 기존 run_agent.py로 대체 실행"""
+def run_fallback_pipeline(prd_path: Path) -> int:
+    """LangGraph가 없을 때 기존 run_agent.py로 대체 실행 (프로세스 exit code 반환)"""
     print("🔄 선형 파이프라인 모드로 실행합니다...")
 
     run_agent_script = PROJECT_ROOT / "scripts" / "run_agent.py"
-    if run_agent_script.exists():
-        import subprocess
+    if not run_agent_script.exists():
+        print("❌ run_agent.py를 찾을 수 없습니다.")
+        return 1
+
+    import subprocess
+    try:
         result = subprocess.run(
             [sys.executable, str(run_agent_script), str(prd_path)],
             cwd=PROJECT_ROOT
         )
-        return result.returncode == 0
-    else:
-        print("❌ run_agent.py를 찾을 수 없습니다.")
-        return False
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"❌ run_agent.py 실행에 실패했습니다: {e}")
+        return 1
+    return result.returncode
 
 
-def load_prd(prd_path: Path) -> tuple[str, str]:
+def load_prd(prd_path: Path) -> Tuple[str, str]:
     """PRD 파일 로드"""
     with open(prd_path, "r", encoding='utf-8') as f:
         content = f.read()

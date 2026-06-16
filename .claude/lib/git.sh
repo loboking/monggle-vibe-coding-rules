@@ -6,20 +6,17 @@
 #
 
 # Safe git log with array arguments (no eval)
+# bash 3.2 호환: nameref(local -n) 대신 인자를 값으로 직접 받음.
+# 호출: safe_git_log "${git_args[@]}"
 safe_git_log() {
-    local -n git_args=$1
-    shift
-
     # Always use safe format
-    git log --pretty=format:'%h|%s|%an|%ad' --date=short "${git_args[@]}" "$@"
+    git log --pretty=format:'%h|%s|%an|%ad' --date=short "$@"
 }
 
 # Safe git diff with array arguments
+# 호출: safe_git_diff "${git_args[@]}"
 safe_git_diff() {
-    local -n git_args=$1
-    shift
-
-    git diff "${git_args[@]}" "$@"
+    git diff "$@"
 }
 
 # Get commits between two tags (safe)
@@ -53,8 +50,9 @@ get_commits_between() {
         fi
     fi
 
-    safe_git_log git_args
-    git_args=("${from_tag}..${to_tag}")
+    local git_args=()
+    git_args+=("${from_tag}..${to_tag}")
+    safe_git_log "${git_args[@]}"
 }
 
 # Get commits since date (safe)
@@ -64,7 +62,7 @@ get_commits_since() {
     local git_args=()
     git_args+=("--since=${since_date}")
 
-    safe_git_log git_args
+    safe_git_log "${git_args[@]}"
 }
 
 # Get latest tag safely

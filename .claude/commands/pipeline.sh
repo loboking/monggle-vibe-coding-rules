@@ -98,8 +98,13 @@ parse_args() {
                 shift
                 ;;
             --retry)
-                RETRY_COUNT="${2:-1}"
-                shift 2
+                if [[ $# -ge 2 && "$2" != -* ]]; then
+                    RETRY_COUNT="$2"
+                    shift 2
+                else
+                    RETRY_COUNT=1
+                    shift
+                fi
                 ;;
             --parallel)
                 PARALLEL_MODE=true
@@ -110,8 +115,8 @@ parse_args() {
                 exit 0
                 ;;
             -*)
-                echo -e "${RED}Unknown option: $1${NC}"
-                echo "Use --help to see available options"
+                echo -e "${RED}Unknown option: $1${NC}" >&2
+                echo "Use --help to see available options" >&2
                 return 1
                 ;;
             *)
@@ -185,7 +190,7 @@ check_python() {
 
 # Find PRD file
 find_prd_file() {
-    local specified="$1"
+    local specified="${1:-}"
 
     if [[ -n "$specified" ]]; then
         if [[ "$specified" != /* ]]; then
@@ -249,7 +254,11 @@ print_plan() {
     echo ""
     echo -e "${BOLD}Configuration:${NC}"
     echo "  PRD File: ${prd_file:-Auto-detect}"
-    echo "  Mode: ${USE_PYTHON_AGENT:+Python Agent}${USE_PYTHON_AGENT:-Bash Fallback}"
+    if [[ "$USE_PYTHON_AGENT" == true ]]; then
+        echo "  Mode: Python Agent"
+    else
+        echo "  Mode: Bash Fallback"
+    fi
     echo "  Dry Run: ${DRY_RUN}"
     echo "  Skip Validation: ${SKIP_VALIDATION}"
     echo "  Verbose: ${VERBOSE}"
@@ -367,7 +376,7 @@ print_summary() {
 
         # Show loop status if multiple failures
         local file_status=$(loop_get_status "$prd_file")
-        if [[ "$file_status" =~ "consecutive_failures: [2-9]" ]]; then
+        if [[ "$file_status" =~ Consecutive\ Failures:\ [2-9] ]]; then
             echo ""
             echo -e "${YELLOW}⚠ Warning: Multiple consecutive failures detected${NC}"
             echo "$file_status"
@@ -505,10 +514,16 @@ main() {
         echo "  2. Or use --skip-validation to bypass (not recommended)"
         echo ""
         if [[ "${@}" != *"--skip-validation"* ]]; then
-            read -p "Continue anyway? (y/N): " -n 1 -r
-            echo ""
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                echo -e "${CYAN}Pipeline cancelled${NC}"
+            if [[ -t 0 ]]; then
+                local reply=""
+                read -p "Continue anyway? (y/N): " -n 1 -r reply || reply=""
+                echo ""
+                if [[ ! $reply =~ ^[Yy]$ ]]; then
+                    echo -e "${CYAN}Pipeline cancelled${NC}"
+                    return 1
+                fi
+            else
+                echo -e "${CYAN}Pipeline cancelled (non-interactive; use --skip-validation to bypass)${NC}"
                 return 1
             fi
         fi

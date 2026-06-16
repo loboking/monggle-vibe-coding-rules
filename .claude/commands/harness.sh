@@ -153,8 +153,8 @@ show_status() {
     echo -e "${MAGENTA}💡 Improvement Log Summary:${NC}"
     if [[ -f "$IMPROVEMENT_LOG" ]]; then
         local total_logs=$(wc -l < "$IMPROVEMENT_LOG" 2>/dev/null || echo "0")
-        local critical=$(jq -r 'select(.severity=="critical")' "$IMPROVEMENT_LOG" 2>/dev/null | wc -l || echo "0")
-        local major=$(jq -r 'select(.severity=="major")' "$IMPROVEMENT_LOG" 2>/dev/null | wc -l || echo "0")
+        local critical=$(jq -s '[.[] | select(.severity=="critical")] | length' "$IMPROVEMENT_LOG" 2>/dev/null || echo "0")
+        local major=$(jq -s '[.[] | select(.severity=="major")] | length' "$IMPROVEMENT_LOG" 2>/dev/null || echo "0")
 
         echo "  Total entries: $total_logs"
         echo "  - Critical: $critical"
@@ -199,7 +199,7 @@ show_loops() {
         log_warning "$line"
     done
 
-    local count=$(jq -r ".files | to_entries[] | select(.value.count >= $threshold) | length" "$LOOP_DETECTION" 2>/dev/null || echo "0")
+    local count=$(jq -r "[.files | to_entries[] | select(.value.count >= $threshold)] | length" "$LOOP_DETECTION" 2>/dev/null || echo "0")
 
     if [[ "$count" -eq 0 ]]; then
         log_success "No doom loops detected (threshold: $threshold)"
@@ -247,7 +247,7 @@ show_improvements() {
     echo ""
 
     echo -e "${GREEN}🟢 Minor/Info:${NC}"
-    local count=$(jq -r 'select(.severity=="minor" or .severity=="info") | length' "$IMPROVEMENT_LOG" 2>/dev/null || echo "0")
+    local count=$(jq -s '[.[] | select(.severity=="minor" or .severity=="info")] | length' "$IMPROVEMENT_LOG" 2>/dev/null || echo "0")
     echo "  $count entries (use --verbose to see all)"
 }
 

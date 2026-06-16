@@ -53,6 +53,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Validate threshold is a positive integer
+if ! [[ "$THRESHOLD" =~ ^[1-9][0-9]*$ ]]; then
+    log_error "Invalid --threshold value: '$THRESHOLD' (must be a positive integer)"
+    exit 1
+fi
+
 print_header "Complexity Analysis - Project Type: $PROJECT_TYPE"
 
 # Run complexity analysis based on project type
@@ -106,7 +112,7 @@ analyze_python_complexity() {
     # lizard - complexity analyzer
     if command_exists lizard; then
         log_info "Running lizard..."
-        lizard . -C $THRESHOLD || true
+        lizard . -C "$THRESHOLD" || true
     else
         log_warn "lizard not found. Install: pip install lizard"
     fi
@@ -114,7 +120,7 @@ analyze_python_complexity() {
     # xenon - complexity monitoring
     if command_exists xenon; then
         log_info "Running xenon..."
-        xenon --max-average $THRESHOLD --max-modules $THRESHOLD --max-absolute $((THRESHOLD * 3)) . || true
+        xenon --max-average "$THRESHOLD" --max-modules "$THRESHOLD" --max-absolute "$((THRESHOLD * 3))" . || true
     else
         log_warn "xenon not found. Install: pip install xenon"
     fi
@@ -128,7 +134,7 @@ analyze_nodejs_complexity() {
     if [[ -f "node_modules/.bin/eslint" ]]; then
         log_info "Running ESLint complexity rules..."
         ./node_modules/.bin/eslint . --format json \
-            --rule 'complexity: ["error", $THRESHOLD]' \
+            --rule "complexity: [\"error\", $THRESHOLD]" \
             --rule 'max-lines-per-function: ["warn", 50]' \
             2>/dev/null || true
     fi
@@ -145,7 +151,7 @@ analyze_nodejs_complexity() {
     # lizard (language-agnostic)
     if command_exists lizard; then
         log_info "Running lizard..."
-        lizard . -l javascript,typescript -C $THRESHOLD || true
+        lizard . -l javascript,typescript -C "$THRESHOLD" || true
     else
         log_warn "lizard not found. Install: pip install lizard"
     fi
@@ -158,7 +164,7 @@ analyze_go_complexity() {
     # gocyclo - cyclomatic complexity
     if command_exists gocyclo; then
         log_info "Running gocyclo..."
-        gocyclo -over $THRESHOLD . || log_success "No functions exceed complexity threshold"
+        gocyclo -over "$THRESHOLD" . || log_success "No functions exceed complexity threshold"
     else
         log_warn "gocyclo not found. Install: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest"
     fi
@@ -172,7 +178,7 @@ analyze_go_complexity() {
     # lizard (language-agnostic)
     if command_exists lizard; then
         log_info "Running lizard..."
-        lizard . -l go -C $THRESHOLD || true
+        lizard . -l go -C "$THRESHOLD" || true
     fi
 }
 
@@ -182,7 +188,7 @@ analyze_rust_complexity() {
 
     # cargo-complexity
     if command_exists cargo; then
-        if cargo installable complexus; then
+        if command_exists cargo-complexus; then
             log_info "Running cargo complexus..."
             cargo complexus || true
         fi
@@ -191,7 +197,7 @@ analyze_rust_complexity() {
     # lizard (language-agnostic)
     if command_exists lizard; then
         log_info "Running lizard..."
-        lizard . -l rust -C $THRESHOLD || true
+        lizard . -l rust -C "$THRESHOLD" || true
     else
         log_warn "lizard not found. Install: pip install lizard"
     fi
@@ -210,7 +216,7 @@ analyze_java_complexity() {
     # lizard (language-agnostic)
     if command_exists lizard; then
         log_info "Running lizard..."
-        lizard . -l java -C $THRESHOLD || true
+        lizard . -l java -C "$THRESHOLD" || true
     else
         log_warn "lizard not found. Install: pip install lizard"
     fi
@@ -228,7 +234,7 @@ run_generic_complexity() {
 
     if command_exists lizard; then
         log_info "Running lizard..."
-        lizard . -C $THRESHOLD || true
+        lizard . -C "$THRESHOLD" || true
     else
         log_warn "lizard not found. Install: pip install lizard"
         log_info "lizard supports: C/C++, Java, C#, JavaScript, Python, Ruby, PHP, Swift, TypeScript, Go, OCaml, Rust, Lua, etc."

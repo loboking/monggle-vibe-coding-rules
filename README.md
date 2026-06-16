@@ -39,6 +39,22 @@ cd monggle-vibe-coding-rules
 
 ---
 
+## 🔗 monggle- 접두사 별칭
+
+`monggle-` 접두사를 사용하여 동일한 스킬 호출 가능:
+
+| 별칭 | 원본 | 호출 방법 |
+|-----|------|----------|
+| `monggle-super` | `super.md` | 자연어: `Use monggle-super to expand...` |
+| `monggle-gemini` | `gemini.md` | 자연어: `Use monggle-gemini to analyze...` |
+| `monggle-brain` | `smart-brain.md` | 자연어: `Use monggle-brain to remember...` |
+| `monggle-init` | `project-init.md` | 자연어: `Use monggle-init to setup...` |
+| `monggle-planner` | `planner.md` | 자연어: `Use monggle-planner to plan...` |
+
+**참고:** 이 스킬들은 Agent 형태로 제공되며 자연어로 호출합니다.
+
+---
+
 ## 📖 상세 문서
 
 | 문서 | 설명 |

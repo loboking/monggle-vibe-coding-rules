@@ -133,7 +133,7 @@ class AgentPipeline:
         """단일 Agent 실행 (v2.4: with retry support)"""
         self.print_stage(name, "running")
 
-        max_attempts = self.retry_count + 1
+        max_attempts = max(self.retry_count, 0) + 1
         last_result = None
 
         for attempt in range(max_attempts):
@@ -531,6 +531,8 @@ Examples:
         prd_path = Path(args.prd)
         if not prd_path.is_absolute():
             prd_path = project_root / prd_path
+        # 심볼릭 링크/.. 정규화 (상대경로·심링크 안전 처리)
+        prd_path = prd_path.resolve()
     else:
         # 자동 감지
         prd_dir = project_root / "prd"

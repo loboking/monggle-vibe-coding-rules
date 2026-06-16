@@ -33,9 +33,13 @@ log_warning() {
 # 타임스탬프를 분 단위로 변환
 minutes_ago() {
     local timestamp="$1"
-    local now=$(date +%s)
-    local then=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$timestamp" +%s 2>/dev/null || date -d "$timestamp" +%s 2>/dev/null)
-    echo $(( (now - then) / 60 )) >&2
+    local now then
+    now=$(date +%s)
+    # macOS(date -j) / GNU(date -d) 양쪽 호환, 파싱 실패 시 now로 폴백(=경과 0분)
+    then=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$timestamp" +%s 2>/dev/null \
+        || date -d "$timestamp" +%s 2>/dev/null \
+        || echo "$now")
+    echo $(( (now - then) / 60 ))
 }
 
 # 좀비 상태 확인 및 정리
@@ -65,7 +69,9 @@ except:
     print('')
 " 2>/dev/null || echo "unknown")
 
-        read -r current_status last_updated <<< "$status"
+        local current_status last_updated
+        current_status=$(printf '%s\n' "$status" | sed -n '1p')
+        last_updated=$(printf '%s\n' "$status" | sed -n '2p')
 
         # BUSY 상태만 확인
         if [[ "$current_status" != "busy" ]]; then

@@ -468,8 +468,6 @@ set_permissions() {
     chmod +x "$SCRIPT_DIR/.claude/commands/pipeline.sh" 2>/dev/null || true
     chmod +x "$SCRIPT_DIR/.claude/commands/trace.sh" 2>/dev/null || true
     chmod +x "$SCRIPT_DIR/.claude/hooks/pre-tool-use.sh" 2>/dev/null || true
-    chmod +x "$SCRIPT_DIR/scripts/generate_settings.py" 2>/dev/null || true
-    chmod +x "$SCRIPT_DIR/scripts/init_core.py" 2>/dev/null || true
     chmod +x "$SCRIPT_DIR/install.sh" 2>/dev/null || true
 
     # Set all command scripts as executable (portable way)

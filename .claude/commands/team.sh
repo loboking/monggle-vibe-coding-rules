@@ -59,11 +59,28 @@ main() {
         bash "${SCRIPT_DIR}/cleanup-zombies.sh" &>/dev/null || true
     fi
 
-    # JSON 데이터 가져오기
-    local json_data=$(python3 "$STATUS_SCRIPT" --json 2>/dev/null || echo "{}")
+    # JSON 데이터 가져오기 (stderr는 별도 캡처하여 실제 오류를 숨기지 않음)
+    local json_data
+    local py_stderr
+    py_stderr="$(mktemp)"
+    if ! json_data=$(python3 "$STATUS_SCRIPT" --json 2>"$py_stderr"); then
+        echo ""
+        echo -e "${RED}❌ 팀 상태를 가져오지 못했습니다.${NC}"
+        if [[ -s "$py_stderr" ]]; then
+            echo -e "${RED}$(cat "$py_stderr")${NC}"
+        fi
+        echo ""
+        rm -f "$py_stderr"
+        return 1
+    fi
+    rm -f "$py_stderr"
+
+    # 앞뒤 공백/개행을 제거한 사본으로 빈 응답 판정 (원본 json_data는 보존)
+    local json_trimmed
+    json_trimmed="$(printf '%s' "$json_data" | tr -d '[:space:]')"
 
     # 팀이 없는 경우
-    if [[ "$json_data" == "{}" ]]; then
+    if [[ "$json_trimmed" == "{}" || -z "$json_trimmed" ]]; then
         echo ""
         echo -e "${YELLOW}⚠️  등록된 팀이 없습니다.${NC}"
         echo ""

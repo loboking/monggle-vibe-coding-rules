@@ -22,34 +22,36 @@ validate_file_path() {
         return 1
     fi
 
-    # 3. 실제 경로 확인 (realpath가 있으면 사용)
-    if command -v realpath &>/dev/null; then
-        local real_path
-        local project_root
-        project_root=$(pwd)
+    # 3. 실제 경로 확인 (이식성: macOS realpath는 -m 미지원)
+    #    python3 os.path 기반으로 정규화하여 존재하지 않는 경로도 안전하게 처리.
+    #    realpath -m 폴백은 정규화 없이 원본을 통과시켜 traversal 검증을 무력화하므로 사용하지 않음.
+    local real_path
+    local project_root
+    project_root=$(pwd)
 
-        # realpath -m는 존재하지 않는 파일도 처리 가능
-        # 하지만 먼저 상대 경로인지 확인하고 절대 경로로 변환
-        if [[ "$path" = /* ]]; then
-            # 이미 절대 경로
-            real_path="$path"
-        else
-            # 상대 경로 -> 절대 경로 변환
-            real_path="${project_root}/${path}"
-        fi
-
-        # 정규화 (.. 해결 등)
-        real_path=$(realpath -m "$real_path" 2>/dev/null || echo "$real_path")
-
-        # 프로젝트 루트 밖인지 확인
-        case "$real_path" in
-            "$project_root"*|"$project_root") ;;  # 프로젝트 내 또는 루트 자체
-            *)
-                echo "Error: Path outside project root: $path" >&2
-                return 1
-                ;;
-        esac
+    # 상대 경로 -> 절대 경로 변환
+    if [[ "$path" = /* ]]; then
+        real_path="$path"
+    else
+        real_path="${project_root}/${path}"
     fi
+
+    # 정규화 (.. 해결 등). 존재하지 않는 경로도 abspath+normpath로 처리 (realpath -m 의미).
+    if command -v python3 &>/dev/null; then
+        real_path=$(python3 -c 'import os, sys; print(os.path.normpath(os.path.abspath(sys.argv[1])))' "$real_path" 2>/dev/null || echo "$real_path")
+    elif command -v realpath &>/dev/null; then
+        # GNU realpath -m: 존재하지 않는 경로 허용. macOS는 위 python3 경로를 사용.
+        real_path=$(realpath -m "$real_path" 2>/dev/null || echo "$real_path")
+    fi
+
+    # 프로젝트 루트 밖인지 확인
+    case "$real_path" in
+        "$project_root"/*|"$project_root") ;;  # 프로젝트 내 또는 루트 자체
+        *)
+            echo "Error: Path outside project root: $path" >&2
+            return 1
+            ;;
+    esac
 
     return 0
 }

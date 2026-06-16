@@ -40,6 +40,7 @@ readonly LC_RED='\033[0;31m'
 readonly LC_YELLOW='\033[1;33m'
 readonly LC_GREEN='\033[0;32m'
 readonly LC_BLUE='\033[0;34m'
+readonly LC_CYAN='\033[0;36m'
 readonly LC_NC='\033[0m'
 
 # Initialize loop detection file
@@ -161,12 +162,6 @@ loop_record_attempt() {
     local file_key=$(_loop_get_file_key "$file_path")
     local timestamp=$(_loop_get_timestamp)
 
-    # Check cooldown first
-    if _loop_is_in_cooldown "$file_key"; then
-        # Still in cooldown, don't update
-        return 0
-    fi
-
     # Create temp file for atomic update
     local temp_file=$(mktemp)
 
@@ -257,7 +252,7 @@ loop_report() {
     echo -e "${LC_BLUE}=== Doom Loop Detection Report ===${LC_NC}"
     echo ""
 
-    local loop_count=$(jq '.files | to_entries[] | select(.value.count >= 5) | length' "$LOOP_DETECTION_FILE" 2>/dev/null || echo "0")
+    local loop_count=$(jq --argjson threshold "$LOOP_MAX_MODIFICATIONS" '[.files | to_entries[] | select(.value.count >= $threshold)] | length' "$LOOP_DETECTION_FILE" 2>/dev/null || echo "0")
 
     if [[ "$loop_count" -eq 0 ]]; then
         echo -e "${LC_GREEN}✓ No doom loops detected${LC_NC}"
@@ -443,7 +438,7 @@ _loop_analyze_patterns() {
 
     # 같은 파일 반복 실패 분석
     local repeated_files=$(echo "$data" | jq -r '
-        map(.files) | add(",") | split(",") | map(select(. != "")) |
+        map(.files) | join(",") | split(",") | map(select(. != "")) |
         group_by(.) | map({file: .[0], count: length}) | sort_by(.count) | reverse
     ' 2>/dev/null)
 
@@ -494,7 +489,7 @@ _loop_create_timeline() {
 
     jq -r --arg key "$prd_key" '
         .prd_files[$key].history[-10:] // [] |
-        .[] | "\(.timestamp | .[0:10])[ \(.stage)]"
+        .[] | "\(.timestamp | .[0:10])[\(.stage)]"
     ' "$PRD_LOOP_DETECTION_FILE" 2>/dev/null | while read -r line; do
         local date=$(echo "$line" | cut -d'[' -f1)
         local stage=$(echo "$line" | cut -d'[' -f2 | cut -d']' -f1)

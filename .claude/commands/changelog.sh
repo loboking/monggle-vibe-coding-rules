@@ -140,7 +140,7 @@ generate_changelog() {
     # Build git log array (safe, no eval)
     local git_log_args
     git_log_args=()
-    git_log_args+=("--pretty=format:%h|%s|%an|%ad")
+    git_log_args+=("--pretty=format:%h|%s")
     git_log_args+=("--date=short")
 
     if [[ -n "$from_tag" ]]; then
@@ -158,43 +158,71 @@ generate_changelog() {
         return 1
     fi
 
-    # Categorize commits
-    declare -A categories
-    categories=(
-        [added]=""
-        [fixed]=""
-        [changed]=""
-        [optimized]=""
-        [documented]=""
-        [tested]=""
-        [styled]=""
-        [chore]=""
-        [secured]=""
-        [misc]=""
-    )
+    # Categorize commits.
+    # NOTE: bash 3.2 (macOS default) does not support associative arrays
+    # (declare -A), so we accumulate into one plain variable per category and
+    # pass them as positional args (in a fixed CATEGORY_ORDER) to the output
+    # functions. CATEGORY_ORDER is the contract between producer/consumers.
+    local cat_added="" cat_fixed="" cat_changed="" cat_optimized=""
+    local cat_documented="" cat_tested="" cat_styled="" cat_chore=""
+    local cat_secured="" cat_misc=""
 
-    while IFS='|' read -r hash message author date; do
+    # message is the trailing field so a '|' inside the subject is preserved.
+    while IFS='|' read -r hash message; do
         local category
         category=$(categorize_commit "$message")
-        categories[$category]="${categories[$category]}- ${message} (${hash})%NL%"
+        local line="- ${message} (${hash})%NL%"
+        case "$category" in
+            added)      cat_added="${cat_added}${line}" ;;
+            fixed)      cat_fixed="${cat_fixed}${line}" ;;
+            changed)    cat_changed="${cat_changed}${line}" ;;
+            optimized)  cat_optimized="${cat_optimized}${line}" ;;
+            documented) cat_documented="${cat_documented}${line}" ;;
+            tested)     cat_tested="${cat_tested}${line}" ;;
+            styled)     cat_styled="${cat_styled}${line}" ;;
+            chore)      cat_chore="${cat_chore}${line}" ;;
+            secured)    cat_secured="${cat_secured}${line}" ;;
+            *)          cat_misc="${cat_misc}${line}" ;;
+        esac
     done <<< "$commits"
 
-    # Output based on format
+    # Positional order MUST match CATEGORY_ORDER consumed by output_* functions:
+    #   1=added 2=fixed 3=changed 4=optimized 5=documented
+    #   6=tested 7=styled 8=chore 9=secured 10=misc
     case "$FORMAT" in
         markdown)
-            output_markdown "${categories[@]}"
+            output_markdown "$cat_added" "$cat_fixed" "$cat_changed" "$cat_optimized" "$cat_documented" "$cat_tested" "$cat_styled" "$cat_chore" "$cat_secured" "$cat_misc"
             ;;
         json)
-            output_json "${categories[@]}"
+            output_json "$cat_added" "$cat_fixed" "$cat_changed" "$cat_optimized" "$cat_documented" "$cat_tested" "$cat_styled" "$cat_chore" "$cat_secured" "$cat_misc"
             ;;
         text)
-            output_text "${categories[@]}"
+            output_text "$cat_added" "$cat_fixed" "$cat_changed" "$cat_optimized" "$cat_documented" "$cat_tested" "$cat_styled" "$cat_chore" "$cat_secured" "$cat_misc"
             ;;
     esac
 }
 
+# Map a category name to the matching positional arg ($1..$10).
+# CATEGORY_ORDER: added fixed changed optimized documented tested styled chore secured misc
+# Usage: content=$(_cat_content "$category" "$@")
+_cat_content() {
+    local category="$1"; shift
+    case "$category" in
+        added)      printf '%s' "${1:-}" ;;
+        fixed)      printf '%s' "${2:-}" ;;
+        changed)    printf '%s' "${3:-}" ;;
+        optimized)  printf '%s' "${4:-}" ;;
+        documented) printf '%s' "${5:-}" ;;
+        tested)     printf '%s' "${6:-}" ;;
+        styled)     printf '%s' "${7:-}" ;;
+        chore)      printf '%s' "${8:-}" ;;
+        secured)    printf '%s' "${9:-}" ;;
+        misc)       printf '%s' "${10:-}" ;;
+    esac
+}
+
 output_markdown() {
-    local categories=("$@")
+    local _args=("$@")
     local version
     version=$(get_version)
     local today
@@ -207,7 +235,8 @@ output_markdown() {
     local section_found=0
 
     for category in added fixed changed optimized documented tested styled chore secured misc; do
-        local content="${categories[$category]}"
+        local content
+        content=$(_cat_content "$category" "${_args[@]}")
         if [[ -n "$content" ]]; then
             section_found=1
             local title
@@ -236,6 +265,7 @@ output_markdown() {
 }
 
 output_json() {
+    local _args=("$@")
     echo "{"
     echo "  \"version\": \"$(get_version)\","
     echo "  \"date\": \"$(format_date)\","
@@ -243,14 +273,28 @@ output_json() {
 
     local first=1
     for category in added fixed changed optimized documented tested styled chore secured misc; do
-        local content="${categories[$category]}"
+        local content
+        content=$(_cat_content "$category" "${_args[@]}")
         if [[ -n "$content" ]]; then
             if [[ $first -eq 0 ]]; then
                 echo ","
             fi
             first=0
             echo "    \"$category\": ["
-            echo "$content" | sed 's/%NL%/,/g' | sed 's/^/      "/' | sed 's/$/"/'
+            # Split on the %NL% sentinel into one entry per line, then emit each
+            # as a properly escaped JSON string element (comma-separated).
+            local items
+            items=$(echo "$content" | sed 's/%NL%/\n/g' | grep -v '^$')
+            if command_exists jq; then
+                echo "$items" | jq -R -s -r 'split("\n") | map(select(length > 0)) | map("      " + (. | @json)) | join(",\n")'
+            else
+                # Fallback: escape backslashes and double quotes, wrap per line.
+                echo "$items" \
+                    | sed 's/\\/\\\\/g; s/"/\\"/g' \
+                    | sed 's/^/      "/' \
+                    | sed 's/$/",/' \
+                    | sed '$ s/,$//'
+            fi
             echo "    ]"
         fi
     done
@@ -260,12 +304,14 @@ output_json() {
 }
 
 output_text() {
+    local _args=("$@")
     echo "Version: $(get_version)"
     echo "Date: $(format_date)"
     echo ""
 
     for category in added fixed changed optimized documented tested styled chore secured misc; do
-        local content="${categories[$category]}"
+        local content
+        content=$(_cat_content "$category" "${_args[@]}")
         if [[ -n "$content" ]]; then
             local title
             case "$category" in
@@ -291,12 +337,7 @@ output_text() {
 if generate_changelog "$SINCE_DATE" "$FROM_TAG" "$TO_TAG"; then
     if [[ -n "$OUTPUT_FILE" ]]; then
         if [[ $APPEND -eq 1 ]] && [[ -f "$OUTPUT_FILE" ]]; then
-            # Read existing content
-            local existing
-            existing=$(cat "$OUTPUT_FILE")
-
-            # Create temp file with new content
-            local tmp_file
+            # 메인 스크립트 본문이라 local 사용 불가(함수 밖) — 일반 변수로 선언
             tmp_file=$(mktemp)
             {
                 echo "# Changelog"
@@ -305,8 +346,15 @@ if generate_changelog "$SINCE_DATE" "$FROM_TAG" "$TO_TAG"; then
                 echo ""
                 echo "---"
                 echo ""
-                # Append everything after the header from existing file
-                tail -n +4 "$OUTPUT_FILE"
+                # Append existing content from its first version section onward.
+                # Falls back to the whole file if no '## [' heading is present,
+                # so arbitrary files are never truncated.
+                existing_start=$(grep -n '^## \[' "$OUTPUT_FILE" 2>/dev/null | head -1 | cut -d: -f1)
+                if [[ -n "$existing_start" ]]; then
+                    tail -n "+${existing_start}" "$OUTPUT_FILE"
+                else
+                    cat "$OUTPUT_FILE"
+                fi
             } > "$tmp_file"
 
             mv "$tmp_file" "$OUTPUT_FILE"

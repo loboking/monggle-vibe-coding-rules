@@ -50,9 +50,9 @@ run_impact() {
 
     if [[ -x "$IMPACT_SH" ]]; then
         # impact.sh 실제 호출: 엮인 코드(의존성) + 위험도 산출
-        bash "$IMPACT_SH" $target || true
+        bash "$IMPACT_SH" "$target" || true
     elif [[ -f "$IMPACT_SH" ]]; then
-        bash "$IMPACT_SH" $target || true
+        bash "$IMPACT_SH" "$target" || true
     else
         echo -e "${YELLOW}⚠️ impact.sh 없음 — 영향분석을 Claude가 직접 수행해야 함${NC}"
     fi

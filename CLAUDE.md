@@ -1,4 +1,4 @@
-# Vibe Coding Rules v2.4
+# Vibe Coding Rules v3.2
 
 > **Last Updated:** 2026-04-17
 > **Mode**: MANUAL | SEMI-AUTO | AUTO
@@ -476,7 +476,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-04-22
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [16:39:03] 수정: app/build.gradle
@@ -488,7 +488,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-04-27
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [12:42:52] 수정: app/src/main/java/com/ocean/moacloud/ApplicationClass.kt
@@ -497,7 +497,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-05-11
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [13:54:59] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
@@ -511,7 +511,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-05-13
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [09:06:09] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
@@ -535,7 +535,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-05-14
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [09:17:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/permission/PermissionManager.kt
@@ -545,7 +545,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-05-15
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [09:35:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/Config.kt
@@ -554,7 +554,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-05-18
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [12:34:36] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
@@ -563,9 +563,19 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-05-19
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [13:56:32] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+```
+
+
+### 2026-05-20
+
+**변경된 파일 수**: ��
+
+```
+[15:30:32] 수정: app/src/main/java/co/kr/oceanbleu/safephone/activity/LostModeActivity.kt
+[15:30:55] 수정: app/src/main/java/co/kr/oceanbleu/safephone/activity/LostModeActivity.kt
 ```
 

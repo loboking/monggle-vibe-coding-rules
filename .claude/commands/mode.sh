@@ -52,7 +52,8 @@ show_mode() {
             prd_required=$(grep "^prd_required:" "$CONFIG_FILE" | awk '{print $2}')
 
             echo ""
-            echo -e "${CYAN}Current Mode: ${mode^^}${NC}"
+            # bash 3.2 호환: ${var^^} 대신 tr 사용
+            echo -e "${CYAN}Current Mode: $(echo "$mode" | tr '[:lower:]' '[:upper:]')${NC}"
             echo ""
 
             if [[ "$prd_required" == "true" ]]; then

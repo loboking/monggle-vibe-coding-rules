@@ -117,7 +117,7 @@ run_python_linter() {
         if [[ $AUTO_FIX -eq 1 ]] && command_exists autopep8; then
             autopep8 --in-place --aggressive -r . 2>/dev/null || true
         fi
-        pylint **/*.py 2>/dev/null || true
+        find . -name '*.py' -print0 2>/dev/null | xargs -0 pylint 2>/dev/null || true
     fi
 
     # Try flake8

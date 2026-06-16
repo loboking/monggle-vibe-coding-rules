@@ -67,15 +67,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-print_header "README Synchronizer"
-
-# Check if README exists
-if [[ ! -f "$README_FILE" ]]; then
-    log_warn "README.md not found. Creating basic template..."
-    create_readme_template
-    exit 0
-fi
-
 # Create basic README template
 create_readme_template() {
     cat > "$README_FILE" << 'EOF'
@@ -120,6 +111,15 @@ EOF
     log_success "README.md created"
 }
 
+print_header "README Synchronizer"
+
+# Check if README exists
+if [[ ! -f "$README_FILE" ]]; then
+    log_warn "README.md not found. Creating basic template..."
+    create_readme_template
+    exit 0
+fi
+
 # Detect project type and features
 detect_project_features() {
     local features
@@ -144,7 +144,7 @@ detect_project_features() {
         features+=("docs")
     fi
 
-    echo "${features[@]}"
+    echo "${features[@]:-}"
 }
 
 # Sync badges section
@@ -158,31 +158,45 @@ sync_badges() {
 
     # Check for common CI systems
     if [[ -d ".github/workflows" ]]; then
-        badges="${badges}\n[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/${GITHUB_REPOSITORY:-user/repo}/.github/workflows/main.yml)]"
+        badges="${badges}[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/${GITHUB_REPOSITORY:-user/repo}/.github/workflows/main.yml)]
+"
     fi
 
     # Add npm version if package.json exists
     if [[ -f "package.json" ]]; then
         local version
         version=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
-        badges="${badges}\n[![version](https://img.shields.io/badge/version-${version}-blue)]"
+        badges="${badges}[![version](https://img.shields.io/badge/version-${version}-blue)]
+"
     fi
 
     # Add license badge if LICENSE file exists
     if [[ -f "LICENSE" ]]; then
         local license
         license=$(head -1 LICENSE | sed 's/ *//')
-        badges="${badges}\n[![License](https://img.shields.io/badge/license-${license}-green)]"
+        badges="${badges}[![License](https://img.shields.io/badge/license-${license}-green)]
+"
     fi
 
     if [[ -n "$badges" && $AUTO_UPDATE -eq 1 ]]; then
-        # Update badges section
+        # Insert badges after the first heading (awk avoids sed metachar issues)
         if grep -q "^## " "$README_FILE"; then
-            sed -i.bak "/^## /a\\
-\\
-$badges
-" "$README_FILE"
-            rm -f "${README_FILE}.bak"
+            local temp_file badge_file
+            temp_file=$(mktemp)
+            badge_file=$(mktemp)
+            printf '\n%s' "$badges" > "$badge_file"
+            awk -v blockfile="$badge_file" '
+                !done && /^## / {
+                    print
+                    while ((getline line < blockfile) > 0) print line
+                    close(blockfile)
+                    done = 1
+                    next
+                }
+                { print }
+            ' "$README_FILE" > "$temp_file"
+            mv "$temp_file" "$README_FILE"
+            rm -f "$badge_file"
         fi
     fi
 }
@@ -213,12 +227,24 @@ sync_installation() {
     if [[ -n "$install_cmd" && $AUTO_UPDATE -eq 1 ]]; then
         # Update or add installation section
         if grep -q "^## Installation" "$README_FILE"; then
-            # Section exists, update it
-            sed -i.bak "/^## Installation/,/^## /{
-                s/\`\`\`bash.*/\`\`\`bash/
-                s/^.*$/\n${install_cmd}/
-            }" "$README_FILE"
-            rm -f "${README_FILE}.bak"
+            # Section exists, replace command inside the first bash code fence
+            local temp_file
+            temp_file=$(mktemp)
+            awk -v cmd="$install_cmd" '
+                /^## Installation/ { in_sec = 1 }
+                in_sec && /^## / && !/^## Installation/ { in_sec = 0 }
+                in_sec && /^```bash/ && !done_fence {
+                    print
+                    print cmd
+                    in_fence = 1
+                    done_fence = 1
+                    next
+                }
+                in_fence && /^```/ { in_fence = 0; print; next }
+                in_fence { next }
+                { print }
+            ' "$README_FILE" > "$temp_file"
+            mv "$temp_file" "$README_FILE"
         else
             log_info "Installation section not found. Add it manually."
         fi
@@ -245,17 +271,21 @@ check_outdated() {
     fi
 
     # Check for broken links
-    log_info "Checking for broken links..."
-    local broken_links
-    broken_links=$(grep -oE '\[.*\]\([^)]+\)' "$README_FILE" | while read -r link; do
-        local url
-        url=$(echo "$link" | sed 's/.*](//' | sed 's/)$//')
-        if [[ "$url" =~ ^http ]]; then
-            if ! curl -s -o /dev/null -w "%{http_code}" "$url" | grep -qE "^(200|301|302)"; then
-                echo "$url"
+    local broken_links=""
+    if ! command_exists curl; then
+        log_info "curl not found; skipping broken-link check"
+    else
+        log_info "Checking for broken links..."
+        broken_links=$(grep -oE '\[.*\]\([^)]+\)' "$README_FILE" | while read -r link; do
+            local url
+            url=$(echo "$link" | sed 's/.*](//' | sed 's/)$//')
+            if [[ "$url" =~ ^http ]]; then
+                if ! curl -s --max-time 10 -o /dev/null -w "%{http_code}" "$url" | grep -qE "^(200|301|302)"; then
+                    echo "$url"
+                fi
             fi
-        fi
-    done)
+        done)
+    fi
 
     if [[ -n "$broken_links" ]]; then
         log_warn "Potential broken links:"
@@ -310,7 +340,7 @@ generate_usage_section() {
 sync_contributors() {
     log_info "Syncing contributors..."
 
-    if ! command_exists git-authors || ! command_exists git; then
+    if ! command_exists git; then
         return
     fi
 
@@ -320,13 +350,9 @@ sync_contributors() {
     if [[ -n "$contributors" && $AUTO_UPDATE -eq 1 ]]; then
         # Update contributors section
         if grep -q "^## Contributors" "$README_FILE"; then
-            local temp_file
+            local temp_file new_block
             temp_file=$(mktemp)
-            awk '
-                /^## Contributors/ {print; print ""; print ""; for (i = 1; i <= 20; i++) getline; next}
-                {print}
-            ' "$README_FILE" > "$temp_file"
-
+            new_block=$(mktemp)
             {
                 echo "## Contributors"
                 echo ""
@@ -335,9 +361,24 @@ sync_contributors() {
                 echo "$contributors" | while read -r contributor; do
                     echo "- $contributor"
                 done
-            } >> "$temp_file"
+                echo ""
+            } > "$new_block"
+
+            # Replace existing Contributors section in place, up to next heading
+            awk -v blockfile="$new_block" '
+                /^## Contributors/ {
+                    while ((getline line < blockfile) > 0) print line
+                    close(blockfile)
+                    in_sec = 1
+                    next
+                }
+                in_sec && /^## / { in_sec = 0 }
+                in_sec { next }
+                { print }
+            ' "$README_FILE" > "$temp_file"
 
             mv "$temp_file" "$README_FILE"
+            rm -f "$new_block"
         fi
     fi
 }

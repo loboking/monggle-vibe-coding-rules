@@ -28,23 +28,23 @@ PIPELINE_CONFIG="${PROJECT_ROOT}/agents/pipeline_config.py"
 
 # Logging functions
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+    echo -e "${YELLOW}[WARN]${NC} $1" >&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
 log_step() {
-    echo -e "${CYAN}[→]${NC} $1"
+    echo -e "${CYAN}[→]${NC} $1" >&2
 }
 
 # Print header
@@ -156,9 +156,7 @@ main() {
 
     # Find PRD
     local prd_file
-    prd_file=$(find_prd "$1")
-
-    if [[ $? -ne 0 ]]; then
+    if ! prd_file=$(find_prd "$1"); then
         exit 1
     fi
 

@@ -101,9 +101,11 @@ check_python_format() {
     log_step "Checking Python code formatting..."
 
     local has_issues=0
+    local tool_ran=0
 
     # black - code formatter
     if command_exists black; then
+        tool_ran=1
         log_info "Checking with black..."
         if [[ $SHOW_DIFF -eq 1 ]]; then
             if black --diff . 2>/dev/null | grep -q "^---"; then
@@ -121,6 +123,7 @@ check_python_format() {
 
     # isort - import sorting
     if command_exists isort; then
+        tool_ran=1
         log_info "Checking import sorting with isort..."
         if [[ $SHOW_DIFF -eq 1 ]]; then
             isort --diff . 2>/dev/null || true
@@ -134,6 +137,11 @@ check_python_format() {
         log_warn "isort not found. Install: pip install isort"
     fi
 
+    if [[ $tool_ran -eq 0 ]]; then
+        log_error "No Python formatter available; cannot verify formatting"
+        return 1
+    fi
+
     return $has_issues
 }
 
@@ -142,9 +150,11 @@ check_nodejs_format() {
     log_step "Checking Node.js/TypeScript code formatting..."
 
     local has_issues=0
+    local tool_ran=0
 
     # Prettier
     if command_exists prettier; then
+        tool_ran=1
         log_info "Checking with prettier..."
         if [[ $SHOW_DIFF -eq 1 ]]; then
             prettier --list-different . || has_issues=1
@@ -155,6 +165,7 @@ check_nodejs_format() {
             fi
         fi
     elif [[ -f "node_modules/.bin/prettier" ]]; then
+        tool_ran=1
         log_info "Checking with local prettier..."
         if [[ $SHOW_DIFF -eq 1 ]]; then
             ./node_modules/.bin/prettier --list-different . || has_issues=1
@@ -166,6 +177,11 @@ check_nodejs_format() {
         fi
     else
         log_warn "Prettier not found. Install: npm install -D prettier"
+    fi
+
+    if [[ $tool_ran -eq 0 ]]; then
+        log_error "No Node.js formatter available; cannot verify formatting"
+        return 1
     fi
 
     return $has_issues
@@ -197,6 +213,9 @@ check_go_format() {
         else
             log_success "All Go files are properly formatted"
         fi
+    else
+        log_error "gofmt not found; cannot verify formatting"
+        return 1
     fi
 
     return $has_issues
@@ -216,6 +235,9 @@ check_rust_format() {
         else
             log_success "All Rust files are properly formatted"
         fi
+    else
+        log_error "cargo not found; cannot verify formatting"
+        return 1
     fi
 
     return $has_issues
@@ -226,9 +248,11 @@ check_java_format() {
     log_step "Checking Java code formatting..."
 
     local has_issues=0
+    local tool_ran=0
 
     # spotless - code formatter
     if [[ -f "gradlew" ]]; then
+        tool_ran=1
         log_info "Checking with spotless..."
         if ./gradlew spotlessCheck 2>/dev/null; then
             log_success "All Java files are properly formatted"
@@ -240,6 +264,7 @@ check_java_format() {
 
     # google-java-format
     if command_exists google-java-format; then
+        tool_ran=1
         log_info "Checking with google-java-format..."
         local unformatted
         unformatted=$(find . -name "*.java" -exec google-java-format --set-exit-if-changed {} \; 2>/dev/null || true)
@@ -248,6 +273,11 @@ check_java_format() {
             has_issues=1
             log_warn "Java files need formatting"
         fi
+    fi
+
+    if [[ $tool_ran -eq 0 ]]; then
+        log_error "No Java formatter available; cannot verify formatting"
+        return 1
     fi
 
     return $has_issues
@@ -269,6 +299,8 @@ check_ruby_format() {
         fi
     else
         log_warn "Rubocop not found. Install: gem install rubocop"
+        log_error "No Ruby formatter available; cannot verify formatting"
+        return 1
     fi
 
     return $has_issues

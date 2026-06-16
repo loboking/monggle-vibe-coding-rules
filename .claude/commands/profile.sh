@@ -159,8 +159,9 @@ profile_nodejs() {
         cpu)
             log_info "Using Node.js built-in profiler..."
             local output="${OUTPUT_FILE:-profile.cpuprofile}"
-            node --prof "$command"
-            log_info "Process profile with: node --prof-process isolate-*.log > $output"
+            node --prof $command
+            node --prof-process isolate-*.log > "$output"
+            log_success "Profile saved to: $output"
             ;;
         heap)
             log_info "Using heap profiler..."

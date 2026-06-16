@@ -204,7 +204,8 @@ check_nodejs_patterns() {
 
     # Check for synchronous operations in async handlers
     log_info "Checking for sync operations in async handlers..."
-    find . -name "*.js" -o -name "*.ts" 2>/dev/null | \
+    find . \( -name "*.js" -o -name "*.ts" \) \
+        -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/build/*" 2>/dev/null | \
         while read -r file; do
             if grep -qE "\.(fs|readFileSync|writeFileSync|execSync)" "$file" 2>/dev/null; then
                 if grep -qE "async |await " "$file" 2>/dev/null; then
@@ -215,7 +216,8 @@ check_nodejs_patterns() {
 
     # Check for missing await
     log_info "Checking for missing await..."
-    find . -name "*.js" -o -name "*.ts" 2>/dev/null | \
+    find . \( -name "*.js" -o -name "*.ts" \) \
+        -not -path "*/node_modules/*" -not -path "*/dist/*" -not -path "*/build/*" 2>/dev/null | \
         while read -r file; do
             if grep -E "Promise\.<|\.then\(" "$file" > /dev/null 2>&1; then
                 log_info "Promise chaining without await in: $file"
