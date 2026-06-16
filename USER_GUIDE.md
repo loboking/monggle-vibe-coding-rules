@@ -107,10 +107,10 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 /duo                # Claude + Gemini 협업
 /run                # 스마트 오케스트레이터
 /gemini             # Gemini AI 호출
-/doc-writer         # 문서 자동 생성
+/tech-doc-writer         # 문서 자동 생성
 /project-init       # 프로젝트 초기화
 /smart-brain        # 토큰 최적화
-/planner            # 기획서 작성
+/product-manager            # 기획서 작성
 ```
 
 ---
@@ -192,7 +192,7 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 
 - **전체 명령어**: README.md 참조
 - **뇌 시스템**: `.claude/brain/SPEC.md`
-- **업데이트**: `/rule-upgrade` 또는 git pull
+- **업데이트**: `/monggle-upgrade` 또는 git pull
 
 ---
 

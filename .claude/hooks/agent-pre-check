@@ -1,0 +1,211 @@
+#!/bin/bash
+# .claude/hooks/agent-pre-check
+# Monggle v3.5 - 에이전트 실행 전 검증 (오타 감지, 상태 락 체크, 동적 스킬 로드)
+
+set -eo pipefail
+
+# 프로젝트 루트 설정
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export PROJECT_ROOT
+
+# 사용자 메시지 가져오기
+USER_MESSAGE="${CLAUDE_MSG:-}"
+
+# ────────────────────────────────────────────────────────────────────────────────
+# [v3.5] 동적 스킬 레지스트리 로드 (Single Source of Truth)
+# ────────────────────────────────────────────────────────────────────────────────
+_load_valid_skills() {
+    local skills_file="$PROJECT_ROOT/.claude/session/available_skills.txt"
+    if [[ -f "$skills_file" ]]; then
+        # 주석 제거하고 공백으로 구분된 목록 로드
+        grep -v '^#' "$skills_file" 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//'
+    else
+        # fallback: commands 폴더 직접 스캔
+        find "$PROJECT_ROOT/.claude/commands" -maxdepth 1 -type f \( -name "*.sh" -o -name "*.py" \) 2>/dev/null | \
+            xargs -I{} basename {} | sed 's/\.[^.]*$//' | sort | tr '\n' ' ' | sed 's/  */ /g'
+    fi
+}
+
+VALID_SKILLS=$(_load_valid_skills)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# [v3.5] 슬래시(/) 명령어 오타 감지 (Fuzzy Match) - macOS bash 3.x 호환
+# ────────────────────────────────────────────────────────────────────────────────
+
+if [[ "$USER_MESSAGE" == /* ]]; then
+    CMD=$(echo "$USER_MESSAGE" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+
+    # 슬래시 제거하고 검사
+    CMD_NAME="${CMD#/}"
+
+    # 정확한 매칭 체크 (동적 레지스트리 사용)
+    if [[ " $VALID_SKILLS " =~ " $CMD_NAME " ]]; then
+        exit 0
+    fi
+
+    # ────────────────────────────────────────────────────────────────────────────────
+    # 퍼지 매칭 (동적 맵 로드)
+    # ────────────────────────────────────────────────────────────────────────────────
+    _load_fuzzy_map() {
+        local fuzzy_file="$PROJECT_ROOT/.claude/session/fuzzy_map.txt"
+        if [[ -f "$fuzzy_file" ]]; then
+            # 주석和无효 라인 제거하고 파싱
+            grep -v '^#' "$fuzzy_file" 2>/dev/null | grep -v '^$' | while read -r line; do
+                [[ -z "$line" ]] && continue
+                echo "$line"
+            done
+        fi
+    }
+
+    # 퍼지 매칭 (오타 감지) - 동적 맵 룩업
+    RECOMMEND=""
+    CMD_NO_SLASH="${CMD#/}"
+
+    # 동적 퍼지 맵 검색 (파일에서 직접 읽기)
+    local fuzzy_file="$PROJECT_ROOT/.claude/session/fuzzy_map.txt"
+    if [[ -f "$fuzzy_file" ]]; then
+        while IFS=' ' read -r patterns target; do
+            [[ -z "$patterns" || -z "$target" ]] && continue
+            [[ "$patterns" == \#* ]] && continue
+            # 파이프로 구분된 패턴 체크
+            IFS='|' read -ra pattern_array <<< "$patterns"
+            for pat in "${pattern_array[@]:-}"; do
+                if [[ "$CMD_NO_SLASH" == "$pat" ]]; then
+                    RECOMMEND="/$target"
+                    break 2
+                fi
+            done
+        done < "$fuzzy_file"
+    fi
+
+    # fallback 하드코딩 (필수 스킬만)
+    if [[ -z "$RECOMMEND" ]]; then
+        case "$CMD" in
+        /debug*|/bug*|/debu|/debugg|/debuger|/debugging)
+            RECOMMEND="/debug-master"
+            ;;
+        /qa*|/test|/qaa|/qa-test)
+            RECOMMEND="/qa"
+            ;;
+        /git*|/push*|/git-push|/commit)
+            RECOMMEND="/git-guardian"
+            ;;
+        /doc*|/documentation|/readme)
+            RECOMMEND="/tech-doc-writer"
+            ;;
+        /monggle|/help|/commands)
+            RECOMMEND="/help"
+            ;;
+        /compact*|/smrat|/cmopact)
+            RECOMMEND="/smart-compact"
+            ;;
+        /review*|/code-review|/reviewer)
+            RECOMMEND="/code-reviewer"
+            ;;
+        /arch*|/architecture|/design)
+            RECOMMEND="/architecture-designer"
+            ;;
+        /plan*|/planner)
+            RECOMMEND="/product-manager"
+            ;;
+        /prd*)
+            RECOMMEND="/prd"
+            ;;
+        /bottleneck*|/perf*|/performance)
+            RECOMMEND="/bottleneck"
+            ;;
+        /audit*|/security)
+            RECOMMEND="/audit"
+            ;;
+        /bench*|/benchmark)
+            RECOMMEND="/bench"
+            ;;
+        /brainstorm*|/idea)
+            RECOMMEND="/brainstorm"
+            ;;
+        /brain*)
+            RECOMMEND="/brain"
+            ;;
+        /save*|/checkpoint)
+            RECOMMEND="/save-point"
+            ;;
+        /changelog*|/log*|/logs)
+            RECOMMEND="/changelog"
+            ;;
+        /bump*|/ver|/version)
+            RECOMMEND="/bump"
+            ;;
+        /push-safe*)
+            RECOMMEND="/push-safe"
+            ;;
+        /complexity*)
+            RECOMMEND="/complexity"
+            ;;
+        /profile*|/profiling)
+            RECOMMEND="/profile"
+            ;;
+        /stat*|/stats*)
+            RECOMMEND="/stats"
+            ;;
+        /trace*)
+            RECOMMEND="/trace"
+            ;;
+        /mode*)
+            RECOMMEND="/mode"
+            ;;
+        /init*)
+            RECOMMEND="/init"
+            ;;
+        /quick*|/hotfix)
+            RECOMMEND="/quick"
+            ;;
+        /pipeline*)
+            RECOMMEND="/pipeline"
+            ;;
+        /gate*)
+            RECOMMEND="/gate"
+            ;;
+        /lint*)
+            RECOMMEND="/lint-smart"
+            ;;
+        /format*)
+            RECOMMEND="/format-check"
+            ;;
+        /impact*)
+            RECOMMEND="/impact"
+            ;;
+        /api-docs*)
+            RECOMMEND="/api-docs"
+            ;;
+        /arch-review*)
+            RECOMMEND="/arch-review"
+            ;;
+            esac
+        fi
+    fi
+
+    if [[ -n "$RECOMMEND" ]]; then
+        echo "SYSTEM_MSG: ⚠️ '$CMD' 스킬을 찾을 수 없습니다. 대신 '$RECOMMEND' 스킬을 실행할까요?"
+        echo "RECOMMEND:$RECOMMEND"
+        exit 0
+    fi
+
+    echo "SYSTEM_MSG: ⚠️ '$CMD' 스킬을 찾을 수 없습니다. 정식 스킬은 /help 를 참고하세요."
+    exit 0
+fi
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 상태 락 검사 (기존 로직)
+# ────────────────────────────────────────────────────────────────────────────────
+
+LOCK_FILE="${PROJECT_ROOT}/.claude/session/lock.lock"
+if [ -f "$LOCK_FILE" ]; then
+    LOCK_PID=$(cat "$LOCK_FILE" 2>/dev/null || echo "")
+    if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+        echo "SYSTEM_MSG: ⚠️ 다른 에이전트가 실행 중입니다. 잠시 후 다시 시도하세요."
+        exit 1
+    fi
+    rm -f "$LOCK_FILE"
+fi
+
+exit 0

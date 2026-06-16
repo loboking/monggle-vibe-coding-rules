@@ -48,6 +48,7 @@ impact|analysis|영향도 분석, 사이드 이펙트 예측
 api-docs|docs|API 문서 자동 생성
 changelog|docs|Git 커밋 기반 CHANGELOG 생성
 readme-sync|docs|README 동기화
+weekly-recap|docs|주간 회고
 bump|git|버전 업 + 태그 생성
 push-safe|git|안전한 Git push + PR 생성
 quick|dev|빠른 핫픽스
@@ -57,7 +58,8 @@ bench|utils|벤치마크 실행/비교
 profile|utils|성능 프로파일링
 save-point|utils|작업 상태 저장/복구
 auto-compact|utils|자동 컴팩트 on/off (80% 기준)
-brainstorm|utils|아이디어 브레인스토밍
+brainstorm|utils|아이디어 브레인스토밍 (→ PRD)
+brain|utils|뇌 시스템 (뉴런/시냅스 저장)
 init|config|초기화 마법사
 mode|config|작업 모드 변경 (solo/team)
 monggle-upgrade|config|Vibe Coding Rules 업그레이드
@@ -65,8 +67,9 @@ duo|toolkit|Claude + Gemini 협업 (빠름)
 run|toolkit|스마트 오케스트레이터
 super|toolkit|슈퍼 프롬프트 생성
 gemini|toolkit|Gemini AI 호출
-planner|toolkit|프로젝트 기획서 작성
-doc-writer|toolkit|프로젝트 문서 자동 생성
+product-manager|toolkit|프로덕트 매니저 (PRD, 사용자 스토리, 우선순위)
+tech-doc-writer|toolkit|기술 문서 작성 (README, API, 가이드)
+docs|docs|문서 인덱스/검색/상태 (docs index|search|status)
 "
 
 # 카테고리 이름

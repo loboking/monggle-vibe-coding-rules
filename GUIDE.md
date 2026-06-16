@@ -146,8 +146,8 @@ cd monggle-vibe-coding-rules
 | `/run` | 작업 복잡도 분석 → 최적 도구 선택 |
 | `/super` | 간단 요청 → 상세 요구사항 |
 | `/gemini` | Gemini 서브에이전트 호출 |
-| `/planner` | 프로젝트 기획서 작성 |
-| `/doc-writer` | 프로젝트 문서 자동 생성 |
+| `/product-manager` | 프로젝트 기획서 작성 |
+| `/tech-doc-writer` | 프로젝트 문서 자동 생성 |
 
 ---
 

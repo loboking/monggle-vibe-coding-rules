@@ -70,8 +70,8 @@ duo|duo
 run|run
 super|super
 gemini|gemini
-planner|planner
-doc-writer|doc-writer
+product-manager|product-manager
+tech-doc-writer|tech-doc-writer
 help|help
 "
 
@@ -98,8 +98,6 @@ save|save-point
 checkpoint|save-point
 hotfix|quick
 fix|quick
-doc|api-docs
-docs|api-docs
 hlp|help
 hel|help
 "

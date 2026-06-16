@@ -25,8 +25,7 @@ source ~/.bashrc
 ### 1. 옵션 자동 완성 (v3.1 확장)
 
 ```bash
-/smart-qa --[Tab]        # --android, --ios, --web, --mobile, --server, --code
-/smart-qa-read --[Tab]   # --android, --ios, --web, --mobile, --server, --code
+/smart-qa --[Tab]        # --android, --ios, --web, --mobile, --server, --code, --report
 /stats --[Tab]           # --web, --json, --filter-verdict, ...
 /qa --[Tab]              # --report, --quick, --format, ...
 /prd --[Tab]             # --non-interactive, --output, --language, ...
@@ -72,14 +71,9 @@ source ~/.bashrc
 /smart-qa --server          # 서버/백엔드 테스트
 /smart-qa --code            # 코드 전체 테스트
 /smart-qa --web --report    # Web 보고서만 (수정 없음)
-```
-
-### Smart QA Read (v3.1) 🆕
-
-```bash
-/smart-qa-read              # 자동 감지 + 보고서만 (읽기 전용)
-/smart-qa-read --android    # Android 보고서
-/smart-qa-read --web --json # Web JSON 보고서
+/smart-qa --report          # 자동 감지 + 보고서만 (읽기 전용)
+/smart-qa --android --report # Android 보고서
+/smart-qa --web --report --json # Web JSON 보고서
 ```
 
 ### QA
@@ -161,7 +155,7 @@ source ~/.bashrc
 | `push`, `gitpush` | `push-safe` |
 | `stat`, `stats` | `stats` |
 | `lint` | `lint-smart` |
-| `idea` | `idea` (v3.1: /brainstorm → /idea) |
+| `idea` | `brainstorm` |
 | `save`, `checkpoint` | `save-point` |
 | `hotfix`, `fix` | `quick` |
 | `impact`, `side-effect` | `impact` (v3.1) |
@@ -185,7 +179,8 @@ source ~/.bashrc
 ~/.claude/commands/impact.sh --diff HEAD~1
 ~/.claude/commands/debug.sh --web
 ~/.claude/commands/smart-qa.sh --android
-~/.claude/commands/smart-qa-read.sh --web
+~/.claude/commands/smart-qa.sh --web --report
+~/.claude/commands/docs.sh index
 ```
 
 ---
@@ -206,11 +201,11 @@ source ~/.bashrc
 | `push`, `gitpush` | `push-safe` |
 | `stat` | `stats` |
 | `lint` | `lint-smart` |
-| `idea` | `idea` (v3.1) |
+| `idea` | `brainstorm` |
 | `save`, `checkpoint` | `save-point` |
 | `hotfix`, `fix` | `quick` |
-| `docs` | `doc-writer` |
-| `readme` | `doc-writer` |
+| `docs` | `docs` |
+| `readme` | `tech-doc-writer` |
 | `impact` | `impact` (v3.1) |
 | `smart-qa` | `smart-qa` (v3.1) |
-| `smart-qa-read` | `smart-qa-read` (v3.1) |
+| `smart-qa-read` | `smart-qa --report` |
