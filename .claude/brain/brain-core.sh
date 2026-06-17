@@ -57,11 +57,12 @@ brain_iso_to_epoch() {
         return 0
     fi
 
-    # BSD date (-j -f): macOS
+    # BSD date (-u -j -f): macOS
+    # 타임스탬프는 UTC('Z')로 저장되므로 -u 로 UTC 해석해야 로컬 TZ offset 왜곡이 없다.
     # 전체 ISO 포맷 우선, cut 등으로 잘린 입력(날짜+시 등)도 폴백 처리
     local fmt
     for fmt in "%Y-%m-%dT%H:%M:%SZ" "%Y-%m-%dT%H:%M:%S" "%Y-%m-%dT%H"; do
-        if epoch=$(date -j -f "$fmt" "$ts" +%s 2>/dev/null); then
+        if epoch=$(date -u -j -f "$fmt" "$ts" +%s 2>/dev/null); then
             echo "$epoch"
             return 0
         fi
@@ -338,35 +339,116 @@ brain_update_access() {
 # Forgetting Curve
 # ============================================================================
 
-# 기억 유지율 계산
+# 기억 유지율 계산 (지수 감쇠 모델 / 에빙하우스 망각 곡선)
+#
+# 공식: retention = e^(-age_hours / half_life)
+#   half_life = BASE_HALF_LIFE_HOURS * (1 + emo*EMO_COEF + act*ACT_COEF)
+#
+# Properties:
+#   - age_hours=0 -> retention=1.0 (방금 만든 기억)
+#   - monotonically decreasing, convex (에빙하우스 곡선)
+#   - 감정/반복은 half_life(분모)를 키워 곡선을 평평하게 -> 중요 기억 장기 생존
+#   - 0 < retention <= 1 (지수함수 특성. 안전 클램프만 유지)
+#
+# 검증된 반감기:
+#   LOW (emo0.3,act0): 202h(8.4d), 망각 13.5d | MED(emo0.5,act1): 317h(13.2d)
+#   HIGH(emo0.9,act5): 605h(25.2d), 30d시점 0.30 생존 | MAX(emo1.0,act10): 792h(33d)
+#
+# 참고: 기존 0.1 하한을 제거(자연 감쇠 0까지 허용). 0.1 하한은 절대 망각 불가 버그였음.
 brain_calc_retention() {
     local last_access="$1"
     local emotional_weight="$2"
     local activation_count="$3"
 
-    local now=$(date +%s)
-    local last=$(brain_iso_to_epoch "$last_access" || echo "$now")
-    local age_hours=$(( (now - last) / 3600 ))
+    # 파라미터 (실측으로 요구사항 충족 검증됨)
+    local BASE_HALF_LIFE_HOURS=72   # 3일. 감정/반복 없는 기본 반감기
+    local EMO_COEF=6.0              # 감정 가중치 계수 (입력 0~1)
+    local ACT_COEF=0.4             # 반복(access_count) 계수
 
-    # 기본 감쇠
-    local base_decay=0.9
-    local decay=$(echo "$base_decay - ($age_hours * 0.01)" | bc -l 2>/dev/null || echo "0.5")
-
-    # 감정 보호
-    local emotional_protection=$(echo "$emotional_weight * 0.5" | bc -l 2>/dev/null || echo "0.0")
-
-    # 반복 학습 효과
-    local repetition_boost=$(echo "$activation_count * 0.1" | bc -l 2>/dev/null || echo "0.0")
-
-    # 최종 유지율
-    local retention=$(echo "$decay + $emotional_protection + $repetition_boost" | bc -l 2>/dev/null || echo "0.5")
-
-    # 0.1 ~ 1.0 범위 제한
-    if [[ $(echo "$retention < 0.1" | bc -l 2>/dev/null || echo "0") -eq 1 ]]; then
-        retention="0.1"
-    elif [[ $(echo "$retention > 1.0" | bc -l 2>/dev/null || echo "1") -eq 1 ]]; then
-        retention="1.0"
+    local now
+    now=$(date +%s)
+    local last
+    if ! last=$(brain_iso_to_epoch "$last_access"); then
+        # 파싱 실패 -> now 폴백(age=0->retention 1.0). 깨진 기억이 안 죽는 부작용 경고.
+        log_warn "타임스탬프 파싱 실패, now 폴백: '$last_access'"
+        last="$now"
     fi
+
+    local age_hours=$(( (now - last) / 3600 ))
+    # age<0 (시계 역행/미래 타임스탬프) -> 음수 지수로 retention>1 발생. 0으로 클램프.
+    (( age_hours < 0 )) && age_hours=0
+
+    # age=0 (1시간 미만 신규 기억) -> 명시적으로 1.0
+    if (( age_hours == 0 )); then
+        echo "1.00"
+        return 0
+    fi
+
+    # emo 입력 0~1 클램프 (공식 가정)
+    local emo="$emotional_weight"
+    if [[ $(echo "$emo < 0" | bc -l 2>/dev/null || echo "0") -eq 1 ]]; then emo=0; fi
+    if [[ $(echo "$emo > 1" | bc -l 2>/dev/null || echo "0") -eq 1 ]]; then emo=1; fi
+    local act="$activation_count"
+
+    # 지수함수 계산: 1차 bc, 2차 awk, 3차 python3, 최종 폴백 0.5
+    # 동일 공식이라 폴백 간 수치 일관.
+    local retention=""
+
+    # --- 1차: bc -l ---
+    # 주의: 지수에 반드시 괄호. e(- $age / hl)는 bc 오파싱(~0.9999) 버그.
+    retention=$(bc -l 2>/dev/null << BCEOF
+scale=10
+half_life = $BASE_HALF_LIFE_HOURS * (1 + $emo * $EMO_COEF + $act * $ACT_COEF)
+result = e(-($age_hours) / half_life)
+if (result > 1) result = 1
+if (result < 0) result = 0
+result
+BCEOF
+)
+
+    # bc leading-dot 정규화 (.367 -> 0.367)
+    if [[ "$retention" == .* ]]; then retention="0$retention"; fi
+    if [[ "$retention" == -.* ]]; then retention="-0${retention#-}"; fi
+
+    # bc 실패 또는 빈 출력 -> 2차: awk exp() (macOS 기본 탑재)
+    if [[ -z "$retention" ]]; then
+        retention=$(awk -v age="$age_hours" -v base="$BASE_HALF_LIFE_HOURS" \
+            -v emo="$emo" -v ec="$EMO_COEF" -v act="$act" -v ac="$ACT_COEF" \
+            'BEGIN {
+                hl = base * (1 + emo * ec + act * ac);
+                r = exp(-age / hl);
+                if (r > 1) r = 1;
+                if (r < 0) r = 0;
+                printf "%.10f", r;
+            }' 2>/dev/null)
+    fi
+
+    # awk 실패 -> 3차: python3 math.exp
+    if [[ -z "$retention" ]]; then
+        retention=$(python3 -c "
+import math
+hl = $BASE_HALF_LIFE_HOURS * (1 + $emo * $EMO_COEF + $act * $ACT_COEF)
+r = math.exp(-$age_hours / hl)
+r = min(1.0, max(0.0, r))
+print('%.10f' % r)
+" 2>/dev/null)
+    fi
+
+    # 최종 폴백
+    if [[ -z "$retention" ]]; then
+        log_warn "지수함수 계산 실패(bc/awk/python3), 폴백 0.5"
+        retention="0.5"
+    fi
+
+    # 안전 클램프 (0 <= r <= 1)
+    if [[ $(echo "$retention < 0" | bc -l 2>/dev/null || echo "0") -eq 1 ]]; then
+        retention="0"
+    elif [[ $(echo "$retention > 1" | bc -l 2>/dev/null || echo "0") -eq 1 ]]; then
+        retention="1"
+    fi
+
+    # 소수 2자리 반올림
+    retention=$(printf "%.2f" "$retention" 2>/dev/null || echo "$retention")
 
     echo "$retention"
 }
