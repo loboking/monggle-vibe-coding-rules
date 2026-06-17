@@ -35,13 +35,8 @@ source "$BRAIN_ROOT/brain-core.sh" >/dev/null 2>&1 || exit 0
 # 프로젝트명 + 프롬프트의 의미있는 토큰(영문/한글 키워드) 일부.
 PROJECT="$(basename "$(pwd)" 2>/dev/null || echo "")"
 
-# 키워드 후보: 한글/영문 단어 중 길이 2+ 인 것 상위 몇 개 (잡토큰 최소화)
-KEYWORDS="$(printf '%s' "$PROMPT" \
-    | tr '[:upper:]' '[:lower:]' \
-    | tr -cs '[:alnum:]가-힣' '\n' \
-    | awk 'length($0) >= 2' \
-    | head -6 \
-    | paste -sd ',' - 2>/dev/null || echo "")"
+# 키워드: 공통 추출기로 불용어/시스템토큰 제거 후 의미 토큰만
+KEYWORDS="$(brain_extract_keywords "$PROMPT" 6 2>/dev/null || echo "")"
 
 SEARCH="project"
 [[ -n "$PROJECT" ]] && SEARCH="$SEARCH,$PROJECT"

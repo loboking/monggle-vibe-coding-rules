@@ -573,14 +573,23 @@ _ensure_brain_hooks() {
     local settings_file="$1"
     [ -f "$settings_file" ] || return 0
     command -v jq &> /dev/null || { print_warning "jq 없음 - brain 훅 자동등록 건너뜀"; return 0; }
-    if jq -e '.hooks.SessionStart[]?.hooks[]?.command | select(test("brain-session-start"))' "$settings_file" &> /dev/null; then
+    # 상시 기억 회상 훅(brain-prompt-recall)까지 등록됐으면 완료로 간주
+    if jq -e '.hooks.UserPromptSubmit[]?.hooks[]?.command | select(test("brain-prompt-recall"))' "$settings_file" &> /dev/null; then
         return 0  # 이미 등록됨
     fi
     local tmp; tmp=$(mktemp)
-    jq '.hooks = (.hooks // {})
-        | .hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh","timeout":10}]}])
-        | .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh","timeout":30}]}])' \
-        "$settings_file" > "$tmp" && mv "$tmp" "$settings_file" && print_success "brain 훅 등록(SessionStart/End)"
+    # 멱등: 각 이벤트에 해당 brain 훅이 이미 있으면 중복 추가 안 함
+    jq '
+        .hooks = (.hooks // {})
+        | (((.hooks.SessionStart // []) | map(.hooks[]?.command) | any(test("brain-session-start"))) as $h
+           | if $h then . else .hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh","timeout":10}]}]) end)
+        | (((.hooks.UserPromptSubmit // []) | map(.hooks[]?.command) | any(test("brain-prompt-recall"))) as $h
+           | if $h then . else .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-prompt-recall.sh","timeout":15}]}]) end)
+        | (((.hooks.Stop // []) | map(.hooks[]?.command) | any(test("brain-turn-save"))) as $h
+           | if $h then . else .hooks.Stop = ((.hooks.Stop // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-turn-save.sh","timeout":15}]}]) end)
+        | (((.hooks.SessionEnd // []) | map(.hooks[]?.command) | any(test("brain-session-end"))) as $h
+           | if $h then . else .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh","timeout":30}]}]) end)
+    ' "$settings_file" > "$tmp" && mv "$tmp" "$settings_file" && print_success "brain 상시 기억 훅 등록(회상/저장/세션)"
 }
 
 # Copy PRD templates

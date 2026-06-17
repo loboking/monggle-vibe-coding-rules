@@ -81,7 +81,7 @@ TAGS="project"
 [[ -n "$PROJECT" ]] && TAGS="$TAGS,$PROJECT"
 [[ $IMPORTANT -eq 1 ]] && TAGS="$TAGS,decision"
 [[ $ACTION -eq 1 ]] && TAGS="$TAGS,change"
-KW="$(printf '%s' "$LAST_USER" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]가-힣' '\n' | awk 'length($0)>=2' | head -4 | paste -sd ',' - 2>/dev/null || echo "")"
+KW="$(brain_extract_keywords "$LAST_USER" 4 2>/dev/null || echo "")"
 [[ -n "$KW" ]] && TAGS="$TAGS,$KW"
 
 # 메시지 단위 뉴런 저장 (조용히)

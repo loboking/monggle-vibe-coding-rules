@@ -77,6 +77,38 @@ brain_iso_to_epoch() {
     return 1
 }
 
+# 텍스트에서 '의미있는' 키워드 태그를 추출 (불용어/시스템토큰 제거).
+# 사용: brain_extract_keywords "<text>" [max=4]
+#   - 소문자화, 영숫자/한글만, 길이 3+ 영문 / 2+ 한글
+#   - 시스템·잡토큰(tool, use, id, task, notification 등) + 흔한 불용어 제거
+#   - 빈도 높은 순 상위 max개 (단순 빈도 정렬)
+brain_extract_keywords() {
+    local text="$1"
+    local max="${2:-4}"
+    # 불용어/시스템토큰 (공백 구분, 한 줄). 회상·저장 양쪽 공통.
+    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거"
+    printf '%s' "$text" \
+        | tr '[:upper:]' '[:lower:]' \
+        | tr -cs '[:alnum:]가-힣' '\n' \
+        | awk -v stop="$STOP" '
+            BEGIN { n=split(stop, a, " "); for(i=1;i<=n;i++) if(a[i]!="") sw[a[i]]=1 }
+            {
+                w=$0
+                # 길이 필터: 한글 포함이면 2자+(바이트 6+), 순영숫자면 3자+
+                if (w ~ /[가-힣]/) { if (length(w) < 2) next }
+                else { if (length(w) < 3) next }
+                if (w in sw) next
+                if (!(w in seen)) { seen[w]=1; order[++c]=w }
+                cnt[w]++
+            }
+            END { for(i=1;i<=c;i++) print cnt[order[i]], order[i] }
+        ' \
+        | sort -rn \
+        | awk '{print $2}' \
+        | head -n "$max" \
+        | paste -sd ',' - 2>/dev/null || echo ""
+}
+
 # ============================================================================
 # Initialization
 # ============================================================================
@@ -634,6 +666,7 @@ export -f brain_create_neuron
 export -f brain_create_synapse
 export -f brain_strengthen_synapse
 export -f brain_query_by_tags
+export -f brain_extract_keywords
 export -f brain_recall_neuron
 export -f brain_session_start
 export -f brain_session_end
