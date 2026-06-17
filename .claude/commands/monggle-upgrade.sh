@@ -95,40 +95,38 @@ get_current_version() {
     fi
 }
 
-# Get latest version from GitHub (if git repo)
+# Get latest version from GitHub.
+# 주의: releases/latest API 는 '릴리스로 발행된 것'만 반환하므로, 태그만 있고
+# 릴리스가 안 된 더 높은 버전(예: v3.0.0)을 놓친다. 따라서 '모든 태그를 버전
+# 정렬한 최신'과 '릴리스 최신'을 모두 구해 둘 중 더 높은 것을 반환한다.
 get_latest_version() {
-    # Try GitHub API first (faster, no network if cached)
     local repo="loboking/monggle-vibe-coding-rules"
+    local rel_tag="" git_tag=""
+
+    # (a) 모든 태그 중 버전 정렬 최신 (가장 신뢰도 높음)
+    if [[ -d "$PROJECT_ROOT/.git" ]]; then
+        cd "$PROJECT_ROOT" 2>/dev/null || true
+        git fetch --tags origin >/dev/null 2>&1 || true
+        git_tag=$(git tag --list 'v*' 2>/dev/null | sort -V | tail -1)
+    fi
+
+    # (b) 릴리스 API 최신 (참고용)
     local api_url="https://api.github.com/repos/${repo}/releases/latest"
-
     if command -v curl &> /dev/null; then
-        local tag=$(curl -s --connect-timeout 3 "$api_url" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
-        if [[ -n "$tag" ]]; then
-            echo "$tag"
-            return 0
-        fi
+        rel_tag=$(curl -s --connect-timeout 3 "$api_url" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
     elif command -v wget &> /dev/null; then
-        local tag=$(wget -qO- --timeout=3 "$api_url" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
-        if [[ -n "$tag" ]]; then
-            echo "$tag"
-            return 0
-        fi
+        rel_tag=$(wget -qO- --timeout=3 "$api_url" 2>/dev/null | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
     fi
 
-    # Fallback to git fetch
-    if [[ ! -d "$PROJECT_ROOT/.git" ]]; then
-        echo "unknown"
-        return 1
+    # (c) 둘 중 버전이 높은 쪽 선택 (sort -V)
+    local best
+    best=$(printf '%s\n%s\n' "$git_tag" "$rel_tag" | grep -E '^v?[0-9]' | sort -V | tail -1)
+    if [[ -n "$best" ]]; then
+        echo "$best"
+        return 0
     fi
-
-    cd "$PROJECT_ROOT"
-
-    # Try to get latest tag
-    if git fetch --tags origin >/dev/null 2>&1; then
-        git describe --tags --abbrev=0 2>/dev/null || echo "unknown"
-    else
-        echo "unknown"
-    fi
+    echo "unknown"
+    return 1
 }
 
 # Compare versions (returns 0 if update available)
