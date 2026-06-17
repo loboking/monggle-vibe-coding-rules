@@ -19,6 +19,9 @@ SESSION_ID="${BRAIN_SESSION_ID:-session-$$}"
 # 세션 종료
 brain_session_end "$SESSION_ID"
 
+# 핫 캐시 갱신 (신규/접근 반영) → 조용히, 실패무시
+brain_update_hotcache 7 >/dev/null 2>&1 || true
+
 # 주기 청소 (마지막 접근으로부터 24시간 이상 된 것)
 LAST_CLEANUP="$BRAIN_HOME/.last_cleanup"
 NOW=$(date +%s)

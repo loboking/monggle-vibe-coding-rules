@@ -281,6 +281,7 @@ brain_register_neuron() {
          "tags": $tags,
          "emotional_weight": $weight,
          "synapses_out": [],
+         "access_count": 0,
          "created": (now | todate),
          "last_accessed": (now | todate)
        }
@@ -454,22 +455,46 @@ brain_link_to_related() {
                 (((.neurons[$tid].synapses_out // []) + [$new]) | unique)
           end)
        )
-       # MAX_LINKS 대칭 보정: 모든 뉴런의 synapses_out 을 정방향 시냅스 weight
-       # 상위 maxlinks 개로 trim (허브 뉴런 무한 누적 방지). 잘려나간 시냅스도 제거.
+       # MAX_LINKS 대칭 보정 (Brain v4 ③):
+       #   허브 뉴런 무한 누적 방지를 위해 각 뉴런의 정방향 링크를 weight 상위
+       #   maxlinks 로 trim 하되, 시냅스를 쌍(pair) 단위로 유지/제거하여 양방향 대칭
+       #   불변식을 보장한다 (A→B 존재 ⟺ B→A 존재).
+       #
+       #   절차:
+       #   1) 각 뉴런 nid 의 keep 집합 = 정방향 weight 상위 maxlinks 의 target.
+       #   2) 페어 a-b 가 살아남으려면 [a 의 keep 에 b] AND [b 의 keep 에 a] 둘 다.
+       #      한쪽이라도 trim 되면 양방향 모두 제거(동반 삭제) -> 대칭 유지.
+       #   3) 살아남은 정방향 시냅스로 synapses_out 재구성(dangling/orphan 0).
        | . as $final
-       | reduce ($final.neurons | keys[]) as $nid ($final;
-           . as $st
-           | (($st.neurons[$nid].synapses_out // [])
-              | map({tid: ., w: ($st.synapses[($nid + "-" + .)].weight // 0)})
-              | sort_by(-(.w))
-              | .[0:$maxlinks]
-              | map(.tid)) as $keep
-           | .neurons[$nid].synapses_out = $keep
-           # keep 에 없는 정방향 시냅스는 삭제 (불변식 유지)
-           | .synapses = (.synapses | with_entries(
-               select((.value.source != $nid)
-                      or (.value.target as $t | $keep | index($t)) != null)))
+       # 각 뉴런별 keep 집합을 객체로 구성: { nid: [keepTargets] }
+       | reduce ($final.neurons | keys[]) as $nid ({keepmap: {}, root: $final};
+           .root as $r
+           | ((($r.neurons[$nid].synapses_out // [])
+               | map({tid: ., w: ($r.synapses[($nid + "-" + .)].weight // 0)})
+               | sort_by(-(.w))
+               | .[0:$maxlinks]
+               | map(.tid))) as $keep
+           | .keepmap[$nid] = $keep
          )
+       | .keepmap as $keepmap
+       | $final
+       # 시냅스: 양쪽 모두 서로를 keep 할 때만 생존
+       | .synapses = (.synapses | with_entries(
+           .value.source as $s
+           | .value.target as $t
+           | select(
+               (($keepmap[$s] // []) | index($t)) != null
+               and (($keepmap[$t] // []) | index($s)) != null
+             )))
+       # synapses_out: 생존한 정방향 시냅스 기준으로 재구성 (대칭/일관성)
+       | .synapses as $surv
+       | .neurons = (.neurons | with_entries(
+           .key as $nid
+           | .value.synapses_out = (
+               $surv | to_entries
+               | map(select(.value.source == $nid) | .value.target)
+               | unique)
+         ))
        ' "$SYNAPSES_FILE" > "$tmp_file" 2>/dev/null || { rm -f "$tmp_file"; return 0; }
 
     # jq 산출물이 유효 JSON 인지 확인 후 교체(원자성 + 손상 방지)
@@ -642,7 +667,7 @@ brain_update_access() {
     jq --arg id "$neuron_id" \
        '
        .neurons[$id].last_accessed = (now | todate) |
-       .neurons[$id].access_count += 1
+       .neurons[$id].access_count = ((.neurons[$id].access_count // 0) + 1)
        ' "$SYNAPSES_FILE" > "$tmp_file"
 
     brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
@@ -875,18 +900,135 @@ EOF
     log_info "세션 종료: $session_id"
 }
 
-# 세션 고착화
+# 세션 고착화 (Brain v4 ②: 중요도 필터)
+#   - 세션 통째 덤프 폐지. 중요도 판정 후 의미있는 세션만 뉴런화.
+#   - 스킵 조건:
+#       (a) 시스템메시지/도구 오염 패턴 포함 → 미저장(오염 세션)
+#       (b) 정제 본문 길이가 너무 짧음 → 미저장(잡음)
+#   - 중요도:
+#       감정/키워드(결정/버그/수정/중요 등) 신호 있으면 important, 없으면 normal
+#   - 저장 시: 세션 통째가 아니라 시스템 라인 제외한 핵심 본문 1000자 제한.
+#     태그는 brain_extract_keywords 로 추출.
+#   - 안전: 어떤 실패도 세션종료 흐름을 막지 않음(항상 0 반환).
 brain_consolidate_session() {
     local session_file="$1"
 
+    [[ -f "$session_file" ]] || return 0
+
     log_info "세션 고착화 중: $(basename "$session_file")"
 
-    # TODO: 중요도 분석 후 뉴런 생성
-    # 일단은 전체를 "conversation" 타입으로 저장
-    local neuron_id
-    neuron_id=$(brain_create_neuron "conversation" "Session Summary" "$(cat "$session_file")" "session,consolidated" "normal")
+    # 1) 시스템/도구 메시지 라인 제외 + Markdown 헤더/구분선 제외하여 정제 본문 추출.
+    #    grep -v 로 라인 단위 차단(BSD/macOS grep 호환, -E 사용).
+    local clean
+    clean=$(grep -vE '<task-notification|<command-|tool_use_id|tool_result|"type":[[:space:]]*"tool|Workflow launched|hook additional context|system-reminder|Caveat:|^#|^---|^\*\*Started|^\*\*Ended|^\*\*PID|^\*\*Working' "$session_file" 2>/dev/null \
+        | tr -s '[:space:]' ' ' \
+        | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
-    log_info "고착화 완료: $neuron_id"
+    # 2) (a) 오염 세션 차단: 정제 전 원본에 시스템 차단 패턴이 광범위하면 스킵.
+    #    정제로 라인 제거가 되더라도, 본문 전반이 시스템 메시지인 세션은 미저장.
+    if grep -qE '<task-notification|tool_use_id|tool_result|"type":[[:space:]]*"tool|system-reminder|Workflow launched' "$session_file" 2>/dev/null; then
+        # 차단 패턴이 존재하면, 정제 후 의미본문이 충분히 남았는지로 판단.
+        # 정제 본문이 짧으면(오염이 본문 대부분) 스킵.
+        if [[ ${#clean} -lt 80 ]]; then
+            log_info "고착화 스킵(오염 세션): $(basename "$session_file")"
+            return 0
+        fi
+    fi
+
+    # 3) (b) 너무 짧은 세션 스킵 (의미 미달)
+    if [[ ${#clean} -lt 40 ]]; then
+        log_info "고착화 스킵(본문 부족): $(basename "$session_file")"
+        return 0
+    fi
+
+    # 4) 중요도 판정: 감정/핵심 키워드 신호
+    local emotion="normal"
+    case "$clean" in
+        *결정*|*버그*|*수정*|*중요*|*긴급*|*에러*|*오류*|*고침*|*해결*|\
+        *decision*|*bug*|*fix*|*important*|*critical*|*urgent*|*error*)
+            emotion="important" ;;
+    esac
+
+    # 5) 핵심 본문 1000자 제한
+    local body="$clean"
+    if [[ ${#body} -gt 1000 ]]; then
+        body="$(printf '%s' "$body" | head -c 1000)…"
+    fi
+
+    # 6) 태그 추출 (키워드 + 메타 태그)
+    local kw
+    kw=$(brain_extract_keywords "$clean" 4 2>/dev/null || echo "")
+    local tags="session,consolidated"
+    [[ -n "$kw" ]] && tags="$tags,$kw"
+
+    local neuron_id
+    neuron_id=$(brain_create_neuron "conversation" "Session Summary" "$body" "$tags" "$emotion" 2>/dev/null || echo "")
+
+    if [[ -n "$neuron_id" ]]; then
+        log_info "고착화 완료: $neuron_id ($emotion)"
+    else
+        log_warn "고착화 실패(무시): $(basename "$session_file")"
+    fi
+
+    return 0
+}
+
+# ============================================================================
+# Cortex Hot-Cache (Brain v4 ①)
+# ============================================================================
+
+# 인덱스에서 access_count 상위 N개 뉴런으로 핫캐시($CORTEX_FILE)를 재작성.
+#   - 정렬: access_count desc, 동률 시 emotional_weight desc, 그다음 last_accessed desc
+#   - 형식: "# 🧠 핫 캐시" 헤더 + "- <id> (type): <태그 일부> [접근 N회]" 한 줄씩
+#   - 빈 뇌면 기존 placeholder 유지(덮어쓰지 않음)
+#   - 안전: 실패해도 정본 보존, 호출 흐름 비차단 (항상 0 반환)
+# 사용: brain_update_hotcache [N=7]
+brain_update_hotcache() {
+    local top_n="${1:-7}"
+
+    [[ -f "$SYNAPSES_FILE" ]] || return 0
+    mkdir -p "$(dirname "$CORTEX_FILE")" 2>/dev/null || true
+
+    # 뉴런이 하나도 없으면 placeholder 보존
+    local ncount
+    ncount=$(jq -r '.neurons | length' "$SYNAPSES_FILE" 2>/dev/null || echo "0")
+    case "$ncount" in (*[!0-9]*|"") ncount=0 ;; esac
+    if [[ "$ncount" -eq 0 ]]; then
+        return 0
+    fi
+
+    local tmp_file="${CORTEX_FILE}.tmp"
+
+    {
+        echo "# 🧠 핫 캐시"
+        echo ""
+        # 정렬 키: access_count desc, emotional_weight desc, last_accessed desc.
+        # jq sort_by 는 안정 정렬이지만 문자열 desc 를 음수로 못 만들므로,
+        # last_accessed 는 먼저(asc) 정렬한 뒤 reverse 로 desc 화하고,
+        # 이후 access_count/emotional_weight 안정 정렬을 적용하면
+        # 동률 그룹 내에서 last_accessed desc 가 유지된다.
+        jq -r --argjson n "$top_n" '
+            .neurons
+            | to_entries
+            | sort_by(.value.last_accessed // "")
+            | reverse
+            | sort_by(-((.value.access_count // 0)), -((.value.emotional_weight // 0)))
+            | .[0:$n]
+            | .[]
+            | . as $e
+            | (($e.value.tags // []) | .[0:2] | join(", ")) as $tagpart
+            | "- \($e.key) (\($e.value.type // "?")): \($tagpart) [접근 \(($e.value.access_count // 0))회]"
+        ' "$SYNAPSES_FILE" 2>/dev/null
+    } > "$tmp_file"
+
+    # 산출물이 헤더만이라도 있으면(>0) 교체. 빈 산출물이면 정본 보존.
+    if [[ -s "$tmp_file" ]]; then
+        mv "$tmp_file" "$CORTEX_FILE" 2>/dev/null || rm -f "$tmp_file" 2>/dev/null
+    else
+        rm -f "$tmp_file" 2>/dev/null
+    fi
+
+    return 0
 }
 
 # ============================================================================
@@ -932,6 +1074,7 @@ export -f brain_extract_keywords
 export -f brain_atomic_commit
 export -f brain_recall_neuron
 export -f brain_recall_excerpt
+export -f brain_update_hotcache
 export -f brain_session_start
 export -f brain_session_end
 export -f brain_stats

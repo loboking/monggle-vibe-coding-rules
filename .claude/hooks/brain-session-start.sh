@@ -35,6 +35,9 @@ if [[ -n "$PROJECT_CONTEXT" ]]; then
     echo "$PROJECT_CONTEXT" | head -5
 fi
 
+# 핫 캐시 갱신 (access_count 상위 N 반영) → 조용히, 실패무시
+brain_update_hotcache 7 >/dev/null 2>&1 || true
+
 # 핫 캐시 표시
 if [[ -s "$CORTEX_FILE" ]]; then
     echo ""
