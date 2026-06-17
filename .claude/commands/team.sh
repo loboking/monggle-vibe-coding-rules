@@ -23,8 +23,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 show_help() {
-    cat << EOF
-${BOLD}🤝 /team${NC} - 가상 개발팀 디스패처
+    printf '%b\n' "${BOLD}🤝 /team${NC} - 가상 개발팀 디스패처
 
 ${CYAN}Usage:${NC}
   /team [command] [options]
@@ -39,8 +38,7 @@ ${CYAN}Examples:${NC}
   /team status                   # 팀 상태 보기
   /team run                      # 최근 PRD 자동 감지 후 팀 기동
   /team run prd/feature.md       # 특정 PRD로 팀 기동
-  /team run --visualize          # 팀 구조 시각화
-EOF
+  /team run --visualize          # 팀 구조 시각화"
 }
 
 main() {
