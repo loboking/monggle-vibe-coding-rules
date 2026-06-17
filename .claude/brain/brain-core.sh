@@ -10,7 +10,13 @@
 # - 기억 검색
 #
 
-set -euo pipefail
+# 주의: 이 파일은 라이브러리로 'source' 되어 쓰인다.
+# set -e/-u/pipefail 을 전역으로 걸면 호출 셸(훅·스킬)로 누출되어,
+# 함수 내 사소한 비-제로 종료가 호출자 전체를 중단시킨다.
+# 따라서 직접 실행될 때만 strict 모드를 적용한다.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    set -euo pipefail
+fi
 
 # ============================================================================
 # Configuration
@@ -130,12 +136,16 @@ EOF
 # ============================================================================
 
 # 뉴런 ID 생성
-# 같은 초 + 같은 type 충돌을 막기 위해 랜덤 suffix 추가
+# 같은 초 + 같은 type 충돌을 막기 위해 고유 suffix 추가.
+# 주의: $RANDOM 은 $(...) 서브셸에서 같은 값을 반복 반환하므로 단독 사용 금지.
+# 나노초(있으면) + PID 조합으로 같은 초 다중 생성에도 충돌 없음.
 brain_generate_id() {
     local type="$1"
-    local rand
-    rand=$(printf '%04x' "$((RANDOM % 65536))")
-    echo "n$(date +%Y%m%d%H%M%S)-${type}-${rand}"
+    local nsec
+    nsec=$(date +%N 2>/dev/null)
+    # %N 미지원(BSD date) 시 '%N' 리터럴이 나오므로 폴백
+    case "$nsec" in (*[!0-9]*|"") nsec=$(printf '%05d' "$((RANDOM % 100000))") ;; esac
+    echo "n$(date +%Y%m%d%H%M%S)-${type}-${nsec:0:6}$$"
 }
 
 # 뉴런 생성
@@ -285,21 +295,32 @@ brain_strengthen_synapse() {
 brain_query_by_tags() {
     local tags="$1"  # 콤마로 구분
     local limit="${2:-10}"
+    local min_overlap="${3:-1}"  # 최소 교집합 수 (흔한 공통태그 노이즈 컷용)
 
     local tmp_file="${SYNAPSES_FILE}.tmp"
 
     # 태그 배열로 변환
     local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
 
+    # 매칭: 검색 태그와 뉴런 태그의 '교집합'이 1개 이상이면 회상(OR).
+    #   - 겹치는 태그 수(overlap)가 많을수록, 감정가중치가 높을수록 상위.
+    #   - 흔한 공통 태그('project', 프로젝트명)만 겹치는 경우를 피하려면
+    #     overlap >= 2 를 우선하되, 1개라도 의미태그면 포함.
     jq -r --argjson tags "$search_tags" \
        --argjson limit "$limit" \
+       --argjson min_overlap "$min_overlap" \
        '
+       # 흔한 공통 태그(거의 모든 뉴런에 붙는 것)는 매칭 점수에서 제외
+       ($tags - ["project"]) as $sig |
        .neurons |
-       to_entries[] |
-       select(.value.tags as $t | $tags | inside($t)) |
-       {id: .key, type: .value.type, weight: .value.emotional_weight, tags: .value.tags} |
-       "- \(.id) (\(.type)): \(.tags | join(", ")) (weight: \(.weight))"
-       ' "$SYNAPSES_FILE" | head -n "$limit"
+       to_entries
+       | map(. + {overlap: (.value.tags - (.value.tags - $sig) | length)})
+       | map(select(.overlap >= $min_overlap))
+       | sort_by(-(.overlap), -(.value.emotional_weight))
+       | .[]
+       | {id: .key, type: .value.type, weight: .value.emotional_weight, tags: .value.tags, overlap: .overlap}
+       | "- \(.id) (\(.type)): \(.tags | join(", ")) (weight: \(.weight), match: \(.overlap))"
+       ' "$SYNAPSES_FILE" 2>/dev/null | head -n "$limit"
 }
 
 # 뉴런 내용 로드
