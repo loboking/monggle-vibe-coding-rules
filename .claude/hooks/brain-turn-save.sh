@@ -24,19 +24,50 @@ TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null 
 [[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]] && exit 0
 
 # --- 마지막 사용자 메시지 추출 (transcript 는 JSONL) ---
-# user role 의 가장 최근 텍스트 한 건.
+# user role 의 가장 최근 '진짜 사람 입력' 한 건.
+#   content 가 array 면 type=="text" 블록만 취하고 tool_result/tool_use 는 제외.
+#   (도구 결과·도구 호출 블록은 사람 입력이 아니므로 본문 저장 대상이 아님)
 LAST_USER="$(jq -rs '
     map(select(.type? == "user" or .role? == "user"))
     | last
     | (.message.content // .content // "")
-    | if type == "array" then (map(.text? // "") | join(" ")) else tostring end
+    | if type == "array" then
+        ( map(select((.type? == "text") or (.type? == null and (.text? != null))))
+          | map(.text? // "")
+          | map(select(. != ""))
+          | join(" ") )
+      else tostring end
 ' "$TRANSCRIPT" 2>/dev/null || echo "")"
 
-# 폴백: 위 스키마가 안 맞으면 마지막 user 라인 raw
+# 폴백: 위 스키마가 안 맞으면 마지막 user 라인 raw (text 블록만)
 [[ -z "$LAST_USER" || "$LAST_USER" == "null" ]] && \
-    LAST_USER="$(grep -E '"role"\s*:\s*"user"|"type"\s*:\s*"user"' "$TRANSCRIPT" 2>/dev/null | tail -1 | jq -r '.message.content // .content // ""' 2>/dev/null | head -c 500 || echo "")"
+    LAST_USER="$(grep -E '"role"[[:space:]]*:[[:space:]]*"user"|"type"[[:space:]]*:[[:space:]]*"user"' "$TRANSCRIPT" 2>/dev/null | tail -1 | jq -r '
+        (.message.content // .content // "")
+        | if type == "array" then
+            ( map(select((.type? == "text") or (.type? == null and (.text? != null))))
+              | map(.text? // "") | map(select(. != "")) | join(" ") )
+          else tostring end
+    ' 2>/dev/null | head -c 500 || echo "")"
 
 [[ -z "$LAST_USER" || "$LAST_USER" == "null" ]] && exit 0
+
+# --- [ⓐ] 시스템/도구 메시지 본문 저장 차단 ---
+# Claude 응답에 섞인 시스템 메시지(task-notification, tool_result, hook context 등)가
+# 'user 메시지'로 오인돼 본문째 저장되는 것을 막는다. 패턴 매치 시 조용히 종료.
+# grep -F: 정규식 특수문자(< " :)를 리터럴로 취급. -i: 대소문자 무시.
+if printf '%s' "$LAST_USER" | grep -qiF \
+    -e '<task-notification' \
+    -e '<command-' \
+    -e 'tool_use_id' \
+    -e 'tool_result' \
+    -e '"type":"tool' \
+    -e '"type": "tool' \
+    -e 'Workflow launched' \
+    -e 'hook additional context' \
+    -e 'system-reminder' \
+    -e 'Caveat:'; then
+    exit 0
+fi
 
 # --- 잡담 컷: 너무 짧은 메시지(인사/확인)는 제외 ---
 LEN=${#LAST_USER}
@@ -63,7 +94,24 @@ if command -v git &>/dev/null && git rev-parse --git-dir &>/dev/null 2>&1; then
 fi
 
 # 키워드도 행동도 없으면 저장 안 함 (잡담/단순질문 컷)
+# (기본 원칙 유지: ⓒ 휴리스틱은 저장 여부를 바꾸지 않고 emotion 가중치만 미세조정)
 [[ $IMPORTANT -eq 0 && $ACTION -eq 0 ]] && exit 0
+
+# --- [ⓒ] AI 중요도 '약한 신호' 휴리스틱 (emotion 미세조정만) ---
+# 키워드/행동으로 이미 저장이 확정된 턴에 한해, 약한 신호로 가중치를 살짝 조정.
+# (저장 여부는 절대 바꾸지 않음. 실제 LLM 판단은 v4 백로그.)
+# normal 인 경우에만 상향 후보 — 이미 important/critical 이면 건드리지 않음.
+if [[ "$EMOTION" == "normal" ]]; then
+    WEAK=0
+    # 신호1: 충분히 긴 본문(설명/맥락이 담긴 메시지일 가능성)
+    [[ $LEN -ge 200 ]] && WEAK=$((WEAK + 1))
+    # 신호2: 코드블록 포함(코드 공유/구현 논의 가능성)
+    printf '%s' "$LAST_USER" | grep -qF '```' && WEAK=$((WEAK + 1))
+    # 신호3: 물음표 '부재' (질문이 아닌 지시/서술은 결정·기록 가치가 더 높은 경향)
+    case "$LAST_USER" in (*'?'*|*'？'*) : ;; (*) WEAK=$((WEAK + 1)) ;; esac
+    # 약한 신호 2개 이상이면 normal -> important 로만 한 단계 상향
+    [[ $WEAK -ge 2 ]] && EMOTION="important"
+fi
 
 # --- 뇌 코어 로드 후 저장 ---
 BRAIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../brain" 2>/dev/null && pwd)" || exit 0

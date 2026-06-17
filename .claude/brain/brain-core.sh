@@ -109,6 +109,22 @@ brain_extract_keywords() {
         | paste -sd ',' - 2>/dev/null || echo ""
 }
 
+# jq 결과 tmp 파일을 정본으로 안전하게 커밋.
+# tmp 가 비었거나 유효한 JSON 이 아니면 mv 하지 않고 정본을 보존(데이터 소실 방지).
+# 사용: jq '...' "$SYNAPSES_FILE" > "$tmp" && brain_atomic_commit "$tmp" "$SYNAPSES_FILE"
+#   또는 mv 자리에 그대로 호출. 성공 0 / 실패(보존) 1.
+brain_atomic_commit() {
+    local tmp="$1" dest="$2"
+    if [[ -s "$tmp" ]] && jq -e . "$tmp" >/dev/null 2>&1; then
+        mv "$tmp" "$dest"
+        return 0
+    fi
+    # 손상/빈 산출물 → 정본 보존, tmp 정리
+    rm -f "$tmp" 2>/dev/null
+    log_warn "brain: jq 산출물이 유효하지 않아 쓰기를 건너뜀(데이터 보존): $dest"
+    return 1
+}
+
 # ============================================================================
 # Initialization
 # ============================================================================
@@ -229,6 +245,10 @@ EOF
     # 시냅스 인덱스 업데이트
     brain_register_neuron "$neuron_id" "$type" "$tags" "$emotional_weight"
 
+    # Brain v2: 의미 태그 교집합 기반 자동 시냅스 연결 (조용히, 실패 무시).
+    # link 실패가 뉴런 생성을 막지 않도록 항상 성공으로 흡수.
+    brain_link_to_related "$neuron_id" >/dev/null 2>&1 || true
+
     log_info "뉴런 생성됨: $neuron_id ($type)"
     echo "$neuron_id"
 }
@@ -243,7 +263,13 @@ brain_register_neuron() {
     local tmp_file="${SYNAPSES_FILE}.tmp"
 
     # 태그 파싱 (JSON 배열로)
-    local tags_json="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
+    # 빈 태그는 [] 로 정규화(빈 문자열이 [""] 가 되어 false-match 유발하는 것 방지)
+    local tags_json
+    if [[ -z "$tags" ]]; then
+        tags_json="[]"
+    else
+        tags_json="[$(echo "$tags" | tr ',' '\n' | sed '/^$/d; s/\(.*\)/"\1"/' | paste -sd ',' -)]"
+    fi
 
     jq --arg id "$neuron_id" \
        --arg type "$type" \
@@ -260,7 +286,7 @@ brain_register_neuron() {
        }
        ' "$SYNAPSES_FILE" > "$tmp_file"
 
-    mv "$tmp_file" "$SYNAPSES_FILE"
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
 }
 
 # ============================================================================
@@ -295,7 +321,7 @@ brain_create_synapse() {
        .neurons[$src].synapses_out += [$tgt]
        ' "$SYNAPSES_FILE" > "$tmp_file"
 
-    mv "$tmp_file" "$SYNAPSES_FILE"
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
 
     log_debug "시냅스 생성됨: $synapse_id (weight: $weight)"
 }
@@ -316,7 +342,145 @@ brain_strengthen_synapse() {
        .synapses[$synapse].last_activation = (now | todate)
        ' "$SYNAPSES_FILE" > "$tmp_file"
 
-    mv "$tmp_file" "$SYNAPSES_FILE"
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
+}
+
+# ============================================================================
+# Synapse Auto-Linking (Brain v2)
+# ============================================================================
+
+# 신규 뉴런을 기존 뉴런과 '의미 태그' 교집합 기준으로 자동 연결.
+#   - 'project' 등 흔한 공통 태그는 점수에서 제외(brain_query_by_tags와 동일 기준).
+#   - overlap >= MIN_OVERLAP(2) 인 기존 뉴런과 양방향 시냅스 생성/강화.
+#   - weight = 0.3 + overlap*0.1 (max 1.0).
+#   - 자기 자신 제외, overlap 상위 MAX_LINKS(5)개로 제한.
+#   - 성능/원자성을 위해 단일 jq 트랜잭션으로 처리.
+# 사용: brain_link_to_related "<new_neuron_id>"
+# 실패해도 0 반환(뉴런 생성을 막지 않도록 호출처에서 '|| true' 사용 권장).
+brain_link_to_related() {
+    local new_id="$1"
+    local MAX_LINKS="${2:-5}"
+    local MIN_OVERLAP="${3:-2}"
+
+    [[ -z "$new_id" ]] && return 0
+    [[ -f "$SYNAPSES_FILE" ]] || return 0
+
+    local tmp_file="${SYNAPSES_FILE}.tmp"
+
+    # 단일 jq 트랜잭션:
+    #   1) 신규 뉴런의 의미태그($sig) 계산
+    #   2) 다른 모든 뉴런과 overlap 계산, MIN_OVERLAP 이상만, overlap 내림차순 상위 MAX_LINKS
+    #   3) 각 대상에 대해 양방향 시냅스 생성(없으면) 또는 강화(있으면 weight += 0.1, max 1.0)
+    #   4) synapses_out 에 중복 없이 추가
+    jq --arg new "$new_id" \
+       --argjson maxlinks "$MAX_LINKS" \
+       --argjson minoverlap "$MIN_OVERLAP" \
+       '
+       # 흔한 공통 태그 제외 기준 (query 로직과 동일)
+       def strip: . - ["project"];
+
+       . as $root |
+       ($root.neurons[$new].tags // []) as $newtags |
+       ($newtags | strip) as $sig |
+
+       # 연결 후보: 자기 자신 제외, 의미태그 overlap >= minoverlap, 상위 maxlinks
+       (
+         $root.neurons
+         | to_entries
+         | map(select(.key != $new))
+         | map(. + {overlap: (((.value.tags // []) | strip) - ((((.value.tags // []) | strip)) - $sig) | length)})
+         | map(select(.overlap >= $minoverlap))
+         | sort_by(-(.overlap))
+         | .[0:$maxlinks]
+       ) as $targets |
+
+       # weight 헬퍼
+       def linkweight(o): ([0.3 + (o * 0.1), 1.0] | min);
+
+       # 각 후보에 대해 양방향 시냅스 생성/강화 (reduce 누적)
+       reduce $targets[] as $t (.;
+         . as $st |
+         $t.key as $tid |
+         linkweight($t.overlap) as $w |
+         ($new + "-" + $tid) as $fwd |
+         ($tid + "-" + $new) as $bwd |
+
+         # 정방향 시냅스: 신규 -> 대상
+         (if ($st.synapses[$fwd]) then
+            $st
+            | .synapses[$fwd].weight = ([.synapses[$fwd].weight + 0.1, 1.0] | min)
+            | .synapses[$fwd].activation_count += 1
+            | .synapses[$fwd].last_activation = (now | todate)
+          else
+            $st
+            | .synapses[$fwd] = {
+                "source": $new,
+                "target": $tid,
+                "weight": $w,
+                "decay_rate": 0.001,
+                "last_activation": (now | todate),
+                "activation_count": 1,
+                "emotional_weight": (.neurons[$new].emotional_weight // 0.5),
+                "prediction_error": 0.0,
+                "created": (now | todate),
+                "auto_linked": true
+              }
+            | .neurons[$new].synapses_out =
+                (((.neurons[$new].synapses_out // []) + [$tid]) | unique)
+          end)
+         | . as $st2 |
+
+         # 역방향 시냅스: 대상 -> 신규
+         (if ($st2.synapses[$bwd]) then
+            $st2
+            | .synapses[$bwd].weight = ([.synapses[$bwd].weight + 0.1, 1.0] | min)
+            | .synapses[$bwd].activation_count += 1
+            | .synapses[$bwd].last_activation = (now | todate)
+          else
+            $st2
+            | .synapses[$bwd] = {
+                "source": $tid,
+                "target": $new,
+                "weight": $w,
+                "decay_rate": 0.001,
+                "last_activation": (now | todate),
+                "activation_count": 1,
+                "emotional_weight": (.neurons[$tid].emotional_weight // 0.5),
+                "prediction_error": 0.0,
+                "created": (now | todate),
+                "auto_linked": true
+              }
+            | .neurons[$tid].synapses_out =
+                (((.neurons[$tid].synapses_out // []) + [$new]) | unique)
+          end)
+       )
+       # MAX_LINKS 대칭 보정: 모든 뉴런의 synapses_out 을 정방향 시냅스 weight
+       # 상위 maxlinks 개로 trim (허브 뉴런 무한 누적 방지). 잘려나간 시냅스도 제거.
+       | . as $final
+       | reduce ($final.neurons | keys[]) as $nid ($final;
+           . as $st
+           | (($st.neurons[$nid].synapses_out // [])
+              | map({tid: ., w: ($st.synapses[($nid + "-" + .)].weight // 0)})
+              | sort_by(-(.w))
+              | .[0:$maxlinks]
+              | map(.tid)) as $keep
+           | .neurons[$nid].synapses_out = $keep
+           # keep 에 없는 정방향 시냅스는 삭제 (불변식 유지)
+           | .synapses = (.synapses | with_entries(
+               select((.value.source != $nid)
+                      or (.value.target as $t | $keep | index($t)) != null)))
+         )
+       ' "$SYNAPSES_FILE" > "$tmp_file" 2>/dev/null || { rm -f "$tmp_file"; return 0; }
+
+    # jq 산출물이 유효 JSON 인지 확인 후 교체(원자성 + 손상 방지)
+    if [[ -s "$tmp_file" ]] && jq -e . "$tmp_file" >/dev/null 2>&1; then
+        mv "$tmp_file" "$SYNAPSES_FILE"
+        log_debug "자동 시냅스 연결 완료: $new_id"
+    else
+        rm -f "$tmp_file"
+    fi
+
+    return 0
 }
 
 # ============================================================================
@@ -355,6 +519,55 @@ brain_query_by_tags() {
        ' "$SYNAPSES_FILE" 2>/dev/null | head -n "$limit"
 }
 
+# 태그 검색 + 시냅스 확장 회상 (Brain v2)
+#   1차: 태그 overlap 매칭(brain_query_by_tags 와 동일 기준).
+#   2차: 1차 결과 뉴런의 synapses_out 으로 연결된 뉴런을 추가(중복 제거).
+#   - 연결로 들어온 뉴런은 match=0 + '(linked)' 표시.
+#   - 전체 limit 내로 자른다(1차 우선, 남는 자리에 2차 채움).
+# 시그니처는 brain_query_by_tags 와 동일(tags, limit, min_overlap).
+brain_query_with_links() {
+    local tags="$1"
+    local limit="${2:-10}"
+    local min_overlap="${3:-1}"
+
+    local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
+
+    jq -r --argjson tags "$search_tags" \
+       --argjson limit "$limit" \
+       --argjson min_overlap "$min_overlap" \
+       '
+       ($tags - ["project"]) as $sig |
+       . as $root |
+
+       # 1차: 직접 태그 매칭 (overlap 정렬)
+       (
+         $root.neurons
+         | to_entries
+         | map(. + {overlap: (.value.tags - (.value.tags - $sig) | length)})
+         | map(select(.overlap >= $min_overlap))
+         | sort_by(-(.overlap), -(.value.emotional_weight))
+       ) as $primary |
+
+       ($primary | map(.key)) as $primary_ids |
+
+       # 2차: 1차 결과의 synapses_out (연결된 뉴런), 1차에 없는 것만, 중복 제거
+       (
+         [ $primary[] | (.value.synapses_out // [])[] ]
+         | unique
+         | map(select(. as $id | ($primary_ids | index($id)) | not))
+         | map(select(. as $id | $root.neurons[$id] != null))
+         | map({key: ., value: $root.neurons[.], overlap: 0, linked: true})
+       ) as $linked |
+
+       # 1차 + 2차 결합 후 limit 컷 (1차 우선)
+       ($primary + $linked)
+       | .[0:$limit]
+       | .[]
+       | {id: .key, type: .value.type, weight: .value.emotional_weight, tags: .value.tags, overlap: .overlap, linked: (.linked // false)}
+       | "- \(.id) (\(.type)): \(.tags | join(", ")) (weight: \(.weight), match: \(.overlap))\(if .linked then " (linked)" else "" end)"
+       ' "$SYNAPSES_FILE" 2>/dev/null | head -n "$limit"
+}
+
 # 뉴런 내용 로드
 brain_recall_neuron() {
     local neuron_id="$1"
@@ -373,6 +586,53 @@ brain_recall_neuron() {
     cat "$neuron_file"
 }
 
+# 뉴런 본문 발췌 (읽기 전용, access_count 미증가)
+#   - frontmatter(--- ... ---) 제외, '## 내용' 섹션 본문만 추출.
+#   - 다음 '## ' 헤더 또는 EOF 까지를 내용으로 본다.
+#   - 시스템 JSON 오염 본문(차단 패턴)은 발췌하지 않고 빈 출력(노이즈 컷).
+#   - maxchars(기본 200) 로 자르고, 한 줄로 정규화하여 한 줄 발췌로 반환.
+# 사용: brain_recall_excerpt "<neuron_id>" [maxchars=200]
+# 성공 시 발췌 출력, 없거나 차단/빈 본문이면 빈 문자열 + 0 반환(안전).
+brain_recall_excerpt() {
+    local neuron_id="$1"
+    local maxchars="${2:-200}"
+
+    [[ -z "$neuron_id" ]] && return 0
+
+    local neuron_file
+    neuron_file=$(find "$NEURONS_DIR" -name "${neuron_id}.md" 2>/dev/null | head -1)
+    [[ -z "$neuron_file" || ! -f "$neuron_file" ]] && return 0
+
+    # '## 내용' 다음 줄부터 다음 '## ' 또는 EOF 전까지 본문 추출 (awk, BSD 호환).
+    local body
+    body=$(awk '
+        /^## 내용[[:space:]]*$/ { grab=1; next }
+        grab && /^## / { grab=0 }
+        grab { print }
+    ' "$neuron_file" 2>/dev/null)
+
+    # 앞뒤 빈 줄 제거 + 한 줄로 정규화
+    body=$(printf '%s' "$body" | tr '\n' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]]\{2,\}/ /g')
+
+    [[ -z "$body" ]] && return 0
+
+    # 시스템/도구 JSON 으로 오염된 본문은 발췌 차단 (회상 노이즈 0)
+    case "$body" in
+        *'<task-notification'*|*'<command-'*|*'tool_use_id'*|*'tool_result'*|\
+        *'"type":"tool'*|*'"type": "tool'*|*'Workflow launched'*|\
+        *'hook additional context'*|*'system-reminder'*|*'Caveat:'*)
+            return 0 ;;
+    esac
+
+    # maxchars 로 자르기 (잘리면 … 부착)
+    if [[ ${#body} -gt $maxchars ]]; then
+        body="$(printf '%s' "$body" | head -c "$maxchars")…"
+    fi
+
+    printf '%s' "$body"
+    return 0
+}
+
 # 접근 업데이트
 brain_update_access() {
     local neuron_id="$1"
@@ -385,7 +645,7 @@ brain_update_access() {
        .neurons[$id].access_count += 1
        ' "$SYNAPSES_FILE" > "$tmp_file"
 
-    mv "$tmp_file" "$SYNAPSES_FILE"
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
 }
 
 # ============================================================================
@@ -550,7 +810,7 @@ brain_remove_neuron() {
     # 시냅스에서 제거
     local tmp_file="${SYNAPSES_FILE}.tmp"
     jq --arg id "$neuron_id" 'del(.neurons[$id]) | del(.synapses[$id+"-*"]) | del(.synapses["*-"+$id])' "$SYNAPSES_FILE" > "$tmp_file"
-    mv "$tmp_file" "$SYNAPSES_FILE"
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
 
     log_debug "뉴런 제거됨: $neuron_id"
 }
@@ -665,9 +925,13 @@ export -f brain_init
 export -f brain_create_neuron
 export -f brain_create_synapse
 export -f brain_strengthen_synapse
+export -f brain_link_to_related
 export -f brain_query_by_tags
+export -f brain_query_with_links
 export -f brain_extract_keywords
+export -f brain_atomic_commit
 export -f brain_recall_neuron
+export -f brain_recall_excerpt
 export -f brain_session_start
 export -f brain_session_end
 export -f brain_stats

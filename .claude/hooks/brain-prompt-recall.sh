@@ -44,14 +44,38 @@ SEARCH="project"
 
 # --- 회상 (조용히, 실패 무시) ---
 # min_overlap=2: 의미 태그가 2개 이상 겹칠 때만 회상(프로젝트명 단독 노이즈 컷)
-RECALL="$(brain_query_by_tags "$SEARCH" 5 2 2>/dev/null || echo "")"
+# brain_query_with_links: 직접 태그 매칭 + 연결된(시냅스) 기억까지 확장 회상.
+# (v2 미배선 해소 — 함수가 없으면 기존 query 로 폴백)
+if type brain_query_with_links &>/dev/null; then
+    RECALL="$(brain_query_with_links "$SEARCH" 5 2 2>/dev/null || echo "")"
+else
+    RECALL="$(brain_query_by_tags "$SEARCH" 5 2 2>/dev/null || echo "")"
+fi
 
 # 회상 결과가 없으면 아무것도 주입하지 않음 (노이즈 0)
 [[ -z "$RECALL" ]] && exit 0
 
+# --- [ⓑ] 상위 1~2건 본문 발췌 추가 ---
+# RECALL 라인 형식: "- <id> (<type>): ..." 에서 id 만 뽑아 상위 2개의 '## 내용'
+# 본문 첫 200자를 읽기 전용(access_count 미증가)으로 발췌해 함께 주입.
+EXCERPTS=""
+if type brain_recall_excerpt &>/dev/null; then
+    TOP_IDS="$(printf '%s\n' "$RECALL" | sed -n 's/^- \([^ ]*\) .*/\1/p' | head -2)"
+    while IFS= read -r _id; do
+        [[ -z "$_id" ]] && continue
+        _ex="$(brain_recall_excerpt "$_id" 200 2>/dev/null || echo "")"
+        [[ -z "$_ex" ]] && continue
+        EXCERPTS="${EXCERPTS}
+  • ${_id}: ${_ex}"
+    done <<< "$TOP_IDS"
+fi
+
 # --- additionalContext 로 조용히 주입 ---
 CONTEXT="🧠 Brain 회상 (관련 과거 기억):
 $RECALL"
+[[ -n "$EXCERPTS" ]] && CONTEXT="$CONTEXT
+
+📄 본문 발췌:$EXCERPTS"
 
 jq -nc --arg ctx "$CONTEXT" \
     '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $ctx}}' \
