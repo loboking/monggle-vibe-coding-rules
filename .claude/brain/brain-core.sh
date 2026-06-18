@@ -668,8 +668,9 @@ brain_recall_excerpt() {
     esac
 
     # maxchars 로 자르기 (잘리면 … 부착)
+    # head -c 바이트 절단 후 iconv -c 로 깨진 멀티바이트(한글 중간 잘림) 제거
     if [[ ${#body} -gt $maxchars ]]; then
-        body="$(printf '%s' "$body" | head -c "$maxchars")…"
+        body="$(printf '%s' "$body" | head -c "$maxchars" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c "$maxchars")…"
     fi
 
     printf '%s' "$body"
@@ -970,7 +971,7 @@ brain_consolidate_session() {
     # 5) 핵심 본문 1000자 제한
     local body="$clean"
     if [[ ${#body} -gt 1000 ]]; then
-        body="$(printf '%s' "$body" | head -c 1000)…"
+        body="$(printf '%s' "$body" | head -c 1000 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c 1000)…"
     fi
 
     # 6) 태그 추출 (키워드 + 메타 태그)

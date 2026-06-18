@@ -26,8 +26,16 @@ PROMPT="$(printf '%s' "$INPUT" | jq -r '.prompt // ""' 2>/dev/null || echo "")"
 [[ -z "$PROMPT" ]] && exit 0
 
 # --- 뇌 코어 로드 ---
+# BRAIN_ROOT: 글로벌 '코드' 위치 (변경 금지). CLAUDE_BRAIN_HOME: 프로젝트 '데이터' 위치.
 BRAIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../brain" 2>/dev/null && pwd)" || exit 0
 [[ -f "$BRAIN_ROOT/brain-core.sh" ]] || exit 0
+
+# 데이터 격리: 프로젝트 루트 판정 → CLAUDE_BRAIN_HOME export (core source 전에 필수).
+# 프로젝트 아님이면 회상할 프로젝트 brain 이 없으므로 조용히 종료(폴더 미생성).
+[[ -f "$BRAIN_ROOT/brain-resolve.sh" ]] || exit 0
+source "$BRAIN_ROOT/brain-resolve.sh" >/dev/null 2>&1 || exit 0
+brain_resolve_project_home || exit 0
+
 # log_* 가 stdout 을 오염시키지 않도록 회상 출력만 캡처
 source "$BRAIN_ROOT/brain-core.sh" >/dev/null 2>&1 || exit 0
 

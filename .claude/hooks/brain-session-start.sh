@@ -8,7 +8,16 @@
 set -euo pipefail
 
 # 뇌 코어 로드
-BRAIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../brain" && pwd)"
+# BRAIN_ROOT: 글로벌 '코드' 위치 (변경 금지). CLAUDE_BRAIN_HOME: 프로젝트 '데이터' 위치.
+BRAIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../brain" 2>/dev/null && pwd)" || exit 0
+[[ -f "$BRAIN_ROOT/brain-core.sh" ]] || exit 0
+
+# 데이터 격리: 프로젝트 루트 판정 → CLAUDE_BRAIN_HOME export (core source 전에 필수).
+# 프로젝트 아님이면 세션 시작 처리 스킵(폴더 미생성). 비차단.
+[[ -f "$BRAIN_ROOT/brain-resolve.sh" ]] || exit 0
+source "$BRAIN_ROOT/brain-resolve.sh" >/dev/null 2>&1 || exit 0
+brain_resolve_project_home || exit 0
+
 source "$BRAIN_ROOT/brain-core.sh"
 
 # 하네스 트래커 로드

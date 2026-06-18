@@ -121,8 +121,10 @@ source "$BRAIN_ROOT/brain-core.sh" >/dev/null 2>&1 || exit 0
 PROJECT="$(basename "$(pwd)" 2>/dev/null || echo "")"
 
 # 제목: 메시지 앞부분 요약(80자), 내용: 메시지 전문(1000자 제한)
-TITLE="$(printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80)"
-CONTENT="$(printf '%s' "$LAST_USER" | head -c 1000)"
+# head -c 는 바이트 단위라 한글(UTF-8 3바이트) 중간에서 잘리면 깨진 바이트가
+# 남는다 → iconv -c 로 불완전 멀티바이트 시퀀스를 제거(없으면 원본 유지).
+TITLE="$(printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80)"
+CONTENT="$(printf '%s' "$LAST_USER" | head -c 1000 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$LAST_USER" | head -c 1000)"
 
 # 태그: project + 프로젝트명 + 신호 종류 + 의미 키워드 일부
 TAGS="project"

@@ -470,6 +470,12 @@ COMPLETION_EOF
         chmod +x "$global_brain/brain-core.sh"
     fi
 
+    # brain-resolve.sh 전역 복사 (프로젝트별 데이터 격리 — 훅이 source 전에 사용)
+    if [ -f "$SCRIPT_DIR/.claude/brain/brain-resolve.sh" ]; then
+        cp "$SCRIPT_DIR/.claude/brain/brain-resolve.sh" "$global_brain/brain-resolve.sh"
+        chmod +x "$global_brain/brain-resolve.sh"
+    fi
+
     # brain 상시 기억 훅 4개를 전역 hooks 디렉토리로 복사
     # (글로벌 settings.json 이 $HOME/.claude/hooks/brain-*.sh 를 가리킴)
     print_step "Installing brain hooks to global..."
