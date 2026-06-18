@@ -4,7 +4,7 @@
 
 **"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
 
-[![Version](https://img.shields.io/badge/version-3.3.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.4.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 
 **Claude Code를 더 잘 쓰기 위한 스킬 모음**
 
