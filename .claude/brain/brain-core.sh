@@ -204,6 +204,24 @@ brain_create_neuron() {
     local tags="${4:-}"
     local emotion="${5:-normal}"
 
+    # 중복 저장 방지(dedup): 같은 type 에 동일 title 의 뉴런이 최근 DEDUP_WINDOW 초
+    # 내에 있으면 새로 만들지 않고 기존 id 반환. 훅 이중 등록/재발화 등 어떤 경로로
+    # 중복돼도 메모리 오염을 막는 근본 안전장치.
+    local _dd_window="${BRAIN_DEDUP_WINDOW:-300}"
+    local _dd_dir="$NEURONS_DIR/$type"
+    if [[ -n "$title" && -d "$_dd_dir" ]]; then
+        local _dd_now _dd_f _dd_mt
+        _dd_now=$(date +%s)
+        for _dd_f in $(ls -t "$_dd_dir"/*.md 2>/dev/null | head -20); do
+            _dd_mt=$(stat -f %m "$_dd_f" 2>/dev/null || stat -c %Y "$_dd_f" 2>/dev/null || echo 0)
+            (( _dd_now - _dd_mt > _dd_window )) && break
+            if grep -qxF "# ${title}" "$_dd_f" 2>/dev/null; then
+                basename "$_dd_f" .md
+                return 0
+            fi
+        done
+    fi
+
     local neuron_id
     neuron_id=$(brain_generate_id "$type")
 

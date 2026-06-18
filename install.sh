@@ -464,6 +464,25 @@ COMPLETION_EOF
         chmod +x "$global_brain/skill-harness-wrapper.sh"
     fi
 
+    # brain 코어를 전역으로 복사 (회상/저장 엔진)
+    if [ -f "$SCRIPT_DIR/.claude/brain/brain-core.sh" ]; then
+        cp "$SCRIPT_DIR/.claude/brain/brain-core.sh" "$global_brain/brain-core.sh"
+        chmod +x "$global_brain/brain-core.sh"
+    fi
+
+    # brain 상시 기억 훅 4개를 전역 hooks 디렉토리로 복사
+    # (글로벌 settings.json 이 $HOME/.claude/hooks/brain-*.sh 를 가리킴)
+    print_step "Installing brain hooks to global..."
+    local global_hooks="$HOME/.claude/hooks"
+    mkdir -p "$global_hooks"
+    local brain_hook
+    for brain_hook in brain-prompt-recall.sh brain-turn-save.sh brain-session-start.sh brain-session-end.sh; do
+        if [ -f "$SCRIPT_DIR/.claude/hooks/$brain_hook" ]; then
+            cp "$SCRIPT_DIR/.claude/hooks/$brain_hook" "$global_hooks/$brain_hook"
+            chmod +x "$global_hooks/$brain_hook"
+        fi
+    done
+
     # lib도 전역으로 복사
     print_step "Installing lib system to global..."
     local global_lib="$HOME/.claude/lib"
@@ -573,6 +592,14 @@ _ensure_brain_hooks() {
     local settings_file="$1"
     [ -f "$settings_file" ] || return 0
     command -v jq &> /dev/null || { print_warning "jq 없음 - brain 훅 자동등록 건너뜀"; return 0; }
+    # 중복 발화 방지: 글로벌 settings.json 에 이미 brain 훅이 등록돼 있으면
+    # 프로젝트 단위 등록은 생략한다 (글로벌 1회 등록으로 모든 프로젝트 작동).
+    local global_settings="$HOME/.claude/settings.json"
+    if [ -f "$global_settings" ] && \
+       jq -e '[.hooks[]?[]?.hooks[]?.command] | any(test("brain-prompt-recall"))' "$global_settings" &> /dev/null; then
+        print_success "글로벌 brain 훅이 이미 활성 → 프로젝트 등록 생략 (중복 발화 방지)"
+        return 0
+    fi
     # 상시 기억 회상 훅(brain-prompt-recall)까지 등록됐으면 완료로 간주
     if jq -e '.hooks.UserPromptSubmit[]?.hooks[]?.command | select(test("brain-prompt-recall"))' "$settings_file" &> /dev/null; then
         return 0  # 이미 등록됨
@@ -590,6 +617,52 @@ _ensure_brain_hooks() {
         | (((.hooks.SessionEnd // []) | map(.hooks[]?.command) | any(test("brain-session-end"))) as $h
            | if $h then . else .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh","timeout":30}]}]) end)
     ' "$settings_file" > "$tmp" && mv "$tmp" "$settings_file" && print_success "brain 상시 기억 훅 등록(회상/저장/세션)"
+}
+
+# 글로벌 ~/.claude/settings.json 에 brain 훅 4개를 멱등 등록 (전역 1회 설치로 모든 프로젝트 작동)
+# 프로젝트용($CLAUDE_PROJECT_DIR)과 달리 $HOME 절대 경로를 사용한다.
+# 어떤 실패도 설치 전체를 막지 않는다 (return 0).
+_ensure_global_brain_hooks() {
+    local settings_file="$HOME/.claude/settings.json"
+    command -v jq &> /dev/null || { print_warning "jq 없음 - 글로벌 brain 훅 자동등록 건너뜀"; return 0; }
+
+    # settings.json 이 없으면 최소 골격 생성
+    if [ ! -f "$settings_file" ]; then
+        mkdir -p "$HOME/.claude"
+        printf '{\n  "hooks": {}\n}\n' > "$settings_file"
+    fi
+
+    # 손상된 JSON 방어: 파싱 불가하면 등록 건너뜀(기존 파일 보존)
+    jq -e . "$settings_file" &> /dev/null || { print_warning "글로벌 settings.json 파싱 실패 - brain 훅 등록 건너뜀"; return 0; }
+
+    # 4개 brain 훅이 모두 이미 있으면 완료로 간주 (빠른 멱등 종료)
+    if jq -e '
+        ([.hooks[]?[]?.hooks[]?.command] // []) as $cmds
+        | ($cmds | any(test("brain-session-start")))
+          and ($cmds | any(test("brain-prompt-recall")))
+          and ($cmds | any(test("brain-turn-save")))
+          and ($cmds | any(test("brain-session-end")))
+    ' "$settings_file" &> /dev/null; then
+        return 0
+    fi
+
+    local tmp; tmp=$(mktemp)
+    # 멱등: 각 이벤트에 해당 brain 훅이 이미 있으면 중복 추가 안 함. $HOME 경로 사용.
+    jq '
+        .hooks = (.hooks // {})
+        | (((.hooks.SessionStart // []) | map(.hooks[]?.command) | any(test("brain-session-start"))) as $h
+           | if $h then . else .hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"","hooks":[{"type":"command","command":"$HOME/.claude/hooks/brain-session-start.sh","timeout":10}]}]) end)
+        | (((.hooks.UserPromptSubmit // []) | map(.hooks[]?.command) | any(test("brain-prompt-recall"))) as $h
+           | if $h then . else .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"matcher":"","hooks":[{"type":"command","command":"$HOME/.claude/hooks/brain-prompt-recall.sh","timeout":15}]}]) end)
+        | (((.hooks.Stop // []) | map(.hooks[]?.command) | any(test("brain-turn-save"))) as $h
+           | if $h then . else .hooks.Stop = ((.hooks.Stop // []) + [{"matcher":"","hooks":[{"type":"command","command":"$HOME/.claude/hooks/brain-turn-save.sh","timeout":15}]}]) end)
+        | (((.hooks.SessionEnd // []) | map(.hooks[]?.command) | any(test("brain-session-end"))) as $h
+           | if $h then . else .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{"matcher":"","hooks":[{"type":"command","command":"$HOME/.claude/hooks/brain-session-end.sh","timeout":30}]}]) end)
+    ' "$settings_file" > "$tmp" \
+        && jq -e . "$tmp" &> /dev/null \
+        && mv "$tmp" "$settings_file" \
+        && print_success "글로벌 brain 훅 등록 완료 (모든 프로젝트에서 자동 회상/저장)" \
+        || { rm -f "$tmp"; print_warning "글로벌 brain 훅 등록 실패 (기존 settings 보존)"; }
 }
 
 # Copy PRD templates
@@ -1123,8 +1196,12 @@ EOF
     # Step 2: Create directories
     create_directories
 
-    # Step 2.5: Install global skills
+    # Step 2.5: Install global skills (brain core + 훅 파일 전역 복사 포함)
     install_global
+
+    # Step 2.6: 글로벌 settings.json 에 brain 훅 4개 멱등 등록
+    # → 한 번 설치하면 모든 프로젝트(외부 프로젝트 포함)에서 brain 자동 작동
+    _ensure_global_brain_hooks
 
     # Step 3: Set permissions
     set_permissions
