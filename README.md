@@ -22,6 +22,23 @@ cd monggle-vibe-coding-rules
 
 ---
 
+## ⬆️ 업그레이드 방법
+
+툴킷(스킬·라이브러리) 자체를 최신 버전으로 올릴 때는 `/monggle-upgrade` 한 줄이면 됩니다.
+GitHub 최신 버전 확인 → `git pull` → `install.sh` 재실행(글로벌 동기화)까지 한 번에 처리합니다.
+
+```bash
+/monggle-upgrade               # 최신 버전 확인 후 자동 업그레이드 (하루 1회 스로틀)
+/monggle-upgrade --check-only  # 업데이트 여부만 확인 (설치 안 함)
+/monggle-upgrade --force       # 하루 1회 제한 무시하고 즉시 재확인
+```
+
+> **`/monggle-upgrade` vs `/update`**
+> - `/monggle-upgrade` = **툴킷 자체 최신화**(버전 비교 + `git pull` + `install.sh` 재실행). 평소엔 이걸 쓰세요.
+> - `/update` = **현재 작업 브랜치를 원격과 동기화**하는 범용 git pull 도우미. 툴킷 업그레이드 목적이면 `/monggle-upgrade`를 사용하세요.
+
+---
+
 ## 💡 자주 쓰는 명령어 (Top 10)
 
 | 명령어 | 설명 |

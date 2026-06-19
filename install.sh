@@ -248,6 +248,8 @@ create_skill_metadata() {
         "verify|AI 응답 검증"
         "pattern|패턴 계약"
         "monggle|Monggle 툴킷"
+        "monggle-upgrade|Vibe Coding Rules 업그레이드 체크 및 설치"
+        "update|Git 원격 저장소 동기화 (update.sh)"
     )
 
     local created_count=0

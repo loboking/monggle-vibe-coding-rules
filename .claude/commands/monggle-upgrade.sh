@@ -1,6 +1,11 @@
 #!/bin/bash
 #
-# /monggle-upgrade - Vibe Coding Rules 업그레이드 체크
+# /monggle-upgrade - Vibe Coding Rules 툴킷 자체 최신화 (업그레이드 진입점)
+#
+# 역할: 이 스크립트가 "툴킷 업그레이드"의 공식 진입점이다.
+#   GitHub 최신 버전 확인 → git pull → install.sh 재실행(글로벌 동기화)까지 수행.
+#   (cf. update.sh = 현재 작업 브랜치를 원격과 동기화하는 범용 git pull 도우미.
+#        툴킷 업그레이드 목적이면 update 대신 이 스크립트를 사용한다.)
 #
 # Usage:
 #   /monggle-upgrade              # 업그레이드 확인 및 설치
