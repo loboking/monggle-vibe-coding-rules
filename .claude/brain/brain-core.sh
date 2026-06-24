@@ -87,7 +87,7 @@ brain_extract_keywords() {
     local max="${2:-4}"
     # 불용어/시스템토큰 (공백 구분, 한 줄). 회상·저장 양쪽 공통.
     # 한국어 불용어는 조사제거 후 어근형도 포함(예: '예전에'→'예전').
-    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거 중인데 예전 비슷 고치 위해 대한 같은 어디 어떻게 무엇 흐름 추가 안함 즉시 필요 정리 항목마다 한시간"
+    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거 중인데 예전 비슷 고치 위해 대한 같은 어디 어떻게 무엇 흐름 추가 안함 즉시 필요 정리 항목마다 한시간 작업 내용 관련 응답 조정 발생 진행 확인 방법 부분 경우 응답시"
     printf '%s' "$text" \
         | tr '[:upper:]' '[:lower:]' \
         | tr -cs '[:alnum:]가-힣' '\n' \
@@ -95,14 +95,26 @@ brain_extract_keywords() {
             BEGIN {
                 n=split(stop, a, " "); for(i=1;i<=n;i++) if(a[i]!="") sw[a[i]]=1
                 # 한국어 조사/어미 접미사 (긴 것 우선). UTF-8 한글=3바이트.
-                ns=split("으로부터 에서부터 에게서 으로서 으로써 에서 에게 부터 까지 한테 으로 처럼 보다 이라 라고 하며 하고 해서 하는 했다 한다 하기 되어 되는 됐다 이 가 을 를 은 는 의 에 로 도 만 나 와 과 시 때 중 후 전", suf, " ")
+                # 다음절 접미사(6바이트+)는 외래어 끝음절과 거의 안 겹쳐 안전.
+                ns=split("으로부터 에서부터 에게서 으로서 으로써 하였다 였다 에서 에게 부터 까지 한테 으로 처럼 보다 이라 라고 하여 하며 하고 해서 하는 했다 한다 하기 되어 되는 됐다", suf, " ")
+                # 단음절 조사(3바이트): 외래어 끝음절(와이파'이'·매크'로')과 충돌하므로
+                # 어근 3음절(9바이트)+ 일 때만 제거. '이/로'는 충돌 최다라 더 보수적.
+                ns1=split("가 을 를 은 는 의 에 도 만 나 와 과", suf1, " ")
             }
-            # 한글 토큰 끝의 조사/어미 1회 제거. 어근 바이트>=6(한글2자) 보존(과도제거 차단).
+            # 한글 토큰 끝의 조사/어미 1회 제거. 과도제거 차단:
+            #   - 다음절 접미사: 어근 바이트>=6(한글2자) 보존.
+            #   - 단음절 조사: 어근 바이트>=6 보존(현행 유지, '이/로'는 목록서 제외).
             function strip_josa(w,   i,s,blen,wlen) {
                 if (w !~ /[가-힣]/) return w
                 wlen=length(w)
+                # 1) 다음절 접미사 우선 (긴 매칭)
                 for(i=1;i<=ns;i++){
                     s=suf[i]; blen=length(s)
+                    if (wlen-blen >= 6 && substr(w, wlen-blen+1)==s) return substr(w, 1, wlen-blen)
+                }
+                # 2) 단음절 조사 ('이/로' 제외 — 외래어 충돌)
+                for(i=1;i<=ns1;i++){
+                    s=suf1[i]; blen=length(s)
                     if (wlen-blen >= 6 && substr(w, wlen-blen+1)==s) return substr(w, 1, wlen-blen)
                 }
                 return w
@@ -226,7 +238,7 @@ brain_create_neuron() {
     # (조사제거된 어근형 — brain_extract_keywords가 처리). 중복은 정규화 단계에서 제거.
     if [[ -n "$content" ]]; then
         local _body_kw
-        _body_kw=$(brain_extract_keywords "$content" "${BRAIN_BODY_TAG_MAX:-5}" 2>/dev/null || echo "")
+        _body_kw=$(brain_extract_keywords "$content" "${BRAIN_BODY_TAG_MAX:-8}" 2>/dev/null || echo "")
         if [[ -n "$_body_kw" ]]; then
             [[ -n "$tags" ]] && tags="${tags},${_body_kw}" || tags="$_body_kw"
             # 콤마 중복/공백 정규화 + 태그 dedup (순서 보존)
