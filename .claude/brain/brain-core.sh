@@ -267,6 +267,10 @@ EOF
     # link 실패가 뉴런 생성을 막지 않도록 항상 성공으로 흡수.
     brain_link_to_related "$neuron_id" >/dev/null 2>&1 || true
 
+    # Brain v5: 본문 의미 유사도 기반 보조 연결 (태그 0겹침 연관기억 연결).
+    # 태그연결을 보강만 하며, 실패해도 뉴런 생성을 막지 않는다.
+    brain_link_by_content "$neuron_id" >/dev/null 2>&1 || true
+
     log_info "뉴런 생성됨: $neuron_id ($type)"
     echo "$neuron_id"
 }
@@ -379,7 +383,9 @@ brain_strengthen_synapse() {
 brain_link_to_related() {
     local new_id="$1"
     local MAX_LINKS="${2:-5}"
-    local MIN_OVERLAP="${3:-2}"
+    # MIN_OVERLAP 1: 의미태그 1개만 겹쳐도 연결(연상회상 강화).
+    # MAX_LINKS 상한 + 대칭 trim 으로 허브 과연결은 별도 통제됨.
+    local MIN_OVERLAP="${3:-1}"
 
     [[ -z "$new_id" ]] && return 0
     [[ -f "$SYNAPSES_FILE" ]] || return 0
@@ -526,6 +532,102 @@ brain_link_to_related() {
     return 0
 }
 
+# 신규 뉴런을 기존 뉴런과 '본문 의미 유사도'로 보조 연결 (Brain v5).
+#   - 태그 교집합이 0이라 brain_link_to_related 로는 절대 안 엮이는,
+#     그러나 본문상 연관된 기억(예: JWT버그 ↔ 글로벌에러핸들러)을 연결한다.
+#   - 본문 '## 내용' 토큰의 자카드 유사도가 임계 이상이면 양방향 시냅스 생성.
+#   - 보조 연결이므로 태그 연결보다 약하게: semantic:true 표식 + 낮은 weight
+#     (망각곡선에서 더 빨리 감쇠 → 확실한 태그연결 우선, Brain 가중치체계와 통합).
+#   - 성능: 최근 SEMANTIC_SCAN_LIMIT(기본 30)개 뉴런만 비교. 이미 시냅스 있으면 skip.
+#   - 노이즈 가드: 공통 의미토큰 2개 미만이면 연결 안 함.
+# 사용: brain_link_by_content "<new_neuron_id>"
+# 실패해도 0 반환(저장을 막지 않음).
+brain_link_by_content() {
+    local new_id="$1"
+    local TH="${BRAIN_SEMANTIC_THRESHOLD:-15}"      # 자카드 % 임계
+    local SCAN="${BRAIN_SEMANTIC_SCAN_LIMIT:-30}"    # 비교 대상 최근 N개
+    local MIN_COMMON="${BRAIN_SEMANTIC_MIN_COMMON:-2}" # 최소 공통 토큰 수
+    local MAX_LINKS="${BRAIN_SEMANTIC_MAX_LINKS:-3}"  # 본문연결 상한
+
+    [[ -z "$new_id" ]] && return 0
+    [[ -f "$SYNAPSES_FILE" ]] || return 0
+
+    local new_file
+    new_file=$(find "$NEURONS_DIR" -name "${new_id}.md" 2>/dev/null | head -1)
+    [[ -z "$new_file" || ! -f "$new_file" ]] && return 0
+
+    # 본문 '## 내용' 의미 토큰 추출 (정렬·중복제거). 불용어/시스템토큰 컷.
+    _brain_body_tokens() {
+        awk '/^## 내용[[:space:]]*$/{g=1;next} g&&/^## /{g=0} g{print}' "$1" 2>/dev/null \
+          | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]가-힣' '\n' \
+          | awk 'length>=2 && !/^(그리고|그래서|하지만|그런데|등|각|후|이|가|을|를|는|은|에|의|에서|되어|있다|한다|위해|대한|the|and|for|with|that|this)$/' \
+          | sort -u
+    }
+
+    local new_tokens
+    new_tokens=$(_brain_body_tokens "$new_file")
+    [[ -z "$new_tokens" ]] && { unset -f _brain_body_tokens 2>/dev/null; return 0; }
+
+    # 신규 뉴런이 이미 연결한 대상(태그연결 포함) — 중복 연결 회피
+    local existing_targets
+    existing_targets=$(jq -r --arg n "$new_id" '(.neurons[$n].synapses_out // [])[]' "$SYNAPSES_FILE" 2>/dev/null)
+
+    local linked=0
+    local cand_file cand_id cand_tokens inter common uni sim
+    # 최근 수정된 뉴런부터 SCAN개 비교
+    while IFS= read -r cand_file; do
+        [[ $linked -ge $MAX_LINKS ]] && break
+        cand_id=$(basename "$cand_file" .md)
+        [[ "$cand_id" == "$new_id" ]] && continue
+        # 이미 연결된 대상이면 skip
+        grep -qxF "$cand_id" <<<"$existing_targets" && continue
+
+        cand_tokens=$(_brain_body_tokens "$cand_file")
+        [[ -z "$cand_tokens" ]] && continue
+
+        # 공유 핵심어 '개수' 기반 (자카드 비율 X — 긴 본문에서도 안정).
+        #   - 본문 길이에 안 휘둘리도록 공통 토큰의 절대 개수를 본다.
+        #   - 희소성 가중: 흔한 토큰($df 큰 것)은 약하게. df 정보가 없으면
+        #     단순 개수로 폴백. 여기선 길이>=3(영문)/>=2(한글) '의미 핵심어'만 카운트.
+        common=$(comm -12 <(printf '%s\n' "$new_tokens") <(printf '%s\n' "$cand_tokens") \
+                 | awk '/[가-힣]/{ if(length>=2) print; next } { if(length>=3) print }' | grep -c .)
+        (( common < MIN_COMMON )) && continue
+
+        # weight: 공유 핵심어 개수에 비례 (2개=0.14, 3개=0.18, ... 상한 0.3)
+        local w
+        w=$(awk -v c="$common" 'BEGIN{ v=0.10+c*0.04; if(v>0.3)v=0.3; printf "%.2f", v }')
+        _brain_make_semantic_synapse "$new_id" "$cand_id" "$w" || true
+        _brain_make_semantic_synapse "$cand_id" "$new_id" "$w" || true
+        linked=$((linked+1))
+    done < <(ls -t "$NEURONS_DIR"/*/*.md 2>/dev/null | head -n "$SCAN")
+
+    unset -f _brain_body_tokens 2>/dev/null
+    return 0
+}
+
+# 본문 보조 시냅스 1개 생성 (semantic 표식). 이미 있으면 건드리지 않음.
+_brain_make_semantic_synapse() {
+    local src="$1" tgt="$2" weight="${3:-0.15}"
+    local sid="${src}-${tgt}"
+    local tmp="${SYNAPSES_FILE}.tmp"
+    jq --arg src "$src" --arg tgt "$tgt" --arg sid "$sid" --argjson w "$weight" '
+       if (.synapses[$sid]) then .
+       else
+         .synapses[$sid] = {
+           "source": $src, "target": $tgt, "weight": $w,
+           "decay_rate": 0.003, "last_activation": (now|todate),
+           "activation_count": 1,
+           "emotional_weight": (.neurons[$src].emotional_weight // 0.5),
+           "prediction_error": 0.0, "created": (now|todate),
+           "semantic": true
+         }
+         | .neurons[$src].synapses_out =
+             (((.neurons[$src].synapses_out // []) + [$tgt]) | unique)
+       end
+       ' "$SYNAPSES_FILE" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    brain_atomic_commit "$tmp" "$SYNAPSES_FILE" || return 1
+}
+
 # ============================================================================
 # Memory Retrieval
 # ============================================================================
@@ -538,8 +640,8 @@ brain_query_by_tags() {
 
     local tmp_file="${SYNAPSES_FILE}.tmp"
 
-    # 태그 배열로 변환
-    local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
+    # 태그 배열로 변환 (질의 태그 lowercase 정규화 — 대소문자 무관 매칭)
+    local search_tags="[$(echo "$tags" | tr ',' '\n' | tr '[:upper:]' '[:lower:]' | sed 's/^ *//;s/ *$//;/^$/d; s/\(.*\)/"\1"/' | paste -sd ',' -)]"
 
     # 매칭: 검색 태그와 뉴런 태그의 '교집합'이 1개 이상이면 회상(OR).
     #   - 겹치는 태그 수(overlap)가 많을수록, 감정가중치가 높을수록 상위.
@@ -553,7 +655,15 @@ brain_query_by_tags() {
        ($tags - ["project"]) as $sig |
        .neurons |
        to_entries
-       | map(. + {overlap: (.value.tags - (.value.tags - $sig) | length)})
+       # 뉴런 태그도 lowercase 정규화 (저장 측 대소문자 무관)
+       | map(.ntags = ((.value.tags // []) | map(ascii_downcase)))
+       # overlap: 질의태그 q 중, 어떤 저장태그 t 와든 매칭되는 개수
+       #   - q 길이 3+(영문)/2+(한글): 양방향 substring (부분일치)
+       #   - q 짧음: 정확일치만 (과매칭 가드)
+       | map(.overlap = ([ $sig[] as $q
+             | (if (($q|test("[가-힣]")) and ($q|length)>=2) or (($q|length)>=3) then "sub" else "exact" end) as $mode
+             | select(any(.ntags[]; . as $t |
+                 if $mode=="sub" then ($t|contains($q)) or ($q|contains($t)) else ($t==$q) end)) ] | length))
        | map(select(.overlap >= $min_overlap))
        | sort_by(-(.overlap), -(.value.emotional_weight))
        | .[]
@@ -573,7 +683,7 @@ brain_query_with_links() {
     local limit="${2:-10}"
     local min_overlap="${3:-1}"
 
-    local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
+    local search_tags="[$(echo "$tags" | tr ',' '\n' | tr '[:upper:]' '[:lower:]' | sed 's/^ *//;s/ *$//;/^$/d; s/\(.*\)/"\1"/' | paste -sd ',' -)]"
 
     jq -r --argjson tags "$search_tags" \
        --argjson limit "$limit" \
@@ -582,11 +692,15 @@ brain_query_with_links() {
        ($tags - ["project"]) as $sig |
        . as $root |
 
-       # 1차: 직접 태그 매칭 (overlap 정렬)
+       # 1차: 직접 태그 매칭 (정규화+부분일치, brain_query_by_tags와 동일 기준)
        (
          $root.neurons
          | to_entries
-         | map(. + {overlap: (.value.tags - (.value.tags - $sig) | length)})
+         | map(.ntags = ((.value.tags // []) | map(ascii_downcase)))
+         | map(.overlap = ([ $sig[] as $q
+               | (if (($q|test("[가-힣]")) and ($q|length)>=2) or (($q|length)>=3) then "sub" else "exact" end) as $mode
+               | select(any(.ntags[]; . as $t |
+                   if $mode=="sub" then ($t|contains($q)) or ($q|contains($t)) else ($t==$q) end)) ] | length))
          | map(select(.overlap >= $min_overlap))
          | sort_by(-(.overlap), -(.value.emotional_weight))
        ) as $primary |
@@ -1087,6 +1201,8 @@ export -f brain_create_neuron
 export -f brain_create_synapse
 export -f brain_strengthen_synapse
 export -f brain_link_to_related
+export -f brain_link_by_content
+export -f _brain_make_semantic_synapse
 export -f brain_query_by_tags
 export -f brain_query_with_links
 export -f brain_extract_keywords
