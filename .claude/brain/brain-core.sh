@@ -1041,10 +1041,13 @@ brain_consolidate_session() {
             emotion="important" ;;
     esac
 
-    # 5) 핵심 본문 1000자 제한
+    # 5) 핵심 본문 한도 (바이트). 한글 UTF-8 3바이트 → 2500B≈800~830자.
+    #    본문 키워드 추출의 원천 데이터 보존(짧으면 핵심어 누락). iconv -c 로
+    #    한글 중간 잘림의 깨진 바이트 제거.
+    local _body_max="${BRAIN_BODY_MAXCHARS:-2500}"
     local body="$clean"
-    if [[ ${#body} -gt 1000 ]]; then
-        body="$(printf '%s' "$body" | head -c 1000 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c 1000)…"
+    if [[ $(printf '%s' "$body" | wc -c) -gt $_body_max ]]; then
+        body="$(printf '%s' "$body" | head -c "$_body_max" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c "$_body_max")…"
     fi
 
     # 6) 태그 추출 (키워드 + 메타 태그)
