@@ -86,17 +86,34 @@ brain_extract_keywords() {
     local text="$1"
     local max="${2:-4}"
     # 불용어/시스템토큰 (공백 구분, 한 줄). 회상·저장 양쪽 공통.
-    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거"
+    # 한국어 불용어는 조사제거 후 어근형도 포함(예: '예전에'→'예전').
+    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거 중인데 예전 비슷 고치 위해 대한 같은 어디 어떻게 무엇 흐름 추가 안함 즉시 필요 정리 항목마다 한시간"
     printf '%s' "$text" \
         | tr '[:upper:]' '[:lower:]' \
         | tr -cs '[:alnum:]가-힣' '\n' \
         | awk -v stop="$STOP" '
-            BEGIN { n=split(stop, a, " "); for(i=1;i<=n;i++) if(a[i]!="") sw[a[i]]=1 }
+            BEGIN {
+                n=split(stop, a, " "); for(i=1;i<=n;i++) if(a[i]!="") sw[a[i]]=1
+                # 한국어 조사/어미 접미사 (긴 것 우선). UTF-8 한글=3바이트.
+                ns=split("으로부터 에서부터 에게서 으로서 으로써 에서 에게 부터 까지 한테 으로 처럼 보다 이라 라고 하며 하고 해서 하는 했다 한다 하기 되어 되는 됐다 이 가 을 를 은 는 의 에 로 도 만 나 와 과 시 때 중 후 전", suf, " ")
+            }
+            # 한글 토큰 끝의 조사/어미 1회 제거. 어근 바이트>=6(한글2자) 보존(과도제거 차단).
+            function strip_josa(w,   i,s,blen,wlen) {
+                if (w !~ /[가-힣]/) return w
+                wlen=length(w)
+                for(i=1;i<=ns;i++){
+                    s=suf[i]; blen=length(s)
+                    if (wlen-blen >= 6 && substr(w, wlen-blen+1)==s) return substr(w, 1, wlen-blen)
+                }
+                return w
+            }
             {
                 w=$0
                 # 길이 필터: 한글 포함이면 2자+(바이트 6+), 순영숫자면 3자+
-                if (w ~ /[가-힣]/) { if (length(w) < 2) next }
+                if (w ~ /[가-힣]/) { if (length(w) < 6) next }
                 else { if (length(w) < 3) next }
+                w=strip_josa(w)
+                if (length(w) < 2) next
                 if (w in sw) next
                 if (!(w in seen)) { seen[w]=1; order[++c]=w }
                 cnt[w]++
@@ -203,6 +220,19 @@ brain_create_neuron() {
     local content="$3"
     local tags="${4:-}"
     local emotion="${5:-normal}"
+
+    # 본문 키워드 자동흡수: 본문(content)에서 의미 키워드를 추출해 태그에 병합.
+    # 영문 태그만 들어와도 한글 본문어가 인덱스 tags에 포함되어 한글 질의 진입 가능.
+    # (조사제거된 어근형 — brain_extract_keywords가 처리). 중복은 정규화 단계에서 제거.
+    if [[ -n "$content" ]]; then
+        local _body_kw
+        _body_kw=$(brain_extract_keywords "$content" "${BRAIN_BODY_TAG_MAX:-5}" 2>/dev/null || echo "")
+        if [[ -n "$_body_kw" ]]; then
+            [[ -n "$tags" ]] && tags="${tags},${_body_kw}" || tags="$_body_kw"
+            # 콤마 중복/공백 정규화 + 태그 dedup (순서 보존)
+            tags=$(printf '%s' "$tags" | tr ',' '\n' | sed 's/^ *//;s/ *$//;/^$/d' | awk '!seen[$0]++' | paste -sd ',' -)
+        fi
+    fi
 
     # 중복 저장 방지(dedup): 같은 type 에 동일 title 의 뉴런이 최근 DEDUP_WINDOW 초
     # 내에 있으면 새로 만들지 않고 기존 id 반환. 훅 이중 등록/재발화 등 어떤 경로로
@@ -583,7 +613,9 @@ brain_query_with_links() {
     local limit="${2:-10}"
     local min_overlap="${3:-1}"
     # linked 표면화 게이트: 이 weight 미만 + 질의무관 연결은 노이즈로 컷.
-    local floor="${BRAIN_LINK_SURFACE_FLOOR:-0.3}"
+    # 0.45: 본문키워드 흡수로 생긴 약한 태그연결(w0.4, 흔한 본문어 공유)은 컷,
+    #       진짜 태그연결(w0.5+)·질의관련 연결은 보존.
+    local floor="${BRAIN_LINK_SURFACE_FLOOR:-0.45}"
 
     local search_tags="[$(echo "$tags" | tr ',' '\n' | tr '[:upper:]' '[:lower:]' | sed 's/^ *//;s/ *$//;/^$/d; s/\(.*\)/"\1"/' | paste -sd ',' -)]"
 
@@ -624,7 +656,9 @@ brain_query_with_links() {
          | map(. + {ntags: ((($root.neurons[.tid].tags) // []) | map(ascii_downcase))})
          | map(select(
              (.w >= $floor)
-             or (any($sig[]; . as $q | any(.ntags[]; . as $t | ($t|contains($q)) or ($q|contains($t)))))
+             # 질의어가 linked 노드 태그와 부분일치하는지. .ntags를 변수로 고정해
+             # any($sig[];...) 내부에서 '.'이 $sig 원소로 바뀌어도 안전하게 참조.
+             or (.ntags as $nt | any($sig[]; . as $q | any($nt[]; . as $t | ($t|contains($q)) or ($q|contains($t)))))
            ))
          | map({key: .tid, value: $root.neurons[.tid], overlap: 0, linked: true, lw: .w})
        ) as $linked |
