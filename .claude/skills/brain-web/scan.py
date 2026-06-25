@@ -18,6 +18,19 @@ HOME = Path.home()
 BRAIN = HOME / ".claude" / "brain"
 PROJECTS = HOME / ".claude" / "projects"
 
+def proj_name(raw):
+    """경로 인코딩된 프로젝트 키 → 읽는 이름 (JS projName과 동일 규칙)."""
+    if not raw:
+        return ""
+    s = str(raw).lstrip("-")
+    for pat in (r"^Users-[^-]+-AndroidStudioProjects-", r"^Users-[^-]+-Documents-",
+                r"^Users-[^-]+-", r"^Volumes-.*-Media-", r"^Volumes-[^-]+-",
+                r"^private-tmp-", r"^tmp-"):
+        if re.match(pat, s):
+            s = re.sub(pat, "", s)
+            break
+    return s or raw
+
 def parse_frontmatter(text):
     """--- ... --- 블록을 얕게 파싱. 값은 문자열/리스트만 다룸."""
     fm, body = {}, text
@@ -209,6 +222,31 @@ def main():
     m_nodes, m_edges = scan_memory()
     s_edges = scan_synapses()
     nodes = n_nodes + m_nodes
+
+    # ---- 프로젝트 정규화 + 뉴런 프로젝트 추출 ----
+    # memory 노드: project 경로 → 읽는 이름. 동시에 "알려진 프로젝트" 사전 구축.
+    known = set()
+    for n in m_nodes:
+        if n.get("project"):
+            pn = proj_name(n["project"])
+            n["project_path"] = n["project"]   # 전체 경로 보존(위치 버튼용)
+            n["project"] = pn
+            known.add(pn)
+    # 뉴런 노드: tags 중 "알려진 프로젝트명"과 일치하면 그 프로젝트로. (오추정 방지 — 매칭만 신뢰)
+    #  + tags에 'project' 다음에 오는 토큰이 프로젝트명인 brain 관습도 보조로 사용.
+    for n in n_nodes:
+        tags = n.get("tags", []) or []
+        pn = next((t for t in tags if t in known), None)
+        if not pn and "project" in tags:
+            idx = tags.index("project")
+            if idx + 1 < len(tags):
+                cand = tags[idx + 1]
+                if cand not in ("change","decision","context","todo"):
+                    pn = cand
+        if pn:
+            n["project"] = pn
+            known.add(pn)
+
     # 망각곡선: 스캔 시점 기준 retention 계산 (시간 의존이므로 여기서 고정)
     from datetime import datetime, timezone
     apply_retention(nodes, datetime.now(timezone.utc).replace(tzinfo=None))
