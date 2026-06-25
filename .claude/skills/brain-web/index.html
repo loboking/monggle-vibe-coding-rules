@@ -41,7 +41,9 @@
 
   /* ---- 목록 뷰 ---- */
   #listView { overflow-y:auto; padding:20px; }
-  .list-toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .list-toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+  #listSearch { flex:1; min-width:200px; padding:8px 14px; background:var(--panel); border:1px solid var(--line); border-radius:20px; color:var(--fg); font-size:13px; }
+  #listSearch:focus { outline:none; border-color:var(--neuron); }
   .chip { padding:6px 14px; border-radius:18px; background:var(--panel); border:1px solid var(--line); cursor:pointer; font-size:13px; color:var(--muted); transition:.15s; }
   .chip:hover { color:var(--fg); border-color:var(--neuron); }
   .chip.active { background:var(--neuron); color:#fff; border-color:var(--neuron); }
@@ -78,9 +80,10 @@
            background:rgba(6,8,12,.7); backdrop-filter:blur(4px); }
   #modal.open { display:flex; animation:fade .2s; }
   @keyframes fade { from{opacity:0} to{opacity:1} }
-  .modal-card { position:relative; width:min(640px,92vw); max-height:84vh; overflow-y:auto;
+  .modal-card { position:relative; width:min(640px,92vw); max-height:84vh; display:flex; flex-direction:column; overflow:hidden;
     background:linear-gradient(180deg,#1a1f2b,#161a22); border:1px solid var(--line); border-radius:18px;
-    padding:28px 30px; box-shadow:0 24px 80px rgba(0,0,0,.6); animation:pop .25s cubic-bezier(.2,.9,.3,1.2); }
+    box-shadow:0 24px 80px rgba(0,0,0,.6); animation:pop .25s cubic-bezier(.2,.9,.3,1.2); }
+  #modalBody { overflow-y:auto; padding:28px 30px; }
   @keyframes pop { from{opacity:0;transform:scale(.92) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
   .modal-x { position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:50%;
     background:#0e1016; border:1px solid var(--line); color:var(--muted); cursor:pointer; font-size:14px; transition:.15s; }
@@ -110,6 +113,7 @@
       <div class="tab active" data-view="graphView">🕸 그래프</div>
       <div class="tab" data-view="listView">📋 목록</div>
       <div class="tab" data-view="dashView">📊 대시보드</div>
+      <div class="tab" data-view="forgetView">🧠 망각곡선</div>
     </div>
     <div class="grow"></div>
     <div class="live"><span class="pulse"></span><span id="livetxt">살아있는 기억</span></div>
@@ -130,6 +134,8 @@
     </div>
     <!-- 대시보드 -->
     <div class="view" id="dashView"></div>
+    <!-- 망각곡선 -->
+    <div class="view" id="forgetView"></div>
   </main>
 
   <!-- 모달 -->
@@ -153,6 +159,7 @@ function init(){
   buildGraph();
   buildList();
   buildDash();
+  buildForget();
   // 탭 전환
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
@@ -161,6 +168,7 @@ function init(){
     document.getElementById(t.dataset.view).classList.add('active');
     if(t.dataset.view==='graphView' && network){ setTimeout(()=>network.fit({animation:true}),50); }
     if(t.dataset.view==='dashView'){ animateBars(); }
+    if(t.dataset.view==='forgetView'){ drawForget(); }
   }));
   document.getElementById('livetxt').textContent =
     `뉴런 ${RAW.stats.neurons} · 기억 ${RAW.stats.memories} · 연결 ${RAW.stats.total_edges}`;
@@ -210,13 +218,18 @@ function buildGraph(){
       width:0.5+(e.weight||0.5)*2.5,
       smooth:{ enabled:true, type:'continuous' } };
   }));
+  const usePhysics = N < 300;  // 노드 많으면 물리 끄고 원형 초기좌표만 (브라우저 먹통 방지)
   network=new vis.Network(document.getElementById('net'),{nodes:allNodes,edges:allEdges},{
-    physics:{ enabled:true, stabilization:{iterations:160,fit:true},
+    physics:{ enabled:usePhysics, stabilization:{iterations:160,fit:true},
       barnesHut:{gravitationalConstant:-9000,springLength:150,springConstant:0.04,damping:0.4} },
     interaction:{ hover:true, tooltipDelay:150 },
     nodes:{ borderWidth:2 } });
-  network.once('stabilizationIterationsDone',()=>{ network.setOptions({physics:{enabled:false}}); network.fit({animation:false}); startFlow(); });
-  setTimeout(()=>{ network.setOptions({physics:{enabled:false}}); network.fit({animation:false}); startFlow(); },3200);
+  if(usePhysics){
+    network.once('stabilizationIterationsDone', settleGraph);
+    setTimeout(settleGraph, 3200);
+  } else {
+    network.fit({animation:false}); startFlow();
+  }
 
   network.on('click',p=>{ if(p.nodes.length) showNode(RAWMAP[p.nodes[0]]); });
   network.on('hoverNode',()=>document.body.style.cursor='pointer');
@@ -231,6 +244,15 @@ function buildGraph(){
     <div data-e="mem_link"><span class="dot" style="background:${ECOLOR.mem_link}"></span>기억 링크</div>`;
   lg.querySelectorAll('[data-k],[data-e]').forEach(el=>el.addEventListener('click',()=>{ el.classList.toggle('off'); applyGraphFilter(); }));
   document.getElementById('gsearch').addEventListener('input',applyGraphFilter);
+}
+
+// stabilize 종료 처리 — once 이벤트와 setTimeout 양쪽에서 호출돼도 1회만 실행
+let settled=false;
+function settleGraph(){
+  if(settled) return; settled=true;
+  network.setOptions({physics:{enabled:false}});
+  network.fit({animation:false});
+  startFlow();
 }
 
 // 시냅스 위로 흐르는 점 애니메이션
@@ -281,29 +303,38 @@ function showNode(n){
 }
 
 /* ============ 목록 ============ */
+let listCat='*';
 function buildList(){
   const cats=[...new Set(RAW.nodes.map(n=>n.category))];
   const ft=document.getElementById('listFilters');
-  ft.innerHTML=`<div class="chip active" data-c="*">전체 ${RAW.nodes.length}</div>`+
-    cats.map(c=>`<div class="chip" data-c="${c}">${c} ${RAW.nodes.filter(n=>n.category===c).length}</div>`).join('');
+  ft.innerHTML=`<input type="search" id="listSearch" placeholder="🔍 제목·태그·내용 검색…">`+
+    `<div class="chip active" data-c="*">전체 ${RAW.nodes.length}</div>`+
+    cats.map(c=>`<div class="chip" data-c="${esc(c)}">${esc(c)} ${RAW.nodes.filter(n=>n.category===c).length}</div>`).join('');
   ft.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>{
     ft.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active');
-    renderCards(ch.dataset.c);
+    listCat=ch.dataset.c; renderCards();
   }));
-  renderCards('*');
+  document.getElementById('listSearch').addEventListener('input',renderCards);
+  renderCards();
 }
-function renderCards(cat){
-  const list=RAW.nodes.filter(n=>cat==='*'||n.category===cat);
-  document.getElementById('cards').innerHTML=list.map((n,i)=>`
-    <div class="card" style="animation-delay:${Math.min(i*20,600)}ms" data-id="${esc(n.id)}">
+function renderCards(){
+  const q=(document.getElementById('listSearch')?.value||'').trim().toLowerCase();
+  const list=RAW.nodes.filter(n=>{
+    if(listCat!=='*'&&n.category!==listCat) return false;
+    if(!q) return true;
+    return (n.label+' '+(n.description||'')+' '+(n.body||'')+' '+(n.tags||[]).join(' ')).toLowerCase().includes(q);
+  });
+  const wrap=document.getElementById('cards');
+  if(!list.length){ wrap.innerHTML='<div style="color:var(--muted)">일치하는 기억이 없습니다.</div>'; return; }
+  wrap.innerHTML=list.map((n,i)=>`
+    <div class="card" style="animation-delay:${Math.min(i*20,600)}ms">
       <div class="kind" style="color:${n.kind==='memory'?'var(--memory)':'var(--neuron)'}">${n.kind==='memory'?'🟠 MEMORY':'🔵 NEURON'} · ${esc(n.type||n.category)}</div>
       <div class="title">${esc(n.label)}</div>
       <div class="body">${esc(n.description||n.body||'(내용 없음)')}</div>
       <div class="meta">${n.project?`<span title="${esc(n.project)}">📁 ${esc(projName(n.project))}</span>`:''}${n.created?'<span>🕐 '+esc(n.created.slice(0,10))+'</span>':''}${(n.tags||[]).slice(0,3).map(t=>'<span>#'+esc(t)+'</span>').join('')}</div>
-    </div>`).join('') || '<div style="color:var(--muted)">이 분류엔 항목이 없습니다.</div>';
-  document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{
-    openModal(RAWMAP[c.dataset.id]);
-  }));
+    </div>`).join('');
+  // XSS 안전: data-id 속성 대신 클로저로 노드 직접 캡처
+  wrap.querySelectorAll('.card').forEach((c,i)=>c.addEventListener('click',()=>openModal(list[i])));
 }
 
 /* ============ 모달 ============ */
@@ -323,13 +354,14 @@ function openModal(n){
     ${n.description?`<div class="m-desc">${esc(n.description)}</div>`:''}
     ${tags?`<div class="m-tags">${tags}</div>`:''}
     <div class="m-body">${esc(n.body)||'(본문 없음)'}</div>
-    <button class="m-graph" data-id="${esc(n.id)}">🕸 그래프에서 보기 →</button>`;
+    <button class="m-graph">🕸 그래프에서 보기 →</button>`;
   document.getElementById('modal').classList.add('open');
-  document.querySelector('.m-graph')?.addEventListener('click',e=>{
+  // XSS 안전: id를 속성에 넣지 않고 클로저로 n 직접 캡처
+  document.querySelector('.m-graph')?.addEventListener('click',()=>{
     closeModal();
     document.querySelector('.tab[data-view="graphView"]').click();
-    const id=e.target.dataset.id; showNode(RAWMAP[id]);
-    if(network){ network.selectNodes([id]); network.focus(id,{scale:1.3,animation:true}); }
+    showNode(n);
+    if(network){ network.selectNodes([n.id]); network.focus(n.id,{scale:1.3,animation:true}); }
   });
 }
 function closeModal(){ document.getElementById('modal').classList.remove('open'); }
@@ -367,12 +399,88 @@ function buildDash(){
       </div>
     </div>`;
 }
+let dashAnimated=false;
 function animateBars(){
+  if(dashAnimated) return; dashAnimated=true;  // 탭 왕복 시 중복 카운트업 방지
   document.querySelectorAll('#dashView .fill').forEach(f=>{ requestAnimationFrame(()=>f.style.width=f.dataset.w+'%'); });
   document.querySelectorAll('#dashView .n[data-count]').forEach(el=>{
     const target=+el.dataset.count; let cur=0; const step=Math.max(1,Math.round(target/30));
     const t=setInterval(()=>{ cur+=step; if(cur>=target){cur=target;clearInterval(t);} el.textContent=cur; },28);
   });
+}
+
+/* ============ 망각곡선 ============ */
+function buildForget(){
+  const rated=RAW.nodes.filter(n=>n.retention!=null);
+  const fading=rated.filter(n=>n.retention<0.3).sort((a,b)=>a.retention-b.retention);
+  const vivid=rated.filter(n=>n.retention>0.7).sort((a,b)=>b.retention-a.retention);
+  document.getElementById('forgetView').innerHTML=`
+    <div class="bignums">
+      <div class="bignum"><div class="n" style="color:#ef6b8d">${fading.length}</div><div class="l">🌫 곧 잊힐 기억 (R&lt;0.3)</div></div>
+      <div class="bignum"><div class="n" style="color:var(--accent)">${vivid.length}</div><div class="l">✨ 생생한 기억 (R&gt;0.7)</div></div>
+      <div class="bignum"><div class="n" style="color:var(--muted)">${rated.length}</div><div class="l">⏳ 시간 추적되는 기억</div></div>
+    </div>
+    <div class="panel" style="margin-bottom:18px">
+      <h3>에빙하우스 망각곡선 — 각 점이 하나의 기억 (오른쪽·아래일수록 잊혀가는 중)</h3>
+      <canvas id="forgetCanvas" style="width:100%;height:340px"></canvas>
+      <div style="display:flex;gap:18px;margin-top:10px;font-size:12px;color:var(--muted)">
+        <span><span style="color:var(--accent)">●</span> 생생 (R&gt;0.7)</span>
+        <span><span style="color:#f0c453">●</span> 흐려짐</span>
+        <span><span style="color:#ef6b8d">●</span> 곧 잊힘 (R&lt;0.3)</span>
+        <span>— 가로축: 마지막 접근 후 경과일 · 세로축: 기억 보존율</span>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3>🌫 곧 잊힐 기억 — 다시 보지 않으면 사라짐 (Top 15)</h3>
+        ${fading.slice(0,15).map(n=>forgetRow(n)).join('')||'<div style="color:var(--muted)">없음</div>'}
+      </div>
+      <div class="panel"><h3>✨ 생생한 기억 (Top 15)</h3>
+        ${vivid.slice(0,15).map(n=>forgetRow(n)).join('')||'<div style="color:var(--muted)">없음</div>'}
+      </div>
+    </div>`;
+  // 리스트 항목 클릭 → 모달
+  document.querySelectorAll('#forgetView .frow').forEach((el)=>{
+    const n=rated.find(x=>x.id===el.dataset.fid);  // fid는 안전: esc 안 거치고 find로 비교만(주입X)
+    if(n) el.addEventListener('click',()=>openModal(n));
+  });
+}
+function forgetRow(n){
+  const pct=Math.round((n.retention||0)*100);
+  const col=n.retention<0.3?'#ef6b8d':(n.retention>0.7?'#42d6a4':'#f0c453');
+  return `<div class="frow" data-fid="${esc(n.id)}" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer">
+    <div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.label)}</div>
+    <div style="width:70px;height:8px;background:#0e1016;border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col}"></div></div>
+    <div style="width:38px;text-align:right;color:${col};font-weight:600;font-size:12px">${pct}%</div>
+    <div style="width:54px;text-align:right;color:var(--muted);font-size:11px">${n.days_since}일전</div>
+  </div>`;
+}
+function drawForget(){
+  const cv=document.getElementById('forgetCanvas'); if(!cv) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth, H=cv.clientHeight;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  const pad={l:44,r:16,t:16,b:30};
+  const rated=RAW.nodes.filter(n=>n.retention!=null&&n.days_since!=null);
+  const maxDays=Math.max(30,...rated.map(n=>n.days_since));
+  const X=d=>pad.l+(d/maxDays)*(W-pad.l-pad.r);
+  const Y=r=>pad.t+(1-r)*(H-pad.t-pad.b);
+  // 격자 + 축
+  ctx.strokeStyle='#262c38'; ctx.fillStyle='#8b93a7'; ctx.font='11px sans-serif'; ctx.lineWidth=1;
+  for(let r=0;r<=1.0001;r+=0.25){ ctx.beginPath(); ctx.moveTo(pad.l,Y(r)); ctx.lineTo(W-pad.r,Y(r)); ctx.stroke(); ctx.fillText(Math.round(r*100)+'%',6,Y(r)+4); }
+  for(let i=0;i<=4;i++){ const d=maxDays*i/4; ctx.fillText(Math.round(d)+'일',X(d)-8,H-10); }
+  // 이상적 망각곡선(평균 강도) 가이드라인
+  const avgS=rated.reduce((s,n)=>s+(n.strength||5),0)/(rated.length||1);
+  ctx.strokeStyle='#5b8def'; ctx.globalAlpha=0.5; ctx.lineWidth=2; ctx.beginPath();
+  for(let d=0;d<=maxDays;d+=maxDays/100){ const r=Math.exp(-d/avgS); const x=X(d),y=Y(r); d===0?ctx.moveTo(x,y):ctx.lineTo(x,y);} ctx.stroke(); ctx.globalAlpha=1;
+  // 기억 점들
+  rated.forEach(n=>{
+    const col=n.retention<0.3?'#ef6b8d':(n.retention>0.7?'#42d6a4':'#f0c453');
+    ctx.fillStyle=col; ctx.globalAlpha=0.85;
+    ctx.beginPath(); ctx.arc(X(n.days_since),Y(n.retention),4,0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha=1;
 }
 </script>
 </body>

@@ -22,7 +22,10 @@ def parse_frontmatter(text):
     """--- ... --- 블록을 얕게 파싱. 값은 문자열/리스트만 다룸."""
     fm, body = {}, text
     if text.startswith("---"):
-        end = text.find("\n---", 3)
+        # 종료 구분자는 '줄 전체가 ---' 인 곳. 본문 수평선(---)에 오탐하지 않게.
+        end = text.find("\n---\n", 3)
+        if end == -1 and text.rstrip().endswith("\n---"):
+            end = text.rstrip().rfind("\n---")
         if end != -1:
             raw = text[3:end].strip("\n")
             body = text[end+4:].lstrip("\n")
@@ -41,10 +44,20 @@ def parse_frontmatter(text):
                         fm[k] = v.strip('"\'')
                     else:
                         fm[k] = {}
-                elif line.startswith(" ") and cur_key and isinstance(fm.get(cur_key), dict):
-                    mm = re.match(r"^\s+(\w[\w-]*):\s*(.*)$", line)
-                    if mm:
-                        fm[cur_key][mm.group(1)] = mm.group(2).strip().strip('"\'')
+                elif line.startswith(" ") and cur_key:
+                    # 블록 시퀀스(  - item) → 리스트
+                    seq = re.match(r"^\s+-\s+(.*)$", line)
+                    if seq:
+                        if not isinstance(fm.get(cur_key), list):
+                            fm[cur_key] = []  # 빈 {} 였으면 list로 전환
+                        fm[cur_key].append(seq.group(1).strip().strip('"\''))
+                    else:
+                        # 중첩 매핑(  key: val) → dict
+                        mm = re.match(r"^\s+(\w[\w-]*):\s*(.*)$", line)
+                        if mm:
+                            if not isinstance(fm.get(cur_key), dict):
+                                fm[cur_key] = {}
+                            fm[cur_key][mm.group(1)] = mm.group(2).strip().strip('"\'')
     return fm, body
 
 def short(s, n=160):
@@ -76,6 +89,7 @@ def scan_neurons():
             "tags": fm.get("tags", []) if isinstance(fm.get("tags"), list) else [],
             "emotional_weight": ew,
             "created": fm.get("created", ""),
+            "last_accessed": fm.get("last_accessed", fm.get("created", "")),
             "access_count": fm.get("access_count", "0"),
             "body": short(body, 400),
         })
@@ -95,13 +109,21 @@ def scan_synapses():
         data = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return edges
-    syn = data.get("synapses", data) if isinstance(data, dict) else {}
-    for v in syn.values():
+    # 형식 방어: {synapses:{...}} / {synapses:[...]} / 최상위 dict / 최상위 list 모두 수용
+    if isinstance(data, dict):
+        syn = data.get("synapses", data)
+    else:
+        syn = data
+    items = syn.values() if isinstance(syn, dict) else (syn if isinstance(syn, list) else [])
+    for v in items:
         if isinstance(v, dict) and v.get("source") and v.get("target"):
+            try:
+                w = float(v.get("weight", 0.5))
+            except (ValueError, TypeError):
+                w = 0.5
             edges.append({
                 "source": v["source"], "target": v["target"], "kind": "synapse",
-                "weight": float(v.get("weight", 0.5)),
-                "activation_count": v.get("activation_count", 0),
+                "weight": w, "activation_count": v.get("activation_count", 0),
             })
     return edges
 
@@ -145,9 +167,41 @@ def scan_timeline():
         except Exception:
             continue
         m = re.search(r"마지막 업데이트\**:?\s*([\d-]+)", text)
-        items.append({"date": m.group(1) if m else "", "label": name + " 작업내역",
+        safe = re.sub(r'[<>&"\']', '', name)  # 파일명에 HTML 특수문자 들어가도 방어
+        items.append({"date": m.group(1) if m else "", "label": safe + " 작업내역",
                       "kind": "project_log"})
     return sorted(items, key=lambda x: x["date"], reverse=True)
+
+def _parse_iso(s):
+    """ISO8601(Z) → datetime. 실패 시 None."""
+    if not s:
+        return None
+    try:
+        from datetime import datetime
+        return datetime.strptime(str(s)[:19], "%Y-%m-%dT%H:%M:%S")
+    except (ValueError, TypeError):
+        return None
+
+def apply_retention(nodes, now):
+    """에빙하우스 망각곡선: R = exp(-Δt_days / S).
+    S(기억 강도) = base + access_count*가중 + emotional_weight*가중. 자주/강하게 본 기억일수록 천천히 잊힘."""
+    import math
+    for n in nodes:
+        last = _parse_iso(n.get("last_accessed") or n.get("created"))
+        if not last:
+            n["retention"] = None
+            n["days_since"] = None
+            continue
+        dt_days = max(0.0, (now - last).total_seconds() / 86400.0)
+        try:
+            ac = float(n.get("access_count", 0))
+        except (ValueError, TypeError):
+            ac = 0
+        ew = float(n.get("emotional_weight", 0.5) or 0.5)
+        S = 2.0 + ac * 3.0 + ew * 5.0          # 강도(일 단위). 기본 2일, 접근·감정에 비례
+        n["retention"] = round(math.exp(-dt_days / S), 4)
+        n["days_since"] = round(dt_days, 1)
+        n["strength"] = round(S, 1)
 
 def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else (Path(__file__).parent / "data.json")
@@ -155,6 +209,9 @@ def main():
     m_nodes, m_edges = scan_memory()
     s_edges = scan_synapses()
     nodes = n_nodes + m_nodes
+    # 망각곡선: 스캔 시점 기준 retention 계산 (시간 의존이므로 여기서 고정)
+    from datetime import datetime, timezone
+    apply_retention(nodes, datetime.now(timezone.utc).replace(tzinfo=None))
     ids = {n["id"] for n in nodes}
     # 존재하는 노드 사이의 엣지만 (dangling 제거)
     all_edges = [e for e in (n_edges + s_edges + m_edges) if e["source"] in ids and e["target"] in ids]
@@ -167,6 +224,8 @@ def main():
             "synapses": len([e for e in all_edges if e["kind"] == "synapse"]),
             "mem_links": len([e for e in all_edges if e["kind"] == "mem_link"]),
             "total_edges": len(all_edges),
+            "fading": len([n for n in nodes if (n.get("retention") or 1) < 0.3]),   # 곧 잊힐 기억(위험)
+            "vivid": len([n for n in nodes if (n.get("retention") or 0) > 0.7]),     # 생생한 기억
         },
     }
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
