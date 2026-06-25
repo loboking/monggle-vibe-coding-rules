@@ -29,3 +29,4 @@ agents/*
 .claude/settings.local.json
 .claude/.prd-session.json
 .claude/session/
+.claude/skills/brain-web/data.json

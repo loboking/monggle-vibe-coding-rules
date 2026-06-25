@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 Brain · Memory 시각화</title>
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e6e9ef; --muted:#8b93a7;
+          --neuron:#5b8def; --memory:#e0a34a; --syn:#3a4256; --memlink:#7a5af0; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,'Apple SD Gothic Neo',sans-serif; background:var(--bg); color:var(--fg); height:100vh; overflow:hidden; }
+  #app { display:grid; grid-template-columns:240px 1fr 340px; grid-template-rows:48px 1fr; height:100vh; }
+  header { grid-column:1/4; display:flex; align-items:center; gap:16px; padding:0 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0; }
+  .stats { color:var(--muted); font-size:12px; display:flex; gap:12px; }
+  .stats b { color:var(--fg); }
+  aside { background:var(--panel); border-right:1px solid var(--line); padding:14px; overflow-y:auto; }
+  aside h2 { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:18px 0 8px; }
+  aside h2:first-child { margin-top:0; }
+  .filter { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:6px; cursor:pointer; user-select:none; }
+  .filter:hover { background:#1f232c; }
+  .filter input { accent-color:var(--neuron); }
+  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+  #net { background:var(--bg); position:relative; width:100%; height:100%; min-height:0; min-width:0; overflow:hidden; }
+  #net canvas { display:block; }
+  #side { background:var(--panel); border-left:1px solid var(--line); padding:16px; overflow-y:auto; }
+  #side .empty { color:var(--muted); text-align:center; margin-top:40px; }
+  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--syn); color:var(--fg); margin:2px 4px 2px 0; }
+  .node-title { font-size:16px; font-weight:600; margin:4px 0 10px; word-break:break-word; }
+  .kv { color:var(--muted); font-size:12px; margin:6px 0; }
+  .kv b { color:var(--fg); }
+  .body { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); white-space:pre-wrap; word-break:break-word; color:#c7cdda; font-size:13px; }
+  .tl-item { padding:6px 0; border-bottom:1px solid var(--line); font-size:12px; }
+  .tl-date { color:var(--neuron); font-weight:600; }
+  input[type=search] { width:100%; padding:7px 9px; background:#0d0f14; border:1px solid var(--line); border-radius:6px; color:var(--fg); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🧠 Brain · Memory 시각화</h1>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <aside>
+    <h2>검색</h2>
+    <input type="search" id="search" placeholder="라벨·태그 검색…">
+    <h2>종류 필터</h2>
+    <label class="filter"><input type="checkbox" data-kind="neuron" checked><span class="dot" style="background:var(--neuron)"></span>뉴런 (Brain)</label>
+    <label class="filter"><input type="checkbox" data-kind="memory" checked><span class="dot" style="background:var(--memory)"></span>기억 (Memory)</label>
+    <h2>엣지 (유기성)</h2>
+    <label class="filter"><input type="checkbox" data-edge="synapse" checked><span class="dot" style="background:#6b7488"></span>시냅스</label>
+    <label class="filter"><input type="checkbox" data-edge="mem_link" checked><span class="dot" style="background:var(--memlink)"></span>기억 링크 [[ ]]</label>
+    <label class="filter"><input type="checkbox" data-edge="link" checked><span class="dot" style="background:#4a5266"></span>뉴런 링크</label>
+    <h2>타임라인</h2>
+    <div id="timeline"></div>
+  </aside>
+
+  <div id="net"></div>
+
+  <div id="side"><div class="empty">노드를 클릭하면<br>내용이 여기 표시됩니다.</div></div>
+</div>
+
+<script>
+let RAW = null, network = null, allNodes = null, allEdges = null;
+let RAWMAP = {}, KINDMAP = {}, EDGEKIND = {};
+
+const COLOR = { neuron:'#5b8def', memory:'#e0a34a' };
+const EDGE_COLOR = { synapse:'#4a5266', mem_link:'#7a5af0', link:'#3a4256' };
+
+fetch('data.json').then(r => r.json()).then(d => { RAW = d; init(); })
+  .catch(e => { document.getElementById('net').innerHTML =
+    '<div style="color:#e0a34a;padding:40px">data.json을 못 읽었습니다. python -m http.server 로 띄워야 합니다.<br>'+e+'</div>'; });
+
+function init() {
+  const s = RAW.stats;
+  document.getElementById('stats').innerHTML =
+    `뉴런 <b>${s.neurons}</b> · 기억 <b>${s.memories}</b> · 시냅스 <b>${s.synapses}</b> · 기억링크 <b>${s.mem_links}</b> · 총엣지 <b>${s.total_edges}</b>`;
+
+  // 원본 데이터는 DataSet 밖 Map에 보관 (vis 노드엔 표시용 속성만 — 큰 객체 박지 않음)
+  RAWMAP = {}; KINDMAP = {};
+  RAW.nodes.forEach(n => { RAWMAP[n.id] = n; KINDMAP[n.id] = n.kind; });
+
+  // 초기 좌표를 원형으로 미리 부여 — physics가 안 끝나도/꺼져도 노드가 펼쳐져 보인다.
+  const N = RAW.nodes.length, R = 60 + N * 6;
+  allNodes = new vis.DataSet(RAW.nodes.map((n, i) => {
+    const a = (i / N) * Math.PI * 2;
+    return {
+      id: n.id, label: n.label,
+      x: Math.round(Math.cos(a) * R), y: Math.round(Math.sin(a) * R),
+      color: { background: COLOR[n.kind], border:'#aab4cc', highlight:{background:'#fff',border:COLOR[n.kind]} },
+      size: 10 + (parseFloat(n.emotional_weight)||0.5) * 14,
+      font: { color:'#cfd6e4', size:11 },
+      shape: n.kind === 'memory' ? 'diamond' : 'dot',
+    };
+  }));
+  EDGEKIND = {};
+  allEdges = new vis.DataSet(RAW.edges.map((e,i) => {
+    EDGEKIND[i] = e.kind;
+    return { id: i, from: e.source, to: e.target,
+      color: { color: EDGE_COLOR[e.kind]||'#3a4256', opacity:0.6 },
+      width: 0.5 + (e.weight||0.5) * 2 };
+  }));
+
+  network = new vis.Network(document.getElementById('net'),
+    { nodes: allNodes, edges: allEdges },
+    { physics: { enabled:true, stabilization:{iterations:150,fit:true},
+        barnesHut:{gravitationalConstant:-8000, springLength:140, springConstant:0.04, damping:0.4} },
+      interaction: { hover:true, tooltipDelay:120 },
+      nodes: { borderWidth:2 } });
+
+  // stabilize 끝나면 physics를 끄고(고정) 화면에 맞춤. 안 끝나도 setTimeout이 보장.
+  network.once('stabilizationIterationsDone', () => {
+    network.setOptions({ physics:{ enabled:false } });
+    network.fit({ animation:false });
+  });
+  setTimeout(() => { network.setOptions({ physics:{ enabled:false } }); network.fit({ animation:false }); }, 3000);
+
+  network.on('click', p => {
+    if (p.nodes.length) showNode(RAWMAP[p.nodes[0]]);
+    else document.getElementById('side').innerHTML = '<div class="empty">노드를 클릭하면<br>내용이 여기 표시됩니다.</div>';
+  });
+
+  // 타임라인
+  document.getElementById('timeline').innerHTML = (RAW.timeline||[]).map(t =>
+    `<div class="tl-item"><span class="tl-date">${t.date||'—'}</span> ${t.label}</div>`).join('') || '<div class="kv">기록 없음</div>';
+
+  // 필터 바인딩
+  document.querySelectorAll('[data-kind]').forEach(c => c.addEventListener('change', applyFilters));
+  document.querySelectorAll('[data-edge]').forEach(c => c.addEventListener('change', applyFilters));
+  document.getElementById('search').addEventListener('input', applyFilters);
+}
+
+function applyFilters() {
+  const kinds = new Set([...document.querySelectorAll('[data-kind]:checked')].map(c=>c.dataset.kind));
+  const edgeKinds = new Set([...document.querySelectorAll('[data-edge]:checked')].map(c=>c.dataset.edge));
+  const q = document.getElementById('search').value.trim().toLowerCase();
+
+  const hideN = [], showN = [];
+  allNodes.forEach(n => {
+    const r = RAWMAP[n.id];
+    let vis_ = kinds.has(KINDMAP[n.id]);
+    if (vis_ && q) {
+      const hay = (r.label + ' ' + (r.tags||[]).join(' ') + ' ' + (r.description||'')).toLowerCase();
+      vis_ = hay.includes(q);
+    }
+    (vis_ ? showN : hideN).push(n.id);
+  });
+  allNodes.update([...hideN.map(id=>({id,hidden:true})), ...showN.map(id=>({id,hidden:false}))]);
+
+  const visibleIds = new Set(showN);
+  allEdges.forEach(e => {
+    const ok = edgeKinds.has(EDGEKIND[e.id]) && visibleIds.has(e.from) && visibleIds.has(e.to);
+    allEdges.update({ id:e.id, hidden:!ok });
+  });
+}
+
+function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function showNode(n) {
+  const tags = (n.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
+  const kindLabel = n.kind==='memory' ? '🟠 기억 (Memory)' : '🔵 뉴런 (Brain)';
+  document.getElementById('side').innerHTML = `
+    <div class="kv">${kindLabel} · ${esc(n.type||n.category)}</div>
+    <div class="node-title">${esc(n.label)}</div>
+    ${n.project ? `<div class="kv">📁 <b>${esc(n.project)}</b></div>`:''}
+    ${n.created ? `<div class="kv">🕐 ${esc(n.created)}</div>`:''}
+    ${n.access_count && n.access_count!=='0' ? `<div class="kv">👁 접근 ${esc(n.access_count)}회</div>`:''}
+    ${n.emotional_weight ? `<div class="kv">💓 감정가중치 ${n.emotional_weight}</div>`:''}
+    ${n.description ? `<div class="kv">${esc(n.description)}</div>`:''}
+    ${tags ? `<div style="margin-top:8px">${tags}</div>`:''}
+    <div class="body">${esc(n.body)||'(본문 없음)'}</div>`;
+}
+</script>
+</body>
+</html>

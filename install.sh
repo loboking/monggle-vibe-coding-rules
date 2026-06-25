@@ -251,6 +251,7 @@ create_skill_metadata() {
         "monggle-upgrade|Vibe Coding Rules 업그레이드 체크 및 설치"
         "update|Git 원격 저장소 동기화 (update.sh)"
         "team-builder|에이전트를 기억·인격을 가진 사람으로 채용/성장 (CREATE_LEADER/HIRE_MEMBER/UPGRADE)"
+        "brain-web|Brain·Memory·작업히스토리를 로컬 웹으로 시각화 (유기성 그래프)"
     )
 
     local created_count=0
