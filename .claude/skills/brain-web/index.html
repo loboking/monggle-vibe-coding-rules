@@ -6,171 +6,373 @@
 <title>🧠 Brain · Memory 시각화</title>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --line:#2a2f3a; --fg:#e6e9ef; --muted:#8b93a7;
-          --neuron:#5b8def; --memory:#e0a34a; --syn:#3a4256; --memlink:#7a5af0; }
+  :root { --bg:#0e1016; --panel:#161a22; --line:#262c38; --fg:#e8ebf2; --muted:#8b93a7;
+          --neuron:#5b8def; --memory:#e0a34a; --memlink:#a07af0; --accent:#42d6a4; }
   * { box-sizing:border-box; }
   body { margin:0; font:14px/1.5 -apple-system,'Apple SD Gothic Neo',sans-serif; background:var(--bg); color:var(--fg); height:100vh; overflow:hidden; }
-  #app { display:grid; grid-template-columns:240px 1fr 340px; grid-template-rows:48px 1fr; height:100vh; }
-  header { grid-column:1/4; display:flex; align-items:center; gap:16px; padding:0 16px; background:var(--panel); border-bottom:1px solid var(--line); }
-  header h1 { font-size:15px; margin:0; }
-  .stats { color:var(--muted); font-size:12px; display:flex; gap:12px; }
-  .stats b { color:var(--fg); }
-  aside { background:var(--panel); border-right:1px solid var(--line); padding:14px; overflow-y:auto; }
-  aside h2 { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:18px 0 8px; }
-  aside h2:first-child { margin-top:0; }
-  .filter { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:6px; cursor:pointer; user-select:none; }
-  .filter:hover { background:#1f232c; }
-  .filter input { accent-color:var(--neuron); }
-  .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-  #net { background:var(--bg); position:relative; width:100%; height:100%; min-height:0; min-width:0; overflow:hidden; }
-  #net canvas { display:block; }
-  #side { background:var(--panel); border-left:1px solid var(--line); padding:16px; overflow-y:auto; }
-  #side .empty { color:var(--muted); text-align:center; margin-top:40px; }
-  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--syn); color:var(--fg); margin:2px 4px 2px 0; }
-  .node-title { font-size:16px; font-weight:600; margin:4px 0 10px; word-break:break-word; }
-  .kv { color:var(--muted); font-size:12px; margin:6px 0; }
-  .kv b { color:var(--fg); }
-  .body { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); white-space:pre-wrap; word-break:break-word; color:#c7cdda; font-size:13px; }
-  .tl-item { padding:6px 0; border-bottom:1px solid var(--line); font-size:12px; }
-  .tl-date { color:var(--neuron); font-weight:600; }
-  input[type=search] { width:100%; padding:7px 9px; background:#0d0f14; border:1px solid var(--line); border-radius:6px; color:var(--fg); }
+  #app { display:flex; flex-direction:column; height:100vh; }
+
+  header { display:flex; align-items:center; gap:18px; padding:0 18px; height:54px; background:linear-gradient(90deg,#161a22,#1a1f2b); border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0; white-space:nowrap; }
+  .tabs { display:flex; gap:4px; margin-left:8px; }
+  .tab { padding:7px 16px; border-radius:8px; cursor:pointer; color:var(--muted); font-weight:600; font-size:13px; transition:all .2s; user-select:none; }
+  .tab:hover { background:#1f2530; color:var(--fg); }
+  .tab.active { background:var(--neuron); color:#fff; box-shadow:0 2px 12px rgba(91,141,239,.4); }
+  .grow { flex:1; }
+  .live { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:12px; }
+  .pulse { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
+
+  main { flex:1; position:relative; overflow:hidden; }
+  .view { position:absolute; inset:0; display:none; }
+  .view.active { display:block; }
+
+  /* ---- 그래프 뷰 (active일 때만 flex, 아니면 .view의 display:none 유지) ---- */
+  #graphView.active { display:flex; }
+  #net { flex:1; background:radial-gradient(circle at 50% 40%, #131826, #0e1016 70%); }
+  #side { width:340px; background:var(--panel); border-left:1px solid var(--line); padding:16px; overflow-y:auto; }
+  #side .empty { color:var(--muted); text-align:center; margin-top:60px; line-height:1.8; }
+  .legend { position:absolute; left:14px; bottom:14px; background:rgba(22,26,34,.85); backdrop-filter:blur(6px); border:1px solid var(--line); border-radius:10px; padding:10px 14px; font-size:12px; }
+  .legend div { display:flex; align-items:center; gap:8px; margin:3px 0; cursor:pointer; }
+  .legend .dot { width:11px; height:11px; border-radius:50%; }
+  .legend .off { opacity:.35; }
+  .gsearch { position:absolute; left:14px; top:14px; }
+  .gsearch input { width:240px; padding:8px 12px; background:rgba(14,16,22,.9); border:1px solid var(--line); border-radius:20px; color:var(--fg); }
+
+  /* ---- 목록 뷰 ---- */
+  #listView { overflow-y:auto; padding:20px; }
+  .list-toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .chip { padding:6px 14px; border-radius:18px; background:var(--panel); border:1px solid var(--line); cursor:pointer; font-size:13px; color:var(--muted); transition:.15s; }
+  .chip:hover { color:var(--fg); border-color:var(--neuron); }
+  .chip.active { background:var(--neuron); color:#fff; border-color:var(--neuron); }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; cursor:pointer; transition:.2s; animation:rise .4s both; }
+  .card:hover { transform:translateY(-4px); border-color:var(--neuron); box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  @keyframes rise { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .card .kind { font-size:11px; font-weight:700; letter-spacing:.5px; }
+  .card .title { font-size:15px; font-weight:600; margin:6px 0; word-break:break-word; }
+  .card .body { color:#aeb6c7; font-size:12.5px; max-height:62px; overflow:hidden; }
+  .card .meta { margin-top:10px; font-size:11px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
+
+  /* ---- 대시보드 뷰 ---- */
+  #dashView { overflow-y:auto; padding:24px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  .panel h3 { margin:0 0 16px; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .bignums { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .bignum { flex:1; min-width:130px; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px 20px; position:relative; overflow:hidden; }
+  .bignum .n { font-size:34px; font-weight:800; line-height:1; }
+  .bignum .l { color:var(--muted); font-size:12px; margin-top:6px; }
+  .bignum::after { content:''; position:absolute; right:-20px; bottom:-20px; width:70px; height:70px; border-radius:50%; opacity:.12; }
+  .bar { display:flex; align-items:center; gap:10px; margin:9px 0; font-size:13px; }
+  .bar .lbl { width:90px; color:var(--muted); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar .track { flex:1; height:14px; background:#0e1016; border-radius:7px; overflow:hidden; }
+  .bar .fill { height:100%; border-radius:7px; width:0; transition:width 1s cubic-bezier(.2,.8,.2,1); }
+  .bar .val { width:34px; color:var(--fg); font-weight:600; }
+  .cloud { display:flex; flex-wrap:wrap; gap:8px; }
+  .cloud span { display:inline-block; padding:3px 10px; border-radius:14px; background:#0e1016; border:1px solid var(--line); transition:.2s; cursor:default; }
+  .cloud span:hover { border-color:var(--neuron); transform:scale(1.08); }
+
+  /* ---- 모달 ---- */
+  #modal { position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center;
+           background:rgba(6,8,12,.7); backdrop-filter:blur(4px); }
+  #modal.open { display:flex; animation:fade .2s; }
+  @keyframes fade { from{opacity:0} to{opacity:1} }
+  .modal-card { position:relative; width:min(640px,92vw); max-height:84vh; overflow-y:auto;
+    background:linear-gradient(180deg,#1a1f2b,#161a22); border:1px solid var(--line); border-radius:18px;
+    padding:28px 30px; box-shadow:0 24px 80px rgba(0,0,0,.6); animation:pop .25s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes pop { from{opacity:0;transform:scale(.92) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
+  .modal-x { position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:50%;
+    background:#0e1016; border:1px solid var(--line); color:var(--muted); cursor:pointer; font-size:14px; transition:.15s; }
+  .modal-x:hover { color:#fff; border-color:var(--neuron); transform:rotate(90deg); }
+  .m-kind { font-size:12px; font-weight:700; letter-spacing:.5px; }
+  .m-title { font-size:21px; margin:8px 0 14px; word-break:break-word; line-height:1.35; }
+  .m-meta { display:flex; gap:14px; flex-wrap:wrap; color:var(--muted); font-size:12.5px; margin-bottom:14px; }
+  .m-meta b { color:var(--fg); }
+  .m-desc { font-size:14px; color:#cfd6e4; margin-bottom:12px; }
+  .m-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px; }
+  .mtag { font-size:12px; padding:3px 11px; border-radius:13px; background:#0e1016; border:1px solid var(--line); color:var(--muted); }
+  .m-body { white-space:pre-wrap; word-break:break-word; color:#c7cdda; font-size:13.5px; line-height:1.7;
+    padding:16px; background:#0e1016; border-radius:12px; border:1px solid var(--line); }
+  .m-graph { margin-top:18px; padding:10px 18px; border:none; border-radius:10px; cursor:pointer;
+    background:var(--neuron); color:#fff; font-weight:600; font-size:13px; transition:.2s; }
+  .m-graph:hover { box-shadow:0 4px 16px rgba(91,141,239,.5); transform:translateY(-2px); }
+  .m-path { font-size:10px; padding:1px 7px; border-radius:9px; background:transparent; border:1px solid var(--line); color:var(--muted); cursor:pointer; margin-left:4px; }
+  .m-path:hover { color:var(--fg); border-color:var(--neuron); }
+  .m-pathfull { font-size:11px; color:var(--muted); background:#0e1016; padding:2px 8px; border-radius:6px; margin-left:4px; word-break:break-all; }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>🧠 Brain · Memory 시각화</h1>
-    <div class="stats" id="stats"></div>
+    <h1>🧠 Brain · Memory</h1>
+    <div class="tabs">
+      <div class="tab active" data-view="graphView">🕸 그래프</div>
+      <div class="tab" data-view="listView">📋 목록</div>
+      <div class="tab" data-view="dashView">📊 대시보드</div>
+    </div>
+    <div class="grow"></div>
+    <div class="live"><span class="pulse"></span><span id="livetxt">살아있는 기억</span></div>
   </header>
 
-  <aside>
-    <h2>검색</h2>
-    <input type="search" id="search" placeholder="라벨·태그 검색…">
-    <h2>종류 필터</h2>
-    <label class="filter"><input type="checkbox" data-kind="neuron" checked><span class="dot" style="background:var(--neuron)"></span>뉴런 (Brain)</label>
-    <label class="filter"><input type="checkbox" data-kind="memory" checked><span class="dot" style="background:var(--memory)"></span>기억 (Memory)</label>
-    <h2>엣지 (유기성)</h2>
-    <label class="filter"><input type="checkbox" data-edge="synapse" checked><span class="dot" style="background:#6b7488"></span>시냅스</label>
-    <label class="filter"><input type="checkbox" data-edge="mem_link" checked><span class="dot" style="background:var(--memlink)"></span>기억 링크 [[ ]]</label>
-    <label class="filter"><input type="checkbox" data-edge="link" checked><span class="dot" style="background:#4a5266"></span>뉴런 링크</label>
-    <h2>타임라인</h2>
-    <div id="timeline"></div>
-  </aside>
+  <main>
+    <!-- 그래프 -->
+    <div class="view active" id="graphView">
+      <div id="net"></div>
+      <div class="gsearch"><input type="search" id="gsearch" placeholder="🔍 라벨·태그 검색…"></div>
+      <div class="legend" id="legend"></div>
+      <div id="side"><div class="empty">점을 클릭하면<br>그 기억 내용이<br>여기 펼쳐집니다 ✨</div></div>
+    </div>
+    <!-- 목록 -->
+    <div class="view" id="listView">
+      <div class="list-toolbar" id="listFilters"></div>
+      <div class="cards" id="cards"></div>
+    </div>
+    <!-- 대시보드 -->
+    <div class="view" id="dashView"></div>
+  </main>
 
-  <div id="net"></div>
-
-  <div id="side"><div class="empty">노드를 클릭하면<br>내용이 여기 표시됩니다.</div></div>
+  <!-- 모달 -->
+  <div id="modal">
+    <div class="modal-card">
+      <button class="modal-x" onclick="closeModal()">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
 </div>
 
 <script>
-let RAW = null, network = null, allNodes = null, allEdges = null;
-let RAWMAP = {}, KINDMAP = {}, EDGEKIND = {};
+let RAW=null, network=null, allNodes=null, allEdges=null;
+let RAWMAP={}, KINDMAP={}, EDGEKIND={};
+const COLOR={ neuron:'#5b8def', memory:'#e0a34a' };
 
-const COLOR = { neuron:'#5b8def', memory:'#e0a34a' };
-const EDGE_COLOR = { synapse:'#4a5266', mem_link:'#7a5af0', link:'#3a4256' };
+fetch('data.json?_='+Date.now()).then(r=>r.json()).then(d=>{RAW=d;init();})
+  .catch(e=>{document.getElementById('net').innerHTML='<div style="color:#e0a34a;padding:40px">data.json 로드 실패 — http 서버로 띄워야 합니다.<br>'+e+'</div>';});
 
-fetch('data.json').then(r => r.json()).then(d => { RAW = d; init(); })
-  .catch(e => { document.getElementById('net').innerHTML =
-    '<div style="color:#e0a34a;padding:40px">data.json을 못 읽었습니다. python -m http.server 로 띄워야 합니다.<br>'+e+'</div>'; });
-
-function init() {
-  const s = RAW.stats;
-  document.getElementById('stats').innerHTML =
-    `뉴런 <b>${s.neurons}</b> · 기억 <b>${s.memories}</b> · 시냅스 <b>${s.synapses}</b> · 기억링크 <b>${s.mem_links}</b> · 총엣지 <b>${s.total_edges}</b>`;
-
-  // 원본 데이터는 DataSet 밖 Map에 보관 (vis 노드엔 표시용 속성만 — 큰 객체 박지 않음)
-  RAWMAP = {}; KINDMAP = {};
-  RAW.nodes.forEach(n => { RAWMAP[n.id] = n; KINDMAP[n.id] = n.kind; });
-
-  // 초기 좌표를 원형으로 미리 부여 — physics가 안 끝나도/꺼져도 노드가 펼쳐져 보인다.
-  const N = RAW.nodes.length, R = 60 + N * 6;
-  allNodes = new vis.DataSet(RAW.nodes.map((n, i) => {
-    const a = (i / N) * Math.PI * 2;
-    return {
-      id: n.id, label: n.label,
-      x: Math.round(Math.cos(a) * R), y: Math.round(Math.sin(a) * R),
-      color: { background: COLOR[n.kind], border:'#aab4cc', highlight:{background:'#fff',border:COLOR[n.kind]} },
-      size: 10 + (parseFloat(n.emotional_weight)||0.5) * 14,
-      font: { color:'#cfd6e4', size:11 },
-      shape: n.kind === 'memory' ? 'diamond' : 'dot',
-    };
+function init(){
+  buildGraph();
+  buildList();
+  buildDash();
+  // 탭 전환
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.view).classList.add('active');
+    if(t.dataset.view==='graphView' && network){ setTimeout(()=>network.fit({animation:true}),50); }
+    if(t.dataset.view==='dashView'){ animateBars(); }
   }));
-  EDGEKIND = {};
-  allEdges = new vis.DataSet(RAW.edges.map((e,i) => {
-    EDGEKIND[i] = e.kind;
-    return { id: i, from: e.source, to: e.target,
-      color: { color: EDGE_COLOR[e.kind]||'#3a4256', opacity:0.6 },
-      width: 0.5 + (e.weight||0.5) * 2 };
-  }));
-
-  network = new vis.Network(document.getElementById('net'),
-    { nodes: allNodes, edges: allEdges },
-    { physics: { enabled:true, stabilization:{iterations:150,fit:true},
-        barnesHut:{gravitationalConstant:-8000, springLength:140, springConstant:0.04, damping:0.4} },
-      interaction: { hover:true, tooltipDelay:120 },
-      nodes: { borderWidth:2 } });
-
-  // stabilize 끝나면 physics를 끄고(고정) 화면에 맞춤. 안 끝나도 setTimeout이 보장.
-  network.once('stabilizationIterationsDone', () => {
-    network.setOptions({ physics:{ enabled:false } });
-    network.fit({ animation:false });
-  });
-  setTimeout(() => { network.setOptions({ physics:{ enabled:false } }); network.fit({ animation:false }); }, 3000);
-
-  network.on('click', p => {
-    if (p.nodes.length) showNode(RAWMAP[p.nodes[0]]);
-    else document.getElementById('side').innerHTML = '<div class="empty">노드를 클릭하면<br>내용이 여기 표시됩니다.</div>';
-  });
-
-  // 타임라인
-  document.getElementById('timeline').innerHTML = (RAW.timeline||[]).map(t =>
-    `<div class="tl-item"><span class="tl-date">${t.date||'—'}</span> ${t.label}</div>`).join('') || '<div class="kv">기록 없음</div>';
-
-  // 필터 바인딩
-  document.querySelectorAll('[data-kind]').forEach(c => c.addEventListener('change', applyFilters));
-  document.querySelectorAll('[data-edge]').forEach(c => c.addEventListener('change', applyFilters));
-  document.getElementById('search').addEventListener('input', applyFilters);
+  document.getElementById('livetxt').textContent =
+    `뉴런 ${RAW.stats.neurons} · 기억 ${RAW.stats.memories} · 연결 ${RAW.stats.total_edges}`;
+  // 모달 닫기 — 배경 클릭 / ESC
+  document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 }
 
-function applyFilters() {
-  const kinds = new Set([...document.querySelectorAll('[data-kind]:checked')].map(c=>c.dataset.kind));
-  const edgeKinds = new Set([...document.querySelectorAll('[data-edge]:checked')].map(c=>c.dataset.edge));
-  const q = document.getElementById('search').value.trim().toLowerCase();
+// 경로 인코딩된 프로젝트 키 → 읽는 이름.
+//  -Users-ws-monggle-vibe-coding-rules      → monggle-vibe-coding-rules
+//  -Users-ws-AndroidStudioProjects-PassCloudNative → PassCloudNative
+//  -Volumes-ACASIS-EC-6608Air-Media-TopDrawer → TopDrawer
+function projName(raw){
+  if(!raw) return '';
+  let s=String(raw).replace(/^-+/,'');
+  // 상위 컨테이너 경로를 걷어낸다. 가장 흔한 접두부터 잘라낸다.
+  const prefixes=[
+    /^Users-[^-]+-AndroidStudioProjects-/,   // ~/AndroidStudioProjects/<proj>
+    /^Users-[^-]+-Documents-/,
+    /^Users-[^-]+-/,                          // ~/<proj>  (proj에 하이픈 있어도 나머지 전체)
+    /^Volumes-.*-Media-/,                     // 외장 …/Media/<proj>
+    /^Volumes-[^-]+-/,
+    /^private-tmp-/, /^tmp-/,
+  ];
+  for(const re of prefixes){ if(re.test(s)){ s=s.replace(re,''); break; } }
+  return s || raw;
+}
 
-  const hideN = [], showN = [];
-  allNodes.forEach(n => {
-    const r = RAWMAP[n.id];
-    let vis_ = kinds.has(KINDMAP[n.id]);
-    if (vis_ && q) {
-      const hay = (r.label + ' ' + (r.tags||[]).join(' ') + ' ' + (r.description||'')).toLowerCase();
-      vis_ = hay.includes(q);
-    }
-    (vis_ ? showN : hideN).push(n.id);
+/* ============ 그래프 ============ */
+const ECOLOR={ synapse:'#3b465c', mem_link:'#a07af0', link:'#39455c' };
+function buildGraph(){
+  const N=RAW.nodes.length, R=80+N*7;
+  allNodes=new vis.DataSet(RAW.nodes.map((n,i)=>{
+    RAWMAP[n.id]=n; KINDMAP[n.id]=n.kind;
+    const a=(i/N)*Math.PI*2;
+    return { id:n.id, label:n.label,
+      x:Math.round(Math.cos(a)*R), y:Math.round(Math.sin(a)*R),
+      color:{ background:COLOR[n.kind], border:'#cdd6ea', highlight:{background:'#fff',border:COLOR[n.kind]} },
+      size:11+(parseFloat(n.emotional_weight)||0.5)*16,
+      font:{ color:'#dfe5f0', size:13, strokeWidth:3, strokeColor:'#0e1016' },
+      shape:n.kind==='memory'?'diamond':'dot' };
+  }));
+  allEdges=new vis.DataSet(RAW.edges.map((e,i)=>{
+    EDGEKIND[i]=e.kind;
+    return { id:i, from:e.source, to:e.target,
+      color:{ color:ECOLOR[e.kind]||'#39455c', opacity:0.55, highlight:'#42d6a4' },
+      width:0.5+(e.weight||0.5)*2.5,
+      smooth:{ enabled:true, type:'continuous' } };
+  }));
+  network=new vis.Network(document.getElementById('net'),{nodes:allNodes,edges:allEdges},{
+    physics:{ enabled:true, stabilization:{iterations:160,fit:true},
+      barnesHut:{gravitationalConstant:-9000,springLength:150,springConstant:0.04,damping:0.4} },
+    interaction:{ hover:true, tooltipDelay:150 },
+    nodes:{ borderWidth:2 } });
+  network.once('stabilizationIterationsDone',()=>{ network.setOptions({physics:{enabled:false}}); network.fit({animation:false}); startFlow(); });
+  setTimeout(()=>{ network.setOptions({physics:{enabled:false}}); network.fit({animation:false}); startFlow(); },3200);
+
+  network.on('click',p=>{ if(p.nodes.length) showNode(RAWMAP[p.nodes[0]]); });
+  network.on('hoverNode',()=>document.body.style.cursor='pointer');
+  network.on('blurNode',()=>document.body.style.cursor='default');
+
+  // 범례 (클릭 토글)
+  const lg=document.getElementById('legend');
+  lg.innerHTML=`
+    <div data-k="neuron"><span class="dot" style="background:${COLOR.neuron}"></span>뉴런 (Brain)</div>
+    <div data-k="memory"><span class="dot" style="background:${COLOR.memory}"></span>기억 (Memory)</div>
+    <div data-e="synapse"><span class="dot" style="background:#3b465c"></span>시냅스</div>
+    <div data-e="mem_link"><span class="dot" style="background:${ECOLOR.mem_link}"></span>기억 링크</div>`;
+  lg.querySelectorAll('[data-k],[data-e]').forEach(el=>el.addEventListener('click',()=>{ el.classList.toggle('off'); applyGraphFilter(); }));
+  document.getElementById('gsearch').addEventListener('input',applyGraphFilter);
+}
+
+// 시냅스 위로 흐르는 점 애니메이션
+let flowTimer=null;
+function startFlow(){
+  if(flowTimer) clearInterval(flowTimer);
+  // 가중치 높은 엣지 일부만 흐르게 (성능)
+  const flowing = RAW.edges.map((e,i)=>({i,e})).filter(x=>x.e.kind==='synapse').slice(0,40);
+  let phase=0;
+  flowTimer=setInterval(()=>{
+    if(!document.getElementById('graphView').classList.contains('active')) return;
+    phase=(phase+0.04)%1;
+    const upd=flowing.map(({i})=>({ id:i,
+      color:{ color:ECOLOR.synapse, opacity:0.35+0.4*Math.abs(Math.sin((phase)*Math.PI*2)) } }));
+    try{ allEdges.update(upd); }catch(_){}
+  },60);
+}
+
+function applyGraphFilter(){
+  const lg=document.getElementById('legend');
+  const offK=new Set([...lg.querySelectorAll('[data-k].off')].map(e=>e.dataset.k));
+  const offE=new Set([...lg.querySelectorAll('[data-e].off')].map(e=>e.dataset.e));
+  const q=document.getElementById('gsearch').value.trim().toLowerCase();
+  const vis_=new Set();
+  allNodes.forEach(n=>{
+    const r=RAWMAP[n.id]; let ok=!offK.has(KINDMAP[n.id]);
+    if(ok&&q){ ok=(r.label+' '+(r.tags||[]).join(' ')+' '+(r.description||'')).toLowerCase().includes(q); }
+    allNodes.update({id:n.id,hidden:!ok}); if(ok)vis_.add(n.id);
   });
-  allNodes.update([...hideN.map(id=>({id,hidden:true})), ...showN.map(id=>({id,hidden:false}))]);
-
-  const visibleIds = new Set(showN);
-  allEdges.forEach(e => {
-    const ok = edgeKinds.has(EDGEKIND[e.id]) && visibleIds.has(e.from) && visibleIds.has(e.to);
-    allEdges.update({ id:e.id, hidden:!ok });
+  allEdges.forEach(e=>{
+    const ok=!offE.has(EDGEKIND[e.id])&&vis_.has(e.from)&&vis_.has(e.to);
+    allEdges.update({id:e.id,hidden:!ok});
   });
 }
 
-function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function showNode(n){
+  const tags=(n.tags||[]).map(t=>`<span style="display:inline-block;font-size:11px;padding:2px 9px;border-radius:11px;background:#0e1016;border:1px solid var(--line);margin:2px 4px 2px 0">${esc(t)}</span>`).join('');
+  document.getElementById('side').innerHTML=`
+    <div style="font-size:12px;color:var(--muted)">${n.kind==='memory'?'🟠 기억 (Memory)':'🔵 뉴런 (Brain)'} · ${esc(n.type||n.category)}</div>
+    <div style="font-size:17px;font-weight:700;margin:6px 0 12px;word-break:break-word">${esc(n.label)}</div>
+    ${n.project?`<div style="font-size:12px;color:var(--muted)">📁 <b style="color:var(--fg)">${esc(projName(n.project))}</b> <button class="m-path" onclick="this.nextElementSibling.style.display='block';this.style.display='none'">📂 위치</button><code class="m-pathfull" style="display:none">${esc(n.project)}</code></div>`:''}
+    ${n.created?`<div style="font-size:12px;color:var(--muted)">🕐 ${esc(n.created)}</div>`:''}
+    ${n.emotional_weight?`<div style="font-size:12px;color:var(--muted)">💓 가중치 ${n.emotional_weight}</div>`:''}
+    ${n.description?`<div style="margin-top:8px;font-size:13px;color:#cfd6e4">${esc(n.description)}</div>`:''}
+    ${tags?`<div style="margin-top:10px">${tags}</div>`:''}
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);white-space:pre-wrap;word-break:break-word;color:#c7cdda;font-size:13px">${esc(n.body)||'(본문 없음)'}</div>`;
+}
 
-function showNode(n) {
-  const tags = (n.tags||[]).map(t=>`<span class="badge">${esc(t)}</span>`).join('');
-  const kindLabel = n.kind==='memory' ? '🟠 기억 (Memory)' : '🔵 뉴런 (Brain)';
-  document.getElementById('side').innerHTML = `
-    <div class="kv">${kindLabel} · ${esc(n.type||n.category)}</div>
-    <div class="node-title">${esc(n.label)}</div>
-    ${n.project ? `<div class="kv">📁 <b>${esc(n.project)}</b></div>`:''}
-    ${n.created ? `<div class="kv">🕐 ${esc(n.created)}</div>`:''}
-    ${n.access_count && n.access_count!=='0' ? `<div class="kv">👁 접근 ${esc(n.access_count)}회</div>`:''}
-    ${n.emotional_weight ? `<div class="kv">💓 감정가중치 ${n.emotional_weight}</div>`:''}
-    ${n.description ? `<div class="kv">${esc(n.description)}</div>`:''}
-    ${tags ? `<div style="margin-top:8px">${tags}</div>`:''}
-    <div class="body">${esc(n.body)||'(본문 없음)'}</div>`;
+/* ============ 목록 ============ */
+function buildList(){
+  const cats=[...new Set(RAW.nodes.map(n=>n.category))];
+  const ft=document.getElementById('listFilters');
+  ft.innerHTML=`<div class="chip active" data-c="*">전체 ${RAW.nodes.length}</div>`+
+    cats.map(c=>`<div class="chip" data-c="${c}">${c} ${RAW.nodes.filter(n=>n.category===c).length}</div>`).join('');
+  ft.querySelectorAll('.chip').forEach(ch=>ch.addEventListener('click',()=>{
+    ft.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); ch.classList.add('active');
+    renderCards(ch.dataset.c);
+  }));
+  renderCards('*');
+}
+function renderCards(cat){
+  const list=RAW.nodes.filter(n=>cat==='*'||n.category===cat);
+  document.getElementById('cards').innerHTML=list.map((n,i)=>`
+    <div class="card" style="animation-delay:${Math.min(i*20,600)}ms" data-id="${esc(n.id)}">
+      <div class="kind" style="color:${n.kind==='memory'?'var(--memory)':'var(--neuron)'}">${n.kind==='memory'?'🟠 MEMORY':'🔵 NEURON'} · ${esc(n.type||n.category)}</div>
+      <div class="title">${esc(n.label)}</div>
+      <div class="body">${esc(n.description||n.body||'(내용 없음)')}</div>
+      <div class="meta">${n.project?`<span title="${esc(n.project)}">📁 ${esc(projName(n.project))}</span>`:''}${n.created?'<span>🕐 '+esc(n.created.slice(0,10))+'</span>':''}${(n.tags||[]).slice(0,3).map(t=>'<span>#'+esc(t)+'</span>').join('')}</div>
+    </div>`).join('') || '<div style="color:var(--muted)">이 분류엔 항목이 없습니다.</div>';
+  document.querySelectorAll('.card').forEach(c=>c.addEventListener('click',()=>{
+    openModal(RAWMAP[c.dataset.id]);
+  }));
+}
+
+/* ============ 모달 ============ */
+function openModal(n){
+  if(!n) return;
+  const tags=(n.tags||[]).map(t=>`<span class="mtag">#${esc(t)}</span>`).join('');
+  document.getElementById('modalBody').innerHTML=`
+    <div class="m-kind" style="color:${n.kind==='memory'?'var(--memory)':'var(--neuron)'}">
+      ${n.kind==='memory'?'🟠 기억 (Memory)':'🔵 뉴런 (Brain)'} · ${esc(n.type||n.category)}</div>
+    <h2 class="m-title">${esc(n.label)}</h2>
+    <div class="m-meta">
+      ${n.project?`<span>📁 <b>${esc(projName(n.project))}</b> <button class="m-path" onclick="this.nextElementSibling.style.display='inline';this.style.display='none'">📂 위치</button><code class="m-pathfull" style="display:none">${esc(n.project)}</code></span>`:''}
+      ${n.created?`<span>🕐 ${esc(n.created)}</span>`:''}
+      ${n.emotional_weight?`<span>💓 가중치 ${n.emotional_weight}</span>`:''}
+      ${n.access_count&&n.access_count!=='0'?`<span>👁 ${esc(n.access_count)}회</span>`:''}
+    </div>
+    ${n.description?`<div class="m-desc">${esc(n.description)}</div>`:''}
+    ${tags?`<div class="m-tags">${tags}</div>`:''}
+    <div class="m-body">${esc(n.body)||'(본문 없음)'}</div>
+    <button class="m-graph" data-id="${esc(n.id)}">🕸 그래프에서 보기 →</button>`;
+  document.getElementById('modal').classList.add('open');
+  document.querySelector('.m-graph')?.addEventListener('click',e=>{
+    closeModal();
+    document.querySelector('.tab[data-view="graphView"]').click();
+    const id=e.target.dataset.id; showNode(RAWMAP[id]);
+    if(network){ network.selectNodes([id]); network.focus(id,{scale:1.3,animation:true}); }
+  });
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+
+/* ============ 대시보드 ============ */
+let dashBuilt=false;
+function buildDash(){
+  const s=RAW.stats;
+  const cats={}; RAW.nodes.forEach(n=>cats[n.category]=(cats[n.category]||0)+1);
+  const tags={}; RAW.nodes.forEach(n=>(n.tags||[]).forEach(t=>tags[t]=(tags[t]||0)+1));
+  const topTags=Object.entries(tags).sort((a,b)=>b[1]-a[1]).slice(0,30);
+  const projs={}; RAW.nodes.forEach(n=>{ if(n.project) projs[n.project]=(projs[n.project]||0)+1; });
+  const maxTag=Math.max(...topTags.map(t=>t[1]),1);
+
+  const catColors=['#5b8def','#e0a34a','#a07af0','#42d6a4','#ef6b8d','#f0c453','#6bd0ef'];
+  const catRows=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  const maxCat=Math.max(...catRows.map(c=>c[1]),1);
+
+  document.getElementById('dashView').innerHTML=`
+    <div class="bignums">
+      <div class="bignum"><div class="n" data-count="${s.neurons}" style="color:var(--neuron)">0</div><div class="l">🔵 뉴런 (Brain)</div></div>
+      <div class="bignum"><div class="n" data-count="${s.memories}" style="color:var(--memory)">0</div><div class="l">🟠 기억 (Memory)</div></div>
+      <div class="bignum"><div class="n" data-count="${s.synapses}" style="color:var(--accent)">0</div><div class="l">🔗 시냅스 연결</div></div>
+      <div class="bignum"><div class="n" data-count="${s.total_edges}" style="color:var(--memlink)">0</div><div class="l">🕸 총 유기성</div></div>
+    </div>
+    <div class="grid">
+      <div class="panel"><h3>종류별 분포</h3>
+        ${catRows.map((c,i)=>`<div class="bar"><div class="lbl">${esc(c[0])}</div><div class="track"><div class="fill" data-w="${c[1]/maxCat*100}" style="background:${catColors[i%catColors.length]}"></div></div><div class="val">${c[1]}</div></div>`).join('')}
+      </div>
+      <div class="panel"><h3>프로젝트별 기억</h3>
+        ${Object.entries(projs).sort((a,b)=>b[1]-a[1]).map((p,i)=>`<div class="bar"><div class="lbl" title="${esc(p[0])}">${esc(projName(p[0]))}</div><div class="track"><div class="fill" data-w="${p[1]/Math.max(...Object.values(projs))*100}" style="background:${catColors[i%catColors.length]}"></div></div><div class="val">${p[1]}</div></div>`).join('')||'<div style="color:var(--muted)">없음</div>'}
+      </div>
+      <div class="panel" style="grid-column:1/-1"><h3>자주 쓰인 태그 (Top 30)</h3>
+        <div class="cloud">${topTags.map(t=>`<span style="font-size:${12+t[1]/maxTag*14}px;color:${t[1]/maxTag>0.6?'var(--neuron)':'var(--fg)'}">${esc(t[0])} <b style="color:var(--muted)">${t[1]}</b></span>`).join('')}</div>
+      </div>
+    </div>`;
+}
+function animateBars(){
+  document.querySelectorAll('#dashView .fill').forEach(f=>{ requestAnimationFrame(()=>f.style.width=f.dataset.w+'%'); });
+  document.querySelectorAll('#dashView .n[data-count]').forEach(el=>{
+    const target=+el.dataset.count; let cur=0; const step=Math.max(1,Math.round(target/30));
+    const t=setInterval(()=>{ cur+=step; if(cur>=target){cur=target;clearInterval(t);} el.textContent=cur; },28);
+  });
 }
 </script>
 </body>
