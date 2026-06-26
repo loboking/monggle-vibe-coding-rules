@@ -493,6 +493,13 @@ COMPLETION_EOF
         fi
     done
 
+    # PRD 게이트 훅 (team 모드에서 PRD 없이 코드 작업 차단). PreToolUse(Write|Edit)에 등록.
+    if [ -f "$SCRIPT_DIR/.claude/hooks/prd-gate.sh" ]; then
+        cp "$SCRIPT_DIR/.claude/hooks/prd-gate.sh" "$global_hooks/prd-gate.sh"
+        chmod +x "$global_hooks/prd-gate.sh"
+        print_success "PRD gate hook installed (team 모드 PRD 강제)"
+    fi
+
     # lib도 전역으로 복사
     print_step "Installing lib system to global..."
     local global_lib="$HOME/.claude/lib"

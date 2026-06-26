@@ -19,11 +19,23 @@
 
 ## Configuration
 
-모드 설정은 `.claude/config/mode.conf`에 저장됩니다:
+모드 설정은 프로젝트 루트의 `monggle.config.yaml`에 저장됩니다 (git 추적 → 팀 공유):
 
-```ini
-WORK_MODE=solo
+```yaml
+mode: team
+prd_required: true   # team이면 자동 true
 ```
+
+### Team 모드의 실제 강제 (PRD Gate)
+
+`team` 모드에서는 **PRD 없이 코드 파일(Write/Edit)을 만들 수 없습니다.**
+`prd-gate.sh`(PreToolUse 훅)가 이를 강제합니다:
+
+- `prd/`에 유효한 PRD(요구사항·수용기준 섹션 포함)가 없으면 코드 Write/Edit를 **차단**
+- 예외(통과): `.md` 문서, `prd/`·`docs/`·`.claude/` 경로, 설정/JSON/YAML
+- 우회: `/quick`(핫픽스), `BRAIN_PRD_GATE=off`(이번만), `/mode solo`(전환)
+
+> `solo` 모드는 게이트가 비활성 — 자유롭게 작업.
 
 또는 `/init` 명령어로 설정할 수 있습니다:
 

@@ -30,3 +30,4 @@ agents/*
 .claude/.prd-session.json
 .claude/session/
 .claude/skills/brain-web/data.json
+monggle.config.yaml
