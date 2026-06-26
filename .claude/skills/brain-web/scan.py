@@ -77,7 +77,20 @@ def short(s, n=160):
     s = re.sub(r"\s+", " ", s).strip()
     return s[:n] + ("…" if len(s) > n else "")
 
-def scan_neurons():
+def load_index_neurons():
+    """synapses/index.json의 .neurons — access_count·last_accessed의 단일 진실원천.
+    회상 강화(brain_query_by_tags)가 여기에 쌓이므로 .md frontmatter보다 우선한다."""
+    p = BRAIN / "synapses" / "index.json"
+    if not p.exists():
+        return {}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data.get("neurons", {}) if isinstance(data, dict) else {}
+
+def scan_neurons(index_neurons=None):
+    index_neurons = index_neurons or {}
     nodes, edges = [], []
     for path in glob.glob(str(BRAIN / "neurons" / "*" / "*.md")):
         try:
@@ -91,10 +104,14 @@ def scan_neurons():
             if line.startswith("# "):
                 title = line[2:].strip(); break
         cat = Path(path).parent.name
+        # index.json(.neurons[id])이 access·last_accessed의 진실원천. 있으면 그 값을 우선.
+        idx = index_neurons.get(nid, {})
         try:
-            ew = float(fm.get("emotional_weight", 0.5))
+            ew = float(idx.get("emotional_weight", fm.get("emotional_weight", 0.5)))
         except (ValueError, TypeError):
             ew = 0.5
+        access = idx.get("access_count", fm.get("access_count", 0))
+        last_acc = idx.get("last_accessed") or fm.get("last_accessed") or fm.get("created", "")
         nodes.append({
             "id": nid, "kind": "neuron", "category": cat,
             "type": fm.get("type", cat),
@@ -102,8 +119,8 @@ def scan_neurons():
             "tags": fm.get("tags", []) if isinstance(fm.get("tags"), list) else [],
             "emotional_weight": ew,
             "created": fm.get("created", ""),
-            "last_accessed": fm.get("last_accessed", fm.get("created", "")),
-            "access_count": fm.get("access_count", "0"),
+            "last_accessed": last_acc,
+            "access_count": access,
             "body": short(body, 400),
         })
         links = fm.get("links", [])
@@ -218,7 +235,7 @@ def apply_retention(nodes, now):
 
 def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else (Path(__file__).parent / "data.json")
-    n_nodes, n_edges = scan_neurons()
+    n_nodes, n_edges = scan_neurons(load_index_neurons())
     m_nodes, m_edges = scan_memory()
     s_edges = scan_synapses()
     nodes = n_nodes + m_nodes

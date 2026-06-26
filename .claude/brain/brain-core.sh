@@ -86,46 +86,17 @@ brain_extract_keywords() {
     local text="$1"
     local max="${2:-4}"
     # 불용어/시스템토큰 (공백 구분, 한 줄). 회상·저장 양쪽 공통.
-    # 한국어 불용어는 조사제거 후 어근형도 포함(예: '예전에'→'예전').
-    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거 중인데 예전 비슷 고치 위해 대한 같은 어디 어떻게 무엇 흐름 추가 안함 즉시 필요 정리 항목마다 한시간 작업 내용 관련 응답 조정 발생 진행 확인 방법 부분 경우 응답시"
+    local STOP="tool tools toolu tooluse use used using id ids task tasks notification result results output input system command hook hooks the and for with that this you your are was were has have had not but can will would should could just 그리고 그래서 하지만 그런데 이거 저거 그거 우리 너무 지금 이제 그럼 근데 해줘 해서 했어 한거 인거"
     printf '%s' "$text" \
         | tr '[:upper:]' '[:lower:]' \
         | tr -cs '[:alnum:]가-힣' '\n' \
         | awk -v stop="$STOP" '
-            BEGIN {
-                n=split(stop, a, " "); for(i=1;i<=n;i++) if(a[i]!="") sw[a[i]]=1
-                # 한국어 조사/어미 접미사 (긴 것 우선). UTF-8 한글=3바이트.
-                # 다음절 접미사(6바이트+)는 외래어 끝음절과 거의 안 겹쳐 안전.
-                ns=split("으로부터 에서부터 에게서 으로서 으로써 하였다 였다 에서 에게 부터 까지 한테 으로 처럼 보다 이라 라고 하여 하며 하고 해서 하는 했다 한다 하기 되어 되는 됐다", suf, " ")
-                # 단음절 조사(3바이트): 외래어 끝음절(와이파'이'·매크'로')과 충돌하므로
-                # 어근 3음절(9바이트)+ 일 때만 제거. '이/로'는 충돌 최다라 더 보수적.
-                ns1=split("가 을 를 은 는 의 에 도 만 나 와 과", suf1, " ")
-            }
-            # 한글 토큰 끝의 조사/어미 1회 제거. 과도제거 차단:
-            #   - 다음절 접미사: 어근 바이트>=6(한글2자) 보존.
-            #   - 단음절 조사: 어근 바이트>=6 보존(현행 유지, '이/로'는 목록서 제외).
-            function strip_josa(w,   i,s,blen,wlen) {
-                if (w !~ /[가-힣]/) return w
-                wlen=length(w)
-                # 1) 다음절 접미사 우선 (긴 매칭)
-                for(i=1;i<=ns;i++){
-                    s=suf[i]; blen=length(s)
-                    if (wlen-blen >= 6 && substr(w, wlen-blen+1)==s) return substr(w, 1, wlen-blen)
-                }
-                # 2) 단음절 조사 ('이/로' 제외 — 외래어 충돌)
-                for(i=1;i<=ns1;i++){
-                    s=suf1[i]; blen=length(s)
-                    if (wlen-blen >= 6 && substr(w, wlen-blen+1)==s) return substr(w, 1, wlen-blen)
-                }
-                return w
-            }
+            BEGIN { n=split(stop, a, " "); for(i=1;i<=n;i++) if(a[i]!="") sw[a[i]]=1 }
             {
                 w=$0
                 # 길이 필터: 한글 포함이면 2자+(바이트 6+), 순영숫자면 3자+
-                if (w ~ /[가-힣]/) { if (length(w) < 6) next }
+                if (w ~ /[가-힣]/) { if (length(w) < 2) next }
                 else { if (length(w) < 3) next }
-                w=strip_josa(w)
-                if (length(w) < 2) next
                 if (w in sw) next
                 if (!(w in seen)) { seen[w]=1; order[++c]=w }
                 cnt[w]++
@@ -232,19 +203,6 @@ brain_create_neuron() {
     local content="$3"
     local tags="${4:-}"
     local emotion="${5:-normal}"
-
-    # 본문 키워드 자동흡수: 본문(content)에서 의미 키워드를 추출해 태그에 병합.
-    # 영문 태그만 들어와도 한글 본문어가 인덱스 tags에 포함되어 한글 질의 진입 가능.
-    # (조사제거된 어근형 — brain_extract_keywords가 처리). 중복은 정규화 단계에서 제거.
-    if [[ -n "$content" ]]; then
-        local _body_kw
-        _body_kw=$(brain_extract_keywords "$content" "${BRAIN_BODY_TAG_MAX:-8}" 2>/dev/null || echo "")
-        if [[ -n "$_body_kw" ]]; then
-            [[ -n "$tags" ]] && tags="${tags},${_body_kw}" || tags="$_body_kw"
-            # 콤마 중복/공백 정규화 + 태그 dedup (순서 보존)
-            tags=$(printf '%s' "$tags" | tr ',' '\n' | sed 's/^ *//;s/ *$//;/^$/d' | awk '!seen[$0]++' | paste -sd ',' -)
-        fi
-    fi
 
     # 중복 저장 방지(dedup): 같은 type 에 동일 title 의 뉴런이 최근 DEDUP_WINDOW 초
     # 내에 있으면 새로 만들지 않고 기존 id 반환. 훅 이중 등록/재발화 등 어떤 경로로
@@ -421,9 +379,7 @@ brain_strengthen_synapse() {
 brain_link_to_related() {
     local new_id="$1"
     local MAX_LINKS="${2:-5}"
-    # MIN_OVERLAP 1: 의미태그 1개만 겹쳐도 연결(연상회상 강화).
-    # MAX_LINKS 상한 + 대칭 trim 으로 허브 과연결은 별도 통제됨.
-    local MIN_OVERLAP="${3:-1}"
+    local MIN_OVERLAP="${3:-2}"
 
     [[ -z "$new_id" ]] && return 0
     [[ -f "$SYNAPSES_FILE" ]] || return 0
@@ -582,36 +538,54 @@ brain_query_by_tags() {
 
     local tmp_file="${SYNAPSES_FILE}.tmp"
 
-    # 태그 배열로 변환 (질의 태그 lowercase 정규화 — 대소문자 무관 매칭)
-    local search_tags="[$(echo "$tags" | tr ',' '\n' | tr '[:upper:]' '[:lower:]' | sed 's/^ *//;s/ *$//;/^$/d; s/\(.*\)/"\1"/' | paste -sd ',' -)]"
+    # 태그 배열로 변환
+    local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
 
     # 매칭: 검색 태그와 뉴런 태그의 '교집합'이 1개 이상이면 회상(OR).
     #   - 겹치는 태그 수(overlap)가 많을수록, 감정가중치가 높을수록 상위.
     #   - 흔한 공통 태그('project', 프로젝트명)만 겹치는 경우를 피하려면
     #     overlap >= 2 를 우선하되, 1개라도 의미태그면 포함.
-    jq -r --argjson tags "$search_tags" \
-       --argjson limit "$limit" \
-       --argjson min_overlap "$min_overlap" \
-       '
-       # 흔한 공통 태그(거의 모든 뉴런에 붙는 것)는 매칭 점수에서 제외
+    # 회상 랭킹 공통 jq (출력용/id추출용 동일 정렬)
+    local rank_jq='
        ($tags - ["project"]) as $sig |
        .neurons |
        to_entries
-       # 뉴런 태그도 lowercase 정규화 (저장 측 대소문자 무관)
-       | map(.ntags = ((.value.tags // []) | map(ascii_downcase)))
-       # overlap: 질의태그 q 중, 어떤 저장태그 t 와든 매칭되는 개수
-       #   - q 길이 3+(영문)/2+(한글): 양방향 substring (부분일치)
-       #   - q 짧음: 정확일치만 (과매칭 가드)
-       | map(.overlap = ([ $sig[] as $q
-             | (if (($q|test("[가-힣]")) and ($q|length)>=2) or (($q|length)>=3) then "sub" else "exact" end) as $mode
-             | select(any(.ntags[]; . as $t |
-                 if $mode=="sub" then ($t|contains($q)) or ($q|contains($t)) else ($t==$q) end)) ] | length))
+       | map(. + {overlap: (.value.tags - (.value.tags - $sig) | length)})
        | map(select(.overlap >= $min_overlap))
-       | sort_by(-(.overlap), -(.value.emotional_weight))
+       | sort_by(-(.overlap), -(.value.emotional_weight))'
+
+    # 사람이 읽는 회상 결과 출력 (형식 불변 — prompt-recall이 그대로 주입)
+    jq -r --argjson tags "$search_tags" --argjson min_overlap "$min_overlap" \
+       "$rank_jq"'
        | .[]
-       | {id: .key, type: .value.type, weight: .value.emotional_weight, tags: .value.tags, overlap: .overlap}
-       | "- \(.id) (\(.type)): \(.tags | join(", ")) (weight: \(.weight), match: \(.overlap))"
+       | "- \(.key) (\(.value.type)): \(.value.tags | join(", ")) (weight: \(.value.emotional_weight), match: \(.overlap))"
        ' "$SYNAPSES_FILE" 2>/dev/null | head -n "$limit"
+
+    # --- 회상 강화(reinforcement): 회상된 뉴런의 access_count++ / last_accessed 갱신 ---
+    # "회상됨 = 다시 떠올림 = 강화" → 망각곡선 강도 S가 커져 천천히 잊힘.
+    # 디바운스: last_accessed가 최근(BRAIN_RECALL_DEBOUNCE초 이내)이면 재증가 안 함(매 메시지 폭등 방지).
+    local recalled_ids
+    recalled_ids="$(jq -r --argjson tags "$search_tags" --argjson min_overlap "$min_overlap" \
+       "$rank_jq"' | .[] | .key' "$SYNAPSES_FILE" 2>/dev/null | head -n "$limit")"
+    [[ -z "$recalled_ids" ]] && return 0
+
+    local ids_json
+    ids_json="$(printf '%s\n' $recalled_ids | jq -R . | jq -sc .)"
+    local debounce="${BRAIN_RECALL_DEBOUNCE:-3600}"   # 기본 1시간
+    if jq --argjson ids "$ids_json" --argjson deb "$debounce" '
+         (now) as $n |
+         reduce $ids[] as $id (.;
+           if (.neurons[$id]) and
+              (( $n - ((.neurons[$id].last_accessed // "1970-01-01T00:00:00Z") | fromdateiso8601) ) >= $deb)
+           then .neurons[$id].access_count = ((.neurons[$id].access_count // 0) + 1)
+              | .neurons[$id].last_accessed = ($n | todate)
+           else . end)
+       ' "$SYNAPSES_FILE" > "$tmp_file" 2>/dev/null; then
+        brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" 2>/dev/null || rm -f "$tmp_file"
+    else
+        rm -f "$tmp_file"
+    fi
+    return 0
 }
 
 # 태그 검색 + 시냅스 확장 회상 (Brain v2)
@@ -624,63 +598,42 @@ brain_query_with_links() {
     local tags="$1"
     local limit="${2:-10}"
     local min_overlap="${3:-1}"
-    # linked 표면화 게이트: 이 weight 미만 + 질의무관 연결은 노이즈로 컷.
-    # 0.45: 본문키워드 흡수로 생긴 약한 태그연결(w0.4, 흔한 본문어 공유)은 컷,
-    #       진짜 태그연결(w0.5+)·질의관련 연결은 보존.
-    local floor="${BRAIN_LINK_SURFACE_FLOOR:-0.45}"
 
-    local search_tags="[$(echo "$tags" | tr ',' '\n' | tr '[:upper:]' '[:lower:]' | sed 's/^ *//;s/ *$//;/^$/d; s/\(.*\)/"\1"/' | paste -sd ',' -)]"
+    local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
 
     jq -r --argjson tags "$search_tags" \
        --argjson limit "$limit" \
        --argjson min_overlap "$min_overlap" \
-       --argjson floor "$floor" \
        '
        ($tags - ["project"]) as $sig |
        . as $root |
 
-       # 1차: 직접 태그 매칭 (정규화+부분일치, brain_query_by_tags와 동일 기준)
+       # 1차: 직접 태그 매칭 (overlap 정렬)
        (
          $root.neurons
          | to_entries
-         | map(.ntags = ((.value.tags // []) | map(ascii_downcase)))
-         | map(.overlap = ([ $sig[] as $q
-               | (if (($q|test("[가-힣]")) and ($q|length)>=2) or (($q|length)>=3) then "sub" else "exact" end) as $mode
-               | select(any(.ntags[]; . as $t |
-                   if $mode=="sub" then ($t|contains($q)) or ($q|contains($t)) else ($t==$q) end)) ] | length))
+         | map(. + {overlap: (.value.tags - (.value.tags - $sig) | length)})
          | map(select(.overlap >= $min_overlap))
          | sort_by(-(.overlap), -(.value.emotional_weight))
        ) as $primary |
 
        ($primary | map(.key)) as $primary_ids |
 
-       # 2차: 1차 결과의 synapses_out (연결된 뉴런), 1차에 없는 것만, 중복 제거.
-       #   게이트: 연결 시냅스 weight >= floor (태그연결급) OR
-       #           linked 노드 태그가 질의어와 부분일치(질의관련성) 일 때만 표면화.
-       #   → match:0 순수 구조 노이즈(약한 본문연결·무관 클러스터) 제거.
+       # 2차: 1차 결과의 synapses_out (연결된 뉴런), 1차에 없는 것만, 중복 제거
        (
-         [ $primary[] | .key as $src | (.value.synapses_out // [])[]
-           | { tid: ., w: ($root.synapses[($src + "-" + .)].weight // 0) } ]
-         | group_by(.tid) | map({tid: .[0].tid, w: ([.[].w] | max)})
-         | map(select(.tid as $id | ($primary_ids | index($id)) | not))
-         | map(select(.tid as $id | $root.neurons[$id] != null))
-         # 게이트 적용
-         | map(. + {ntags: ((($root.neurons[.tid].tags) // []) | map(ascii_downcase))})
-         | map(select(
-             (.w >= $floor)
-             # 질의어가 linked 노드 태그와 부분일치하는지. .ntags를 변수로 고정해
-             # any($sig[];...) 내부에서 '.'이 $sig 원소로 바뀌어도 안전하게 참조.
-             or (.ntags as $nt | any($sig[]; . as $q | any($nt[]; . as $t | ($t|contains($q)) or ($q|contains($t)))))
-           ))
-         | map({key: .tid, value: $root.neurons[.tid], overlap: 0, linked: true, lw: .w})
+         [ $primary[] | (.value.synapses_out // [])[] ]
+         | unique
+         | map(select(. as $id | ($primary_ids | index($id)) | not))
+         | map(select(. as $id | $root.neurons[$id] != null))
+         | map({key: ., value: $root.neurons[.], overlap: 0, linked: true})
        ) as $linked |
 
        # 1차 + 2차 결합 후 limit 컷 (1차 우선)
        ($primary + $linked)
        | .[0:$limit]
        | .[]
-       | {id: .key, type: .value.type, weight: .value.emotional_weight, tags: .value.tags, overlap: .overlap, linked: (.linked // false), lw: (.lw // 0)}
-       | "- \(.id) (\(.type)): \(.tags | join(", ")) (weight: \(.weight), match: \(.overlap))\(if .linked then " (linked w\(.lw))" else "" end)"
+       | {id: .key, type: .value.type, weight: .value.emotional_weight, tags: .value.tags, overlap: .overlap, linked: (.linked // false)}
+       | "- \(.id) (\(.type)): \(.tags | join(", ")) (weight: \(.weight), match: \(.overlap))\(if .linked then " (linked)" else "" end)"
        ' "$SYNAPSES_FILE" 2>/dev/null | head -n "$limit"
 }
 
@@ -1041,13 +994,10 @@ brain_consolidate_session() {
             emotion="important" ;;
     esac
 
-    # 5) 핵심 본문 한도 (바이트). 한글 UTF-8 3바이트 → 2500B≈800~830자.
-    #    본문 키워드 추출의 원천 데이터 보존(짧으면 핵심어 누락). iconv -c 로
-    #    한글 중간 잘림의 깨진 바이트 제거.
-    local _body_max="${BRAIN_BODY_MAXCHARS:-2500}"
+    # 5) 핵심 본문 1000자 제한
     local body="$clean"
-    if [[ $(printf '%s' "$body" | wc -c) -gt $_body_max ]]; then
-        body="$(printf '%s' "$body" | head -c "$_body_max" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c "$_body_max")…"
+    if [[ ${#body} -gt 1000 ]]; then
+        body="$(printf '%s' "$body" | head -c 1000 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c 1000)…"
     fi
 
     # 6) 태그 추출 (키워드 + 메타 태그)

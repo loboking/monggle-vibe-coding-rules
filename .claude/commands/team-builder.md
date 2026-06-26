@@ -119,7 +119,7 @@ CREATE_LEADER인 경우 추가로 **§6 채용 능력 이식**을 persona/skills
 name: <slug>
 display_name: <한글 이름>
 team: <dev|planning|marketing|creative|support>
-role: <표준 한글 역할명>      # 설계자·구현자·리뷰어·디버거·기획자·마케터·리서처 등. 영문 병기 금지(중복감지 위해 한글 단일 표기)
+role: <표준 한글 역할명>      # 설계자·구현자·리뷰어·테스터·디버거·기획자·마케터·리서처 등. 영문 병기 금지(중복감지 위해 한글 단일 표기)
 reports_to: <팀장 slug | owner>  # 팀장은 owner. 팀장이 아직 없는 팀의 팀원이면 owner + _company.md에 "(팀장 미정)" 표시
 version: 1.0
 ---
@@ -248,6 +248,7 @@ version: 1.0
 | 설계자 | `arch-review`, `architecture-designer`, `complexity`, `impact`, `pattern` |
 | 구현자 | `Read/Edit/Write`, `refactor`, `format-check`, `lint-smart` |
 | 리뷰어 | `code-reviewer`, `review`, `judge`, `verify` |
+| 테스터 (QA) | `qa`, `smart-qa`, `code-qa`, `test`, `verify`, `qa-only` |
 | 디버거 | `debug-master`, `precision-debugger`, `debug`, `bottleneck`, `mem-check` |
 | 기획자 | `prd`, `monggle-planner`, `gate`, `brainstorm` |
 | 마케터 | `brainstorm`, `super`, `api-docs` |
