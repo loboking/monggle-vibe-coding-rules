@@ -29,7 +29,26 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# PROJECT_ROOT(툴킷 저장소) 결정 — 글로벌 설치 위치(~/.claude/commands)와 저장소가
+# 분리될 수 있으므로 경로를 추정하지 않는다. 우선순위:
+#   1) install.sh가 기록한 ~/.claude/.repo_path (가장 신뢰)
+#   2) SCRIPT_DIR에서 위로 올라가며 .git 탐색 (저장소 안에서 직접 실행한 경우)
+#   3) 기존 추정 (~/.claude/../..) — 최후 폴백
+resolve_project_root() {
+    local repo_file="$HOME/.claude/.repo_path"
+    if [[ -f "$repo_file" ]]; then
+        local p; p="$(cat "$repo_file" 2>/dev/null)"
+        if [[ -n "$p" && -d "$p/.git" ]]; then echo "$p"; return; fi
+    fi
+    local d="$SCRIPT_DIR"
+    while [[ "$d" != "/" && -n "$d" ]]; do
+        if [[ -d "$d/.git" ]]; then echo "$d"; return; fi
+        d="$(dirname "$d")"
+    done
+    (cd "${SCRIPT_DIR}/../.." && pwd)
+}
+PROJECT_ROOT="$(resolve_project_root)"
 
 # Upgrade state directory
 UPGRADE_STATE_DIR="$PROJECT_ROOT/.claude/.upgrade"
@@ -88,13 +107,19 @@ record_check_time() {
 
 # Get current version from project
 get_current_version() {
-    # Try multiple sources for version
-    if [[ -f "$PROJECT_ROOT/.claude/version" ]]; then
-        cat "$PROJECT_ROOT/.claude/version"
-    elif [[ -f "$PROJECT_ROOT/VERSION" ]]; then
+    # git 태그를 1순위로(릴리스의 신뢰원본). 그다음 git-추적되는 VERSION,
+    # 마지막으로 CLAUDE.md. (.claude/version은 미추적이라 자주 어긋나므로 제외)
+    if [[ -d "$PROJECT_ROOT/.git" ]]; then
+        local tag
+        tag=$(git -C "$PROJECT_ROOT" tag --list 'v*' 2>/dev/null | sort -V | tail -1)
+        if [[ -n "$tag" ]]; then echo "${tag#v}"; return; fi
+    fi
+    if [[ -f "$PROJECT_ROOT/VERSION" ]]; then
         cat "$PROJECT_ROOT/VERSION"
     elif [[ -f "$PROJECT_ROOT/CLAUDE.md" ]]; then
-        sed -nE 's/.*Version:.*v([0-9.]+).*/\1/p' "$PROJECT_ROOT/CLAUDE.md" 2>/dev/null | head -1
+        # LC_ALL=C.UTF-8 로 한글/이모지 포함 파일에서 'illegal byte sequence' 방지
+        LC_ALL=C.UTF-8 grep -oE 'Version:[^0-9]*v?[0-9]+\.[0-9]+(\.[0-9]+)?' "$PROJECT_ROOT/CLAUDE.md" 2>/dev/null \
+            | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1
     else
         echo "unknown"
     fi

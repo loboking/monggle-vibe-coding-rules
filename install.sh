@@ -527,6 +527,13 @@ COMPLETION_EOF
 
     print_success "Lib files installed to global"
 
+    # 툴킷 저장소의 실제 경로를 기록한다 — /monggle-upgrade 가 경로를 추정하지 않고
+    # 이 파일을 읽어 git pull 대상을 정확히 찾도록(글로벌 설치 위치와 저장소가 분리된 경우 대비).
+    if [ -d "$SCRIPT_DIR/.git" ]; then
+        echo "$SCRIPT_DIR" > "$HOME/.claude/.repo_path"
+        print_success "Repo path recorded: $SCRIPT_DIR"
+    fi
+
     # 스킬 메타데이터 생성 (skill.json, skill.md)
     print_step "Creating skill metadata for Claude Code v1.7+..."
     create_skill_metadata
