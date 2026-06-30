@@ -5,4 +5,4 @@ description: /team 디스패처 — 인자에 따라 상태 보기·팀 기동 �
 
 # team
 
-Monggle team skill
+/team 디스패처 — 인자에 따라 상태 보기·팀 기동 등 하위 명령으로 위임한다. "팀", "team", "팀 명령" 등에서 동작.

@@ -5,4 +5,4 @@ description: QA 테스트 러너 — 전체/보고서만/빠른 스모크 테스
 
 # test
 
-Monggle test skill
+QA 테스트 러너 — 전체/보고서만/빠른 스모크 테스트를 실행한다. "테스트 돌려", "test", "QA", "스모크 테스트" 등에서 동작.

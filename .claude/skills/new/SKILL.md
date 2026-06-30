@@ -5,4 +5,4 @@ description: 한 줄 설명으로 빠르게 PRD를 생성한다. /new <설명>. 
 
 # new
 
-Monggle new skill
+한 줄 설명으로 빠르게 PRD를 생성한다. /new <설명>. "새 기획", "빠른 PRD", "이 기능 기획서 만들어" 등에서 동작.
