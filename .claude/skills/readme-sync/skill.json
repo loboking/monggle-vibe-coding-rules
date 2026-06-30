@@ -1,0 +1,5 @@
+{
+  "name": "readme-sync",
+  "description": "README를 프로젝트 현재 상태와 동기화한다(check로 점검, update로 갱신, 섹션 관리). \"README 동기화\", \"리드미 갱신\", \"문서 최신화\" 등에서 동작.",
+  "version": "1.0.0"
+}

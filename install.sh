@@ -229,130 +229,68 @@ create_directories() {
 }
 
 # 스킬 메타데이터 생성 (Claude Code v1.7+ 호환)
+# 정본은 repo의 .claude/skills/<name>/SKILL.md. 이를 글로벌로 복사하는 게 1순위이고,
+# repo에 없는 commands/*.sh 유래 스킬만 placeholder로 보조 생성한다.
 create_skill_metadata() {
     local global_dir="$HOME/.claude/commands"
     local skills_dir="$HOME/.claude/skills"
-
-    # 스킬 정의 배열
-    local skills=(
-        "debug|체계적 버그 분석"
-        "debug-perf|성능 병목 찾기"
-        "debug-web|프론트엔드 디버깅"
-        "debug-css|CSS 디버깅"
-        "debug-m|메모리 누수 탐지"
-        "qa|Smart QA testing"
-        "qa-only|QA 보고서만"
-        "investigate|시스템적 디버깅"
-        "bottleneck|성능 병목 탐지"
-        "front-bugfix|프론트엔드 버그 수정"
-        "css-bugfix|CSS 버그 수정"
-        "mem-check|메모리 체크"
-        "review|코드 리뷰"
-        "review-code|코드 품질 리뷰"
-        "review-arch|아키텍처 리뷰"
-        "code-reviewer|코드 리뷰어"
-        "arch-review|아키텍처 리뷰어"
-        "prd|PRD 작성기"
-        "brainstorm|브레인스토밍"
-        "idea|아이디어 수집기"
-        "gate|PRD 게이트"
-        "pipeline|에이전트 파이프라인"
-        "stats|통계"
-        "trace|파이프라인 추적"
-        "mode|작업 모드"
-        "changelog|Changelog 생성"
-        "bump|버전 업"
-        "push-safe|안전한 푸시"
-        "format-check|포맷 체크"
-        "lint-smart|스마트 린터"
-        "complexity|복잡도 분석"
-        "bench|벤치마크"
-        "api-docs|API 문서"
-        "profile|프로파일링"
-        "audit|보안 감사"
-        "security|보안성 검증"
-        "save-point|저장 포인트"
-        "quick|빠른 핫픽스"
-        "init|초기화"
-        "weekly-recap|주간 회고"
-        "verify|AI 응답 검증"
-        "pattern|패턴 계약"
-        "monggle|Monggle 툴킷"
-        "monggle-upgrade|Vibe Coding Rules 업그레이드 체크 및 설치"
-        "update|Git 원격 저장소 동기화 (update.sh)"
-        "team-builder|에이전트를 기억·인격을 가진 사람으로 채용/성장 (CREATE_LEADER/HIRE_MEMBER/UPGRADE)"
-        "brain-web|Brain·Memory·작업히스토리를 로컬 웹으로 시각화 (유기성 그래프)"
-    )
-
+    local repo_skills="$SCRIPT_DIR/.claude/skills"
     local created_count=0
+    mkdir -p "$skills_dir"
 
-    for skill_info in "${skills[@]}"; do
-        IFS='|' read -r skill_name description <<< "$skill_info"
-        local skill_dir="$skills_dir/$skill_name"
+    # 1순위: repo의 SKILL.md를 그대로 글로벌로 복사 (rich frontmatter·본문 보존)
+    if [ -d "$repo_skills" ]; then
+        for sd in "$repo_skills"/*/; do
+            [ -d "$sd" ] || continue
+            local name; name="$(basename "$sd")"
+            local dst="$skills_dir/$name"
+            mkdir -p "$dst"
+            # SKILL.md (대소문자 무시 FS 안전: 둘 중 있는 것)
+            if [ -f "$sd/SKILL.md" ]; then
+                cp "$sd/SKILL.md" "$dst/SKILL.md"
+            elif [ -f "$sd/skill.md" ]; then
+                cp "$sd/skill.md" "$dst/SKILL.md"
+            fi
+            [ -f "$sd/skill.json" ] && cp "$sd/skill.json" "$dst/skill.json"
+            ((created_count++))
+        done
+    fi
 
-        mkdir -p "$skill_dir"
-
-        # skill.json 생성
-        cat > "$skill_dir/skill.json" << SKILL_EOF
-{
-  "name": "$skill_name",
-  "description": "$description",
-  "version": "1.0.0"
-}
-SKILL_EOF
-
-        # skill.md도 생성 (하위 호환성)
-        cat > "$skill_dir/skill.md" << SKILL_MD_EOF
-# $skill_name
-
-$description
-SKILL_MD_EOF
-
-        ((created_count++))
-    done
-
-    # .sh 파일이 있는데 메타데이터가 없는 스킬도 처리
+    # 2순위: commands/*.sh 는 있으나 repo SKILL.md가 없는 스킬만 placeholder 보조 생성
     for script in "$global_dir"/*.sh; do
-        if [ -f "$script" ]; then
-            local skill_name=$(basename "$script" .sh)
-            # 이미 처리됐으면 건너뜀
-            if [ ! -f "$skills_dir/$skill_name/skill.json" ]; then
-                # monggle- 접두사 제거
-                local clean_name="${skill_name#monggle-}"
-                local skill_dir="$skills_dir/$clean_name"
-                mkdir -p "$skill_dir"
+        [ -f "$script" ] || continue
+        local skill_name; skill_name="$(basename "$script" .sh)"
+        local clean_name="${skill_name#monggle-}"
+        local skill_dir="$skills_dir/$clean_name"
+        if [ ! -f "$skill_dir/SKILL.md" ] && [ ! -f "$skill_dir/skill.md" ]; then
+            mkdir -p "$skill_dir"
+            cat > "$skill_dir/SKILL.md" << SKILL_PH
+---
+name: $clean_name
+description: Monggle $clean_name skill
+---
 
-                cat > "$skill_dir/skill.json" << SKILL_EOF2
-{
-  "name": "$clean_name",
-  "description": "Monggle $clean_name skill",
-  "version": "1.0.0"
-}
-SKILL_EOF2
-
-                cat > "$skill_dir/skill.md" << SKILL_MD_EOF2
 # $clean_name
 
 Monggle $clean_name skill
-SKILL_MD_EOF2
-
-                ((created_count++))
-            fi
+SKILL_PH
+            ((created_count++))
         fi
     done
 
-    # frontmatter(name/description) 자동 보정 — placeholder/누락 SKILL.md를 인식 가능하게 만든다.
-    # install이 생성한 소문자 skill.md를 SKILL.md로 승격하고, frontmatter 없는 것에 메타데이터를 채운다.
+    # frontmatter 보정 + 소문자 skill.md 정리 (대소문자 무시 FS 대비)
     local ensure_fm="$HOME/.claude/lib/ensure_skill_frontmatter.py"
     if command -v python3 &>/dev/null; then
-        # skill.md(소문자)만 있고 SKILL.md가 없으면 승격
         for d in "$skills_dir"/*/; do
             [ -f "$d/skill.md" ] && [ ! -f "$d/SKILL.md" ] && cp "$d/skill.md" "$d/SKILL.md"
         done
         [ -f "$ensure_fm" ] && python3 "$ensure_fm" 2>/dev/null || true
     fi
+    # 잔여 .bak 정리
+    find "$skills_dir" -name '*.bak' -delete 2>/dev/null || true
 
-    print_success "Created/updated $created_count skill metadata files"
+    print_success "Created/updated $created_count skill metadata files (repo SKILL.md 우선)"
+    return 0
 }
 
 # 전역 설치 (스킬 복사)

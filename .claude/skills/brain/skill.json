@@ -1,0 +1,15 @@
+{
+  "name": "brain",
+  "description": "🧠 프로젝트별 작업 내역 기억 시스템 - 각 프로젝트별로 기억을 분리 저장",
+  "version": "2.0.0",
+  "author": "monggle",
+  "script": "skill.sh",
+  "params": {
+    "action": {
+      "type": "string",
+      "description": "동작 (save, list, 또는 생략하면 조회)",
+      "required": false,
+      "default": ""
+    }
+  }
+}

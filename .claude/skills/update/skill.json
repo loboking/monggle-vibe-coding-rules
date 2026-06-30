@@ -1,0 +1,5 @@
+{
+  "name": "update",
+  "description": "Git 원격 저장소 동기화 (update.sh)",
+  "version": "1.0.0"
+}

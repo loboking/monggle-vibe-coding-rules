@@ -8,6 +8,12 @@ logs/*.log
 !.claude/lib/
 !.claude/config/
 !.claude/brain/
+!.claude/skills/
+!.claude/skills/**
+!.claude/agents/
+!.claude/agents/**
+!.claude/agents-team/
+!.claude/agents-team/**
 
 # Python
 __pycache__/
