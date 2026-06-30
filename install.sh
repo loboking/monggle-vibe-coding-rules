@@ -311,6 +311,17 @@ SKILL_MD_EOF2
         fi
     done
 
+    # frontmatter(name/description) 자동 보정 — placeholder/누락 SKILL.md를 인식 가능하게 만든다.
+    # install이 생성한 소문자 skill.md를 SKILL.md로 승격하고, frontmatter 없는 것에 메타데이터를 채운다.
+    local ensure_fm="$HOME/.claude/lib/ensure_skill_frontmatter.py"
+    if command -v python3 &>/dev/null; then
+        # skill.md(소문자)만 있고 SKILL.md가 없으면 승격
+        for d in "$skills_dir"/*/; do
+            [ -f "$d/skill.md" ] && [ ! -f "$d/SKILL.md" ] && cp "$d/skill.md" "$d/SKILL.md"
+        done
+        [ -f "$ensure_fm" ] && python3 "$ensure_fm" 2>/dev/null || true
+    fi
+
     print_success "Created/updated $created_count skill metadata files"
 }
 
@@ -506,7 +517,7 @@ COMPLETION_EOF
     mkdir -p "$global_lib"
 
     if [ -d "$SCRIPT_DIR/.claude/lib" ]; then
-        for lib_file in "$SCRIPT_DIR/.claude/lib"/*.sh; do
+        for lib_file in "$SCRIPT_DIR/.claude/lib"/*.sh "$SCRIPT_DIR/.claude/lib"/*.py; do
             if [ -f "$lib_file" ]; then
                 cp "$lib_file" "$global_lib/"
                 chmod +x "$global_lib/$(basename "$lib_file")"

@@ -237,6 +237,13 @@ do_upgrade() {
         bash "$PROJECT_ROOT/install.sh" >/dev/null 2>&1 || true
     fi
 
+    # 새로 받은 스킬의 frontmatter(name/description) 자동 보정 — "업데이트만 하면 인식"을 보장
+    local ensure_fm="$HOME/.claude/lib/ensure_skill_frontmatter.py"
+    if [[ -f "$ensure_fm" ]] && command -v python3 &>/dev/null; then
+        log_info "Verifying skill metadata..."
+        python3 "$ensure_fm" "$PROJECT_ROOT/.claude/skills" 2>/dev/null || true
+    fi
+
     # Log upgrade history
     mkdir -p "$(dirname "$UPGRADE_LOG")"
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Upgraded to $(get_current_version)" >> "$UPGRADE_LOG"
