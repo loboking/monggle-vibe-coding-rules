@@ -262,6 +262,10 @@ create_skill_metadata() {
         local skill_name; skill_name="$(basename "$script" .sh)"
         local clean_name="${skill_name#monggle-}"
         local skill_dir="$skills_dir/$clean_name"
+        # 원본 이름(monggle-*) 스킬이 이미 있으면 prefix 떼고 중복 생성 금지
+        if [ -f "$skills_dir/$skill_name/SKILL.md" ] || [ -d "$repo_skills/$skill_name" ]; then
+            continue
+        fi
         if [ ! -f "$skill_dir/SKILL.md" ] && [ ! -f "$skill_dir/skill.md" ]; then
             mkdir -p "$skill_dir"
             cat > "$skill_dir/SKILL.md" << SKILL_PH
