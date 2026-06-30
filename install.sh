@@ -297,6 +297,45 @@ SKILL_PH
     return 0
 }
 
+# 팀원(에이전트) 설치 — 등록파일·persona·skills를 글로벌로 복사한다.
+# memory는 각 머신에서 누적되는 산출물이므로 절대 덮지 않는다(있으면 보존, 없으면 빈 디렉토리만).
+install_team_agents() {
+    local repo_agents="$SCRIPT_DIR/.claude/agents"
+    local repo_team="$SCRIPT_DIR/.claude/agents-team"
+    local g_agents="$HOME/.claude/agents"
+    local g_team="$HOME/.claude/agents-team"
+    local count=0
+
+    # 1. 등록파일 team_*.md (인격 호출용) — 항상 최신으로 동기화
+    if [ -d "$repo_agents" ]; then
+        mkdir -p "$g_agents"
+        for f in "$repo_agents"/team_*.md; do
+            [ -f "$f" ] && { cp "$f" "$g_agents/"; ((count++)); }
+        done
+    fi
+
+    # 2. agents-team persona·skills·_company — memory는 보존
+    if [ -d "$repo_team" ]; then
+        mkdir -p "$g_team"
+        [ -f "$repo_team/_company.md" ] && cp "$repo_team/_company.md" "$g_team/"
+        for pd in "$repo_team"/*/*/; do
+            [ -d "$pd" ] || continue
+            local rel; rel="${pd#$repo_team/}"
+            mkdir -p "$g_team/$rel/memory"
+            # persona·skills는 항상 갱신
+            [ -f "$pd/persona.md" ] && cp "$pd/persona.md" "$g_team/$rel/persona.md"
+            [ -f "$pd/skills.md" ] && cp "$pd/skills.md" "$g_team/$rel/skills.md"
+            # memory는 없을 때만 빈 _global.md 생성(기존 누적 memory 보존)
+            if [ ! -f "$g_team/$rel/memory/_global.md" ]; then
+                printf '# _global memory\n\n> 이 팀원의 누적 기억. 일하며 쌓인다.\n' > "$g_team/$rel/memory/_global.md"
+            fi
+        done
+    fi
+
+    print_success "Installed $count team agents (memory 보존)"
+    return 0
+}
+
 # 전역 설치 (스킬 복사)
 install_global() {
     print_step "Installing skills to global ~/.claude/commands/..."
@@ -512,6 +551,10 @@ COMPLETION_EOF
     # 스킬 메타데이터 생성 (skill.json, skill.md)
     print_step "Creating skill metadata for Claude Code v1.7+..."
     create_skill_metadata
+
+    # 팀원(에이전트) 설치 — persona·skills 갱신, memory 보존
+    print_step "Installing team agents (나루·태오·세린·준·다빈·도현·서연·한나·도윤)..."
+    install_team_agents
 
 }
 
