@@ -132,7 +132,7 @@ parse_args() {
 # Show help (v2.4)
 show_help() {
     echo ""
-    echo -e "${CYAN}${BOLD}/pipeline - Agent Pipeline Executor v2.4${NC}"
+    echo -e "${CYAN}${BOLD}/pipeline - Agent Pipeline Executor v3.4${NC}"
     echo ""
     echo "Usage:"
     echo "  /pipeline [prd_file] [options]"
@@ -158,7 +158,7 @@ print_header() {
     clear
     echo ""
     echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}${BOLD}║   Vibe Coding Agent Pipeline v2.4            ║${NC}"
+    echo -e "${CYAN}${BOLD}║   Vibe Coding Agent Pipeline v3.4            ║${NC}"
     echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════╝${NC}"
     echo ""
 }

@@ -1,4 +1,4 @@
-# Vibe Coding Rules v3.2
+# Vibe Coding Rules v3.4
 
 > **Last Updated:** 2026-04-17
 > **Mode**: MANUAL | SEMI-AUTO | AUTO
@@ -582,7 +582,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-06-16
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [13:30:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/cloud/provider/webhard/WebHardProvider.kt
@@ -595,11 +595,41 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ### 2026-06-17
 
-**변경된 파일 수**: ��
+**변경된 파일 수**: ��
 
 ```
 [12:14:57] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
 [12:15:12] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
 [12:15:41] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
+```
+
+
+### 2026-06-24
+
+**변경된 파일 수**: ��
+
+```
+[09:07:34] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/data/DataSource.kt
+[09:07:43] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/data/CacheManager.kt
+[09:08:04] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
+```
+
+
+### 2026-06-25
+
+**변경된 파일 수**: ��
+
+```
+[14:34:32] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/picker/PickerCustomTab.kt
+```
+
+
+### 2026-06-26
+
+**변경된 파일 수**: ��
+
+```
+[09:59:05] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppScreen.kt
+[10:00:14] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
 ```
 

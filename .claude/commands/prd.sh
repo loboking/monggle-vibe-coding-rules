@@ -468,7 +468,7 @@ main() {
             prd_type=$(detect_type_from_input "$user_input")
         else
             echo ""
-            echo -e "${CYAN}${BOLD}🚀 PRD Creator v2.4${NC}"
+            echo -e "${CYAN}${BOLD}🚀 PRD Creator v3.4${NC}"
             echo ""
             log_info "PRD 타입을 선택해주세요:"
             echo ""

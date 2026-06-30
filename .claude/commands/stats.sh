@@ -53,7 +53,7 @@ log_error() {
 print_header() {
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   Monggle Vibe Coding - Pipeline Stats v2.4  ║${NC}"
+    echo -e "${CYAN}║   Monggle Vibe Coding - Pipeline Stats v3.4  ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
     echo ""
 }
