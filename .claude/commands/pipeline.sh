@@ -34,6 +34,25 @@ NC='\033[0m'
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# ── Version SSOT (VERSION 파일이 유일한 정본) ──────────────────────────────
+# 이 스크립트는 common.sh를 source하지 않으므로 self-contained 헬퍼를 둔다.
+# 폴백: env override → repo의 VERSION → 글로벌설치는 ~/.claude/.repo_path → git tag
+get_toolkit_version() {
+    [[ -n "${MONGGLE_TOOLKIT_VERSION:-}" ]] && { printf '%s\n' "$MONGGLE_TOOLKIT_VERSION"; return; }
+    if [[ -f "${PROJECT_ROOT}/VERSION" ]]; then tr -d '[:space:]' < "${PROJECT_ROOT}/VERSION"; return; fi
+    if [[ -f "${HOME}/.claude/.repo_path" ]]; then
+        local r; r="$(cat "${HOME}/.claude/.repo_path" 2>/dev/null)"
+        [[ -n "$r" && -f "$r/VERSION" ]] && { tr -d '[:space:]' < "$r/VERSION"; return; }
+    fi
+    if command -v git >/dev/null 2>&1; then
+        local t; t="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+        [[ -n "$t" ]] && { printf '%s\n' "$t"; return; }
+    fi
+    echo unknown
+}
+TOOLKIT_VERSION="$(get_toolkit_version || echo unknown)"
+
 RUN_AGENT="${PROJECT_ROOT}/scripts/run_agent.py"
 HOOK_FILE="${SCRIPT_DIR}/../hooks/pre-tool-use.sh"
 LOOP_DETECTION_LIB="${SCRIPT_DIR}/../lib/loop_detection.sh"
@@ -132,7 +151,7 @@ parse_args() {
 # Show help (v2.4)
 show_help() {
     echo ""
-    echo -e "${CYAN}${BOLD}/pipeline - Agent Pipeline Executor v3.4${NC}"
+    echo -e "${CYAN}${BOLD}/pipeline - Agent Pipeline Executor v${TOOLKIT_VERSION}${NC}"
     echo ""
     echo "Usage:"
     echo "  /pipeline [prd_file] [options]"
@@ -158,7 +177,7 @@ print_header() {
     clear
     echo ""
     echo -e "${CYAN}${BOLD}╔════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}${BOLD}║   Vibe Coding Agent Pipeline v3.4            ║${NC}"
+    printf "${CYAN}${BOLD}║   %-45s║${NC}\n" "Vibe Coding Agent Pipeline v${TOOLKIT_VERSION}"
     echo -e "${CYAN}${BOLD}╚════════════════════════════════════════════════╝${NC}"
     echo ""
 }

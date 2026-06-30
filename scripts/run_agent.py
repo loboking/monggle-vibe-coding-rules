@@ -17,11 +17,13 @@ from datetime import datetime
 # 프로젝트 루트를 경로에 추가
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root / "agents"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from base_agent import (
     BaseAgent, PRDContent, AgentResult,
     ScanAgent, FoldAgent, VerdictAgent, PatchAgent, TraceAgent
 )
+from _version import __version__ as TOOLKIT_VERSION
 
 
 class AgentPipeline:
@@ -77,7 +79,7 @@ class AgentPipeline:
     def print_header(self):
         """헤더 출력 v2.4"""
         print("\n" + "=" * 60)
-        print("  Vibe Coding Agent Pipeline v2.4")
+        print(f"  Vibe Coding Agent Pipeline v{TOOLKIT_VERSION}")
         print("=" * 60 + "\n")
 
     def print_stage(self, stage: str, status: str):
@@ -440,7 +442,7 @@ class AgentPipeline:
 def main():
     """CLI 진입점 v2.4"""
     parser = argparse.ArgumentParser(
-        description="Run Vibe Coding Agent Pipeline v2.4",
+        description=f"Run Vibe Coding Agent Pipeline v{TOOLKIT_VERSION}",
         epilog="""
 Examples:
   %(prog)s                          # Auto-detect PRD

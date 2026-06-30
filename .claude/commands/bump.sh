@@ -230,6 +230,16 @@ update_version_files() {
             echo "Would update __version__ in __init__.py files"
         fi
     fi
+
+    # 정본(VERSION)에서 파생물 동기화 — .claude/version, CLAUDE.md 헤더, README 배지
+    if [[ $DRY_RUN -eq 0 ]]; then
+        if declare -f sync_version_artifacts >/dev/null 2>&1; then
+            log_info "Syncing version artifacts (.claude/version, CLAUDE.md, README)..."
+            sync_version_artifacts "$(pwd)" "$new_version"
+        fi
+    else
+        echo "Would sync .claude/version, CLAUDE.md header, README badges -> $new_version"
+    fi
 }
 
 # Create git tag

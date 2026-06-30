@@ -34,6 +34,23 @@ NC='\033[0m'
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# ── Version SSOT (VERSION 파일이 유일한 정본) ──────────────────────────────
+get_toolkit_version() {
+    [[ -n "${MONGGLE_TOOLKIT_VERSION:-}" ]] && { printf '%s\n' "$MONGGLE_TOOLKIT_VERSION"; return; }
+    if [[ -f "${PROJECT_ROOT}/VERSION" ]]; then tr -d '[:space:]' < "${PROJECT_ROOT}/VERSION"; return; fi
+    if [[ -f "${HOME}/.claude/.repo_path" ]]; then
+        local r; r="$(cat "${HOME}/.claude/.repo_path" 2>/dev/null)"
+        [[ -n "$r" && -f "$r/VERSION" ]] && { tr -d '[:space:]' < "$r/VERSION"; return; }
+    fi
+    if command -v git >/dev/null 2>&1; then
+        local t; t="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+        [[ -n "$t" ]] && { printf '%s\n' "$t"; return; }
+    fi
+    echo unknown
+}
+TOOLKIT_VERSION="$(get_toolkit_version || echo unknown)"
+
 PRD_DIR="${PROJECT_ROOT}/prd"
 PRD_CREATOR="${PROJECT_ROOT}/scripts/prd_creator.py"
 SESSION_FILE="${PROJECT_ROOT}/.claude/.prd-session.json"
@@ -84,7 +101,7 @@ log_warn() {
 # Show usage
 show_usage() {
     echo ""
-    echo -e "${CYAN}${BOLD}/prd - PRD Creator v3.0${NC}"
+    echo -e "${CYAN}${BOLD}/prd - PRD Creator v${TOOLKIT_VERSION}${NC}"
     echo ""
     echo "Usage:"
     echo "  /prd                     # 기본: 핑퐁 대화 모드 (구조화된 요구사항 수집)"
@@ -468,7 +485,7 @@ main() {
             prd_type=$(detect_type_from_input "$user_input")
         else
             echo ""
-            echo -e "${CYAN}${BOLD}🚀 PRD Creator v3.4${NC}"
+            echo -e "${CYAN}${BOLD}🚀 PRD Creator v${TOOLKIT_VERSION}${NC}"
             echo ""
             log_info "PRD 타입을 선택해주세요:"
             echo ""

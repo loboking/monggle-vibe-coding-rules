@@ -23,6 +23,9 @@ from dataclasses import dataclass, field
 from collections import defaultdict, Counter
 import re
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _version import __version__ as TOOLKIT_VERSION
+
 
 @dataclass
 class AgentStats:
@@ -399,7 +402,7 @@ class StatsCollector:
             verbose: Show detailed statistics
         """
         print(f"\n{'='*60}")
-        print("  Pipeline Statistics v2.4")
+        print(f"  Pipeline Statistics v{TOOLKIT_VERSION}")
         print(f"{'='*60}\n")
 
         # Date range
@@ -655,7 +658,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Show Pipeline Statistics v2.4",
+        description=f"Show Pipeline Statistics v{TOOLKIT_VERSION}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

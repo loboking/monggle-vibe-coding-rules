@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Monggle v3.5 - 동적 팀 구성 시스템 (Dynamic Team Builder)
+Monggle - 동적 팀 구성 시스템 (Dynamic Team Builder)
 요청을 분석하여 필요한 에이전트를 동적으로 구성합니다.
 
 Usage:

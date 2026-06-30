@@ -1,4 +1,4 @@
-# Vibe Coding Rules v3.4
+# Vibe Coding Rules v3.4.0
 
 > **Last Updated:** 2026-04-17
 > **Mode**: MANUAL | SEMI-AUTO | AUTO

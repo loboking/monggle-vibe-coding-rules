@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Monggle Vibe Coding - PRD Creator v2.4
+Monggle Vibe Coding - PRD Creator
 
 체계적인 PRD 생성을 위한 Python 스크립트
 질문 → 수집 → 검증 → 생성 자동화
@@ -18,6 +18,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _version import __version__ as TOOLKIT_VERSION
 
 
 @dataclass
@@ -41,7 +44,7 @@ class PRDContent:
     # 언어별 메시지
     MESSAGES = {
         "ko": {
-            "prd_creator_title": "PRD 생성기 v2.5",
+            "prd_creator_title": f"PRD 생성기 v{TOOLKIT_VERSION}",
             "creating_prd": "PRD 생성을 위해 질문을 드리겠습니다.",
             "skip_hint": "답변은 Enter를 누르면 건너뛸 수 있습니다 (필수 항목 제외)",
             "validating": "PRD 검증 중...",
@@ -52,7 +55,7 @@ class PRDContent:
             "prd_completed": "PRD 생성 완료",
         },
         "en": {
-            "prd_creator_title": "PRD Creator v2.5",
+            "prd_creator_title": f"PRD Creator v{TOOLKIT_VERSION}",
             "creating_prd": "I'll ask some questions to create the PRD.",
             "skip_hint": "Press Enter to skip (except required fields)",
             "validating": "Validating PRD...",
@@ -63,7 +66,7 @@ class PRDContent:
             "prd_completed": "PRD created successfully",
         },
         "zh": {
-            "prd_creator_title": "PRD 生成器 v2.5",
+            "prd_creator_title": f"PRD 生成器 v{TOOLKIT_VERSION}",
             "creating_prd": "为了创建 PRD，我将询问一些问题。",
             "skip_hint": "按 Enter 跳过（必填项除外）",
             "validating": "验证 PRD 中...",
@@ -74,7 +77,7 @@ class PRDContent:
             "prd_completed": "PRD 创建成功",
         },
         "ja": {
-            "prd_creator_title": "PRD作成ツール v2.5",
+            "prd_creator_title": f"PRD作成ツール v{TOOLKIT_VERSION}",
             "creating_prd": "PRDを作成するために質問します。",
             "skip_hint": "Enterでスキップ（必須項目を除く）",
             "validating": "PRD検証中...",

@@ -497,10 +497,44 @@ auto_check_upgrade() {
     fi
 }
 
+# ── Version SSOT — VERSION 파일이 유일한 정본 ──────────────────────────────
+# 폴백: env override → repo의 VERSION → 글로벌설치는 ~/.claude/.repo_path → git tag
+get_toolkit_version() {
+    [[ -n "${MONGGLE_TOOLKIT_VERSION:-}" ]] && { printf '%s\n' "$MONGGLE_TOOLKIT_VERSION"; return; }
+    local root="${PROJECT_ROOT:-}"
+    [[ -z "$root" ]] && root="$(get_project_root 2>/dev/null)"
+    if [[ -n "$root" && -f "${root}/VERSION" ]]; then tr -d '[:space:]' < "${root}/VERSION"; return; fi
+    if [[ -f "${HOME}/.claude/.repo_path" ]]; then
+        local r; r="$(cat "${HOME}/.claude/.repo_path" 2>/dev/null)"
+        [[ -n "$r" && -f "$r/VERSION" ]] && { tr -d '[:space:]' < "$r/VERSION"; return; }
+    fi
+    if command -v git >/dev/null 2>&1; then
+        local t; t="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+        [[ -n "$t" ]] && { printf '%s\n' "$t"; return; }
+    fi
+    echo unknown
+}
+
+# 버전 정본(VERSION)에서 정적 파생물을 동기화. 인자: $1=repo root, $2=version.
+# 헤더 라인에만 앵커링하므로 본문의 "(v2.4)" 기능 도입 표기는 보존된다.
+sync_version_artifacts() {
+    local root="$1" ver="$2"
+    [[ -z "$ver" || "$ver" == "unknown" ]] && return 0
+    [[ -d "$root/.claude" ]] && printf '%s\n' "$ver" > "$root/.claude/version"
+    if [[ -f "$root/CLAUDE.md" ]]; then
+        sed -i.bak -E "s/^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(\.[0-9]+)?/\1v${ver}/" "$root/CLAUDE.md" && rm -f "$root/CLAUDE.md.bak"
+    fi
+    local rd
+    for rd in "$root/README.md" "$root/README_EN.md"; do
+        [[ -f "$rd" ]] && { sed -i.bak -E "s#version-[0-9]+\.[0-9]+(\.[0-9]+)?-blue#version-${ver}-blue#" "$rd" && rm -f "${rd}.bak"; }
+    done
+}
+
 # Export upgrade functions
 export -f check_upgrade_available auto_check_upgrade
 
 # Export functions
+export -f get_toolkit_version sync_version_artifacts
 export -f log_info log_success log_error log_warn log_debug log_step log_section
 export -f die command_exists check_commands
 export -f detect_project_type get_project_root

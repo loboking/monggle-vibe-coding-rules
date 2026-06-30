@@ -27,6 +27,36 @@ NC='\033[0m'
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# ── Version SSOT — install.sh는 repo에서 실행되므로 SCRIPT_DIR/VERSION이 직접 출처 ──
+get_toolkit_version() {
+    [[ -n "${MONGGLE_TOOLKIT_VERSION:-}" ]] && { printf '%s\n' "$MONGGLE_TOOLKIT_VERSION"; return; }
+    [[ -f "${SCRIPT_DIR}/VERSION" ]] && { tr -d '[:space:]' < "${SCRIPT_DIR}/VERSION"; return; }
+    if command -v git >/dev/null 2>&1; then
+        local t; t="$(git -C "${SCRIPT_DIR}" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+        [[ -n "$t" ]] && { printf '%s\n' "$t"; return; }
+    fi
+    echo unknown
+}
+TOOLKIT_VERSION="$(get_toolkit_version || echo unknown)"
+
+# 버전 정본(VERSION)에서 정적 파생물을 동기화한다.
+# 인자: $1=repo root, $2=version. 정적 마크다운(런타임 동적화 불가)을 헤더 라인에만
+# 앵커링해 치환하므로 본문의 "(v2.4)" 같은 기능 도입 표기는 절대 건드리지 않는다.
+sync_version_artifacts() {
+    local root="$1" ver="$2"
+    [[ -z "$ver" || "$ver" == "unknown" ]] && return 0
+    # .claude/version (업그레이드 체커가 읽음) — VERSION의 파생물로 동기화
+    [[ -d "$root/.claude" ]] && printf '%s\n' "$ver" > "$root/.claude/version"
+    # CLAUDE.md 헤더 라인만 (^# Vibe Coding Rules vX.Y[.Z])
+    if [[ -f "$root/CLAUDE.md" ]]; then
+        sed -i.bak -E "s/^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(\.[0-9]+)?/\1v${ver}/" "$root/CLAUDE.md" && rm -f "$root/CLAUDE.md.bak"
+    fi
+    # README 배지 (shields.io version-X.Y.Z-blue)
+    for rd in "$root/README.md" "$root/README_EN.md"; do
+        [[ -f "$rd" ]] && { sed -i.bak -E "s#version-[0-9]+\.[0-9]+(\.[0-9]+)?-blue#version-${ver}-blue#" "$rd" && rm -f "${rd}.bak"; }
+    done
+}
+
 # OS Detection for cross-platform compatibility
 detect_os() {
     case "$OSTYPE" in
@@ -534,6 +564,9 @@ COMPLETION_EOF
         print_success "Repo path recorded: $SCRIPT_DIR"
     fi
 
+    # 버전 정본(VERSION)에서 파생물들을 동기화 — VERSION만 bump하면 전부 따라온다.
+    sync_version_artifacts "$SCRIPT_DIR" "$TOOLKIT_VERSION"
+
     # 스킬 메타데이터 생성 (skill.json, skill.md)
     print_step "Creating skill metadata for Claude Code v1.7+..."
     create_skill_metadata
@@ -591,7 +624,7 @@ generate_settings() {
         cat > "$PROJECT_ROOT/.claude/settings.json" << EOF
 {
   "name": "monggle-vibe-coding-rules",
-  "version": "3.1.0",
+  "version": "$TOOLKIT_VERSION",
   "description": "Vibe Coding Rules for Claude Code",
   "language": "$PRD_LANGUAGE",
   "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",

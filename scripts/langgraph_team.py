@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Monggle v3.5 - LangGraph 기반 가상 개발팀
+Monggle - LangGraph 기반 가상 개발팀
 에이전트들이 유기적으로 협업하는 Multi-Agent Team 시스템
 
 Usage:
@@ -18,6 +18,8 @@ from datetime import datetime
 # 프로젝트 루트 설정
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "agents"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _version import __version__ as TOOLKIT_VERSION
 
 try:
     from langgraph.graph import StateGraph, END
@@ -425,7 +427,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Monggle v3.5 - LangGraph 가상 개발팀",
+        description=f"Monggle v{TOOLKIT_VERSION} - LangGraph 가상 개발팀",
         epilog="""
 Examples:
   %(prog)s prd/feature.md          # PRD로 팀 실행

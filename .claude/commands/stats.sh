@@ -30,6 +30,23 @@ NC='\033[0m'
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+# ── Version SSOT (VERSION 파일이 유일한 정본) ──────────────────────────────
+get_toolkit_version() {
+    [[ -n "${MONGGLE_TOOLKIT_VERSION:-}" ]] && { printf '%s\n' "$MONGGLE_TOOLKIT_VERSION"; return; }
+    if [[ -f "${PROJECT_ROOT}/VERSION" ]]; then tr -d '[:space:]' < "${PROJECT_ROOT}/VERSION"; return; fi
+    if [[ -f "${HOME}/.claude/.repo_path" ]]; then
+        local r; r="$(cat "${HOME}/.claude/.repo_path" 2>/dev/null)"
+        [[ -n "$r" && -f "$r/VERSION" ]] && { tr -d '[:space:]' < "$r/VERSION"; return; }
+    fi
+    if command -v git >/dev/null 2>&1; then
+        local t; t="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')"
+        [[ -n "$t" ]] && { printf '%s\n' "$t"; return; }
+    fi
+    echo unknown
+}
+TOOLKIT_VERSION="$(get_toolkit_version || echo unknown)"
+
 STATS_SCRIPT="${PROJECT_ROOT}/scripts/stats.py"
 
 # Logging functions
@@ -53,7 +70,7 @@ log_error() {
 print_header() {
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   Monggle Vibe Coding - Pipeline Stats v3.4  ║${NC}"
+    printf "${CYAN}║   %-45s║${NC}\n" "Monggle Vibe Coding - Pipeline Stats v${TOOLKIT_VERSION}"
     echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
     echo ""
 }
