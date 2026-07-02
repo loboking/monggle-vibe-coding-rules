@@ -521,13 +521,33 @@ sync_version_artifacts() {
     local root="$1" ver="$2"
     [[ -z "$ver" || "$ver" == "unknown" ]] && return 0
     [[ -d "$root/.claude" ]] && printf '%s\n' "$ver" > "$root/.claude/version"
-    if [[ -f "$root/CLAUDE.md" ]]; then
-        sed -i.bak -E "s/^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(\.[0-9]+)?/\1v${ver}/" "$root/CLAUDE.md" && rm -f "$root/CLAUDE.md.bak"
+    # CLAUDE.md/README 헤더 치환은 Python으로 처리한다. BSD sed는 한글·이모지·손상
+    # 바이트가 섞인 CLAUDE.md에서 'illegal byte sequence'로 실패하기 때문이다.
+    # 헤더 라인에만 앵커링하므로 본문의 "(v2.4)" 기능 도입 표기는 보존된다.
+    if command -v python3 >/dev/null 2>&1; then
+        VER="$ver" ROOT="$root" python3 - <<'PY'
+import os, re
+ver = os.environ["VER"]; root = os.environ["ROOT"]
+def patch(path, pattern, repl):
+    try:
+        data = open(path, "rb").read()
+    except OSError:
+        return
+    text = data.decode("utf-8", errors="surrogateescape")
+    text = re.sub(pattern, repl, text, count=0, flags=re.M)
+    open(path, "wb").write(text.encode("utf-8", errors="surrogateescape"))
+patch(f"{root}/CLAUDE.md", r'^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(?:\.[0-9]+)?', rf'\g<1>v{ver}')
+for rd in ("README.md", "README_EN.md"):
+    patch(f"{root}/{rd}", r'version-[0-9]+\.[0-9]+(?:\.[0-9]+)?-blue', f'version-{ver}-blue')
+PY
+    else
+        # 폴백(python3 없을 때): sed. CLAUDE.md에 손상 바이트가 없다는 전제.
+        [[ -f "$root/CLAUDE.md" ]] && { LC_ALL=C sed -i.bak -E "s/^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(\.[0-9]+)?/\1v${ver}/" "$root/CLAUDE.md" 2>/dev/null; rm -f "$root/CLAUDE.md.bak"; }
+        local rd
+        for rd in "$root/README.md" "$root/README_EN.md"; do
+            [[ -f "$rd" ]] && { LC_ALL=C sed -i.bak -E "s#version-[0-9]+\.[0-9]+(\.[0-9]+)?-blue#version-${ver}-blue#" "$rd" 2>/dev/null; rm -f "${rd}.bak"; }
+        done
     fi
-    local rd
-    for rd in "$root/README.md" "$root/README_EN.md"; do
-        [[ -f "$rd" ]] && { sed -i.bak -E "s#version-[0-9]+\.[0-9]+(\.[0-9]+)?-blue#version-${ver}-blue#" "$rd" && rm -f "${rd}.bak"; }
-    done
 }
 
 # Export upgrade functions

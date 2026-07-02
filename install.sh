@@ -47,14 +47,29 @@ sync_version_artifacts() {
     [[ -z "$ver" || "$ver" == "unknown" ]] && return 0
     # .claude/version (업그레이드 체커가 읽음) — VERSION의 파생물로 동기화
     [[ -d "$root/.claude" ]] && printf '%s\n' "$ver" > "$root/.claude/version"
-    # CLAUDE.md 헤더 라인만 (^# Vibe Coding Rules vX.Y[.Z])
-    if [[ -f "$root/CLAUDE.md" ]]; then
-        sed -i.bak -E "s/^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(\.[0-9]+)?/\1v${ver}/" "$root/CLAUDE.md" && rm -f "$root/CLAUDE.md.bak"
+    # 헤더 치환은 Python으로 — BSD sed는 한글·이모지·손상 바이트가 섞인
+    # CLAUDE.md에서 'illegal byte sequence'로 실패하기 때문. 헤더 라인에만
+    # 앵커링하므로 본문의 "(v2.4)" 기능 도입 표기는 절대 건드리지 않는다.
+    if command -v python3 >/dev/null 2>&1; then
+        VER="$ver" ROOT="$root" python3 - <<'PY'
+import os, re
+ver = os.environ["VER"]; root = os.environ["ROOT"]
+def patch(path, pattern, repl):
+    try: data = open(path, "rb").read()
+    except OSError: return
+    text = data.decode("utf-8", errors="surrogateescape")
+    text = re.sub(pattern, repl, text, flags=re.M)
+    open(path, "wb").write(text.encode("utf-8", errors="surrogateescape"))
+patch(f"{root}/CLAUDE.md", r'^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(?:\.[0-9]+)?', rf'\g<1>v{ver}')
+for rd in ("README.md", "README_EN.md"):
+    patch(f"{root}/{rd}", r'version-[0-9]+\.[0-9]+(?:\.[0-9]+)?-blue', f'version-{ver}-blue')
+PY
+    else
+        [[ -f "$root/CLAUDE.md" ]] && { LC_ALL=C sed -i.bak -E "s/^(# Vibe Coding Rules )v[0-9]+\.[0-9]+(\.[0-9]+)?/\1v${ver}/" "$root/CLAUDE.md" 2>/dev/null; rm -f "$root/CLAUDE.md.bak"; }
+        for rd in "$root/README.md" "$root/README_EN.md"; do
+            [[ -f "$rd" ]] && { LC_ALL=C sed -i.bak -E "s#version-[0-9]+\.[0-9]+(\.[0-9]+)?-blue#version-${ver}-blue#" "$rd" 2>/dev/null; rm -f "${rd}.bak"; }
+        done
     fi
-    # README 배지 (shields.io version-X.Y.Z-blue)
-    for rd in "$root/README.md" "$root/README_EN.md"; do
-        [[ -f "$rd" ]] && { sed -i.bak -E "s#version-[0-9]+\.[0-9]+(\.[0-9]+)?-blue#version-${ver}-blue#" "$rd" && rm -f "${rd}.bak"; }
-    done
 }
 
 # OS Detection for cross-platform compatibility
