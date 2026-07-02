@@ -8,7 +8,6 @@ Usage:
     python3 scripts/langgraph_team.py --visualize
 """
 
-import os
 import sys
 import json
 from pathlib import Path

@@ -24,8 +24,11 @@ __pycache__/
 logs/*.log
 logs/*.json
 
-# Pipeline
+# Pipeline — 런타임 산출물은 무시, 정본 문서는 추적 유지
 .harness/
+!.harness/HARNESS_ANALYSIS.md
+!.harness/HARNESS_COMPLETED.md
+!.harness/on-the-loop.md
 
 # Agents (런타임 산출물은 무시하되, 파이프라인 핵심 모듈은 추적)
 agents/*

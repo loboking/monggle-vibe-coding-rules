@@ -11,7 +11,7 @@
 
 | 스킬 | 설명 | 원본 이름 |
 |-----|------|----------|
-| `/debug` | 일반 디버깅, 버그 원인 파악 | `investigate` |
+| `/debug` | 일반 디버깅, 버그 원인 파악 | `debug` |
 | `/debug-perf` | 성능 병목, 최적화 | `bottleneck` |
 | `/debug-web` | 프론트엔드 (JS, React, Vue) | `debug-web` |
 | `/debug-css` | CSS 전용 (스타일, 레이아웃) | `debug-css` |
@@ -22,7 +22,7 @@
 | 스킬 | 설명 | 원본 이름 |
 |-----|------|----------|
 | `/qa` | QA 테스트 (fix 포함) | `qa` |
-| `/qa --report` | 보고서만 (수정 없음) | `qa-only` |
+| `/qa --report` | 보고서만 (수정 없음) | `qa --report` (플래그) |
 | `/qa --quick` | 빠른 스모크 테스트 | — |
 
 ### 👁️ Review 카테고리 (/review-*)
@@ -30,7 +30,7 @@
 | 스킬 | 설명 | 원본 이름 |
 |-----|------|----------|
 | `/review` | PR diff 리뷰 | `review` |
-| `/review-code` | 코드 품질 (SOLID, 보안) | `code-reviewer` |
+| `/review-code` | 코드 품질 (SOLID, 보안) | `review-code` |
 | `/review-arch` | 아키텍처 리뷰 | `arch-review` |
 
 ### 📊 Analysis 카테고리

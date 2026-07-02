@@ -9,11 +9,10 @@ Usage:
     python3 scripts/dynamic_team.py --show-team security
 """
 
-import os
 import sys
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 PROJECT_ROOT = Path(__file__).parent.parent
 TEAMS_DIR = PROJECT_ROOT / ".claude" / "teams"

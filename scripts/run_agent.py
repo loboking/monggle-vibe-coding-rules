@@ -5,13 +5,12 @@ Monggle Vibe Coding Rules - Agent Runner
 Python 3.8+ 호환
 """
 
-import os
 import sys
 import json
 import argparse
 import subprocess
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 # 프로젝트 루트를 경로에 추가

@@ -13,15 +13,13 @@ Python 3.8+ compatible
 API-free
 """
 
-import os
 import sys
 import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass, field
-from collections import defaultdict, Counter
-import re
+from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _version import __version__ as TOOLKIT_VERSION

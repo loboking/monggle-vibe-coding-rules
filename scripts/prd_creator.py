@@ -10,13 +10,11 @@ Usage:
     python prd_creator.py --type api --interactive
 """
 
-import os
 import sys
-import json
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List
 from dataclasses import dataclass, field
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))

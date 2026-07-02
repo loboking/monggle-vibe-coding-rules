@@ -17,8 +17,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
-from collections import defaultdict, Counter
+from datetime import datetime
 import argparse
 
 # stats.py의 StatsCollector를 사용하기 위해 경로 추가
@@ -27,7 +26,7 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 try:
-    from stats import StatsCollector, PipelineStats, ASCIIChart
+    from stats import StatsCollector, PipelineStats
 except ImportError:
     # fallback: 간단한 StatsCollector 구현
     class StatsCollector:

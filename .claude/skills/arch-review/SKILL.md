@@ -14,6 +14,7 @@ allowed-tools:
   - AskUserQuestion
 triggers:
   - /arch-review
+  - /review-arch
   - monggle arch-review
 ---
 
