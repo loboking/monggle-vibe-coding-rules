@@ -5,7 +5,7 @@
 **"Knowing how to use Claude is different from using it well"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.4.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Skills collection to get better results with Claude Code**

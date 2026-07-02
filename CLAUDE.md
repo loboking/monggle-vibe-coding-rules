@@ -1,4 +1,4 @@
-# Vibe Coding Rules v3.4.0
+# Vibe Coding Rules v3.5.0
 
 > **Last Updated:** 2026-04-17
 > **Mode**: MANUAL | SEMI-AUTO | AUTO
@@ -631,5 +631,18 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 ```
 [09:59:05] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppScreen.kt
 [10:00:14] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
+```
+
+
+### 2026-06-30
+
+**변경된 파일 수**: 
+
+```
+[09:51:07] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/data/Trash.kt
+[09:51:18] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
+[09:51:32] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
+[09:51:51] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/sync/Merge.kt
+[09:52:12] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
 ```
 
