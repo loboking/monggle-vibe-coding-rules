@@ -21,5 +21,10 @@ trap 'kill "$SCANNER_PID" 2>/dev/null || true' EXIT
 # 최초 1회 스캔 (data.json 보장)
 python3 "$DIR/scan.py" "$DIR/data.json" >/dev/null 2>&1 || true
 
+# 포트 소유권 확보 — 수동 실행 잔재(고아 인스턴스)가 물고 있으면 정리한다.
+# 이게 없으면 "Address already in use"로 launchd가 crash loop에 빠진다.
+lsof -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true
+sleep 1
+
 # 포그라운드 서버 — launchd가 이 프로세스를 감시하다 죽으면 재시작
 exec python3 -m http.server "$PORT" --bind 127.0.0.1

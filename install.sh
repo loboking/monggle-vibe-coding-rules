@@ -333,6 +333,9 @@ install_team_agents() {
     if [ -d "$repo_team" ]; then
         mkdir -p "$g_team"
         [ -f "$repo_team/_company.md" ] && cp "$repo_team/_company.md" "$g_team/"
+        # 코드맵 디렉토리 — README(컨벤션)만 동기화, 코드맵 자체는 머신별 산출물이라 보존
+        mkdir -p "$g_team/_codemaps"
+        [ -f "$repo_team/_codemaps/README.md" ] && cp "$repo_team/_codemaps/README.md" "$g_team/_codemaps/"
         for pd in "$repo_team"/*/*/; do
             [ -d "$pd" ] || continue
             local rel; rel="${pd#$repo_team/}"
@@ -349,6 +352,43 @@ install_team_agents() {
 
     print_success "Installed $count team agents (memory 보존)"
     return 0
+}
+
+# brain-web 상시 데몬 등록 (macOS launchd) — 유저가 수동으로 켤 필요가 없도록 install이 책임진다.
+# KeepAlive=true라 크래시·수동종료에도 자동 재시작, RunAtLoad=true라 재부팅에도 부활.
+install_brain_web_daemon() {
+    [ "$(uname)" = "Darwin" ] || return 0   # ponytail: 리눅스(systemd)는 필요해질 때
+    local daemon="$HOME/.claude/skills/brain-web/daemon.sh"
+    [ -f "$daemon" ] || daemon="$SCRIPT_DIR/.claude/skills/brain-web/daemon.sh"
+    [ -f "$daemon" ] || return 0
+    local label="com.monggle.brain-web"
+    local plist="$HOME/Library/LaunchAgents/$label.plist"
+    mkdir -p "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
+    cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>$label</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>$daemon</string>
+        <string>8077</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>5</integer>
+    <key>EnvironmentVariables</key>
+    <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+    <key>StandardOutPath</key><string>$HOME/Library/Logs/brain-web.log</string>
+    <key>StandardErrorPath</key><string>$HOME/Library/Logs/brain-web.err.log</string>
+</dict>
+</plist>
+PLIST
+    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null || launchctl load "$plist" 2>/dev/null || true
+    print_success "brain-web daemon registered (launchd, port 8077, KeepAlive)"
 }
 
 # 전역 설치 (스킬 복사)
@@ -570,6 +610,10 @@ COMPLETION_EOF
     # 팀원(에이전트) 설치 — persona·skills 갱신, memory 보존
     print_step "Installing team agents (나루·태오·세린·준·다빈·도현·서연·한나·도윤)..."
     install_team_agents
+
+    # brain-web 상시 데몬 등록 (macOS) — 꺼지면 자동 재시작, 재부팅에도 부활
+    print_step "Registering brain-web daemon..."
+    install_brain_web_daemon
 
 }
 
