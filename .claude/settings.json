@@ -1,9 +1,9 @@
 {
   "name": "monggle-vibe-coding-rules",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "Vibe Coding Rules for Claude Code",
   "language": "ko",
-  "created": "2026-06-19T05:20:19Z",
+  "created": "2026-07-09T00:41:25Z",
   "hooks": {
     "SessionStart": [
       {

@@ -336,6 +336,11 @@ install_team_agents() {
         # 코드맵 디렉토리 — README(컨벤션)만 동기화, 코드맵 자체는 머신별 산출물이라 보존
         mkdir -p "$g_team/_codemaps"
         [ -f "$repo_team/_codemaps/README.md" ] && cp "$repo_team/_codemaps/README.md" "$g_team/_codemaps/"
+        # 받은편지함·출근부 — 런타임 산출물. 템플릿은 없을 때만 생성(오너가 적은 내용 보존)
+        mkdir -p "$g_team/_attendance"
+        if [ ! -f "$g_team/_inbox.md" ] && [ -f "$repo_team/_inbox.md" ]; then
+            cp "$repo_team/_inbox.md" "$g_team/_inbox.md"
+        fi
         for pd in "$repo_team"/*/*/; do
             [ -d "$pd" ] || continue
             local rel; rel="${pd#$repo_team/}"

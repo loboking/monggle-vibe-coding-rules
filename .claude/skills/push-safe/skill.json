@@ -1,5 +1,5 @@
 {
   "name": "push-safe",
-  "description": "안전한 푸시",
-  "version": "1.0.0"
+  "description": "Secrets 스캔 + 구조화 커밋 + 안전 push",
+  "version": "1.1.0"
 }
