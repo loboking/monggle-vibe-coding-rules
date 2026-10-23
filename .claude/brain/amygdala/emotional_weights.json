@@ -1,0 +1,10 @@
+{
+  "emotions": {
+    "urgent": 1.0,
+    "critical": 0.9,
+    "important": 0.7,
+    "normal": 0.5,
+    "low": 0.3
+  },
+  "last_update": null
+}

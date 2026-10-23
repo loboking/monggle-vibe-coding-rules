@@ -1,22 +1,7 @@
 ---
-name: monggle-smart-qa
-version: 1.0.0
-description: |
-  Smart QA testing - Project auto-detection + platform-specific tests (monggle)
-allowed-tools:
-  - Bash
-  - Read
-  - Edit
-  - Write
-  - Grep
-  - Glob
-  - Agent
-  - AskUserQuestion
-triggers:
-  - /qa
-  - /smart-qa
-  - /code-qa
-  - monggle qa
+name: qa
+description: Smart QA testing - Project auto-detection + platform-specific tests. "/qa", "/smart-qa", "/code-qa" 등에서 동작한다.
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # smart-qa (monggle)

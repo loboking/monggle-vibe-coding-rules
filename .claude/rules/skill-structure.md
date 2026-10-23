@@ -1,7 +1,7 @@
 # Vibe Coding Skill Structure v2.6
 
 > **Last Updated:** 2026-05-11
-> 이 파일은 자동으로 관리됩니다. 직접 수정하지 마세요.
+> 별칭 스킬(debug-css·debug-perf·review-code 등)은 알맹이가 없어 2026-10-22에 제거했다. 정식 이름만 쓴다.
 
 ---
 
@@ -12,10 +12,8 @@
 | 스킬 | 설명 | 원본 이름 |
 |-----|------|----------|
 | `/debug` | 일반 디버깅, 버그 원인 파악 | `debug` |
-| `/debug-perf` | 성능 병목, 최적화 | `bottleneck` |
-| `/debug-web` | 프론트엔드 (JS, React, Vue) | `debug-web` |
-| `/debug-css` | CSS 전용 (스타일, 레이아웃) | `debug-css` |
-| `/debug-m` | 메모리 누수, OOM | `mem-check` |
+| `/bottleneck` | 성능 병목, 최적화 |
+| `/mem-check` | 메모리 누수, OOM |
 
 ### ✅ QA 카테고리 (/qa-*)
 
@@ -30,8 +28,6 @@
 | 스킬 | 설명 | 원본 이름 |
 |-----|------|----------|
 | `/review` | PR diff 리뷰 | `review` |
-| `/review-code` | 코드 품질 (SOLID, 보안) | `review-code` |
-| `/review-arch` | 아키텍처 리뷰 | `arch-review` |
 
 ### 📊 Analysis 카테고리
 
@@ -58,13 +54,10 @@
 | 상황 | 사용할 스킬 |
 |-----|-----------|
 | 무엇이 문제인지 모르겠다 | `/debug` |
-| 성능이 느리다 | `/debug-perf` |
-| 메모리 문제다 | `/debug-m` |
-| 화면이 깨진다 | `/debug-css` |
-| JS/프론트 오류다 | `/debug-web` |
+| 성능이 느리다 | `/bottleneck` |
+| 메모리 문제다 | `/mem-check` |
 | 코드 머지 전 확인 | `/qa` + `/review` |
-| 코드 품질 체크 | `/review-code` |
-| 아키텍처 검토 | `/review-arch` |
+| 코드 품질 체크 | `/review` |
 | 수정 전 영향도 확인 | `/impact` |
 
 ---
@@ -88,7 +81,6 @@
 | `/prd` | "느려", "성능", "최적화" | `/bottleneck` | 성능 문제는 병목 분석 우선 |
 | `/impact` | PRD 없이 "새 기능", "추가" | `/prd` | 새 기능은 기획 우선 |
 | `/debug` | "느려", "성능" | `/bottleneck` | 성능 문제는 병목 분석 |
-| `/debug` | "화면", "css", "스타일" | `/debug-css` | 프론트 스타일 전용 |
 | `/review` | "버그", "고침" | `/debug` | 버그는 수정 전 원인 파악 |
 | `/qa` | "보고서만", "수정하지 마" | `/qa --report` | 리포트 모드 |
 

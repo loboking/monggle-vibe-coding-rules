@@ -1,22 +1,7 @@
 ---
-name: monggle-code-qa
-version: 1.0.0
-description: |
-  QA testing - Run tests and auto-fix issues (monggle)
-allowed-tools:
-  - Bash
-  - Read
-  - Edit
-  - Write
-  - Grep
-  - Glob
-  - Agent
-  - AskUserQuestion
-triggers:
-  - /qa
-  - /qa-only
-  - /test
-  - monggle qa
+name: code-qa
+description: QA testing - Run tests and auto-fix issues. "/qa", "/qa-only", "/test" 등에서 동작한다.
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # qa (monggle)

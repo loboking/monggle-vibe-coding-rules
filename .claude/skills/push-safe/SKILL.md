@@ -1,20 +1,7 @@
 ---
-name: monggle-push-safe
-version: 1.1.0
-description: |
-  Secrets 스캔 + 구조화 커밋 메시지 + 안전 push 절차
-allowed-tools:
-  - Bash
-  - Read
-  - Edit
-  - Write
-  - Grep
-  - Glob
-  - Agent
-  - AskUserQuestion
-triggers:
-  - /push-safe
-  - monggle push-safe
+name: push-safe
+description: Secrets 스캔 + 구조화 커밋 메시지 + 안전 push 절차. "/push-safe" 등에서 동작한다.
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # push-safe (monggle)

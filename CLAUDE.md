@@ -45,12 +45,12 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 
 | 사용자 의도 | 자동 실행 스킬 | 예시 (다양한 표현) |
 |-----------|--------------|------------------|
-| **"버그가 나"** | `debug-master` | "버그", "오류", "안돼", "에러", "error", "broken", "작동 안해", "고장" |
-| **"왜 이러지?"** | `debug-master` | "왜 안돼?", "이유", "원인", "why", "고장난 것 같아", "문제 발생" |
+| **"버그가 나"** | `debug` | "버그", "오류", "안돼", "에러", "error", "broken", "작동 안해", "고장" |
+| **"왜 이러지?"** | `debug` | "왜 안돼?", "이유", "원인", "why", "고장난 것 같아", "문제 발생" |
 | **"느려"** | `bottleneck` | "느려", "느림", "최적화", "병목", "slow", "lag", "성능", "터짐" |
-| **"메모리 문제"** | `debug-master` | "메모리", "RAM", "누수", "memory leak", "oom", "메모리 부족" |
-| **"프론트 오류"** | `debug-web` | "프론트", "js 오류", "react 버그", "클릭 안돼", "화면 문제" |
-| **"스타일 오류"** | `debug-css` | "css", "스타일", "레이아웃", "디자인", "깨짐", "정렬" |
+| **"메모리 문제"** | `mem-check` | "메모리", "RAM", "누수", "memory leak", "oom", "메모리 부족" |
+| **"프론트 오류"** | `debug` | "프론트", "js 오류", "react 버그", "클릭 안돼", "화면 문제" |
+| **"스타일 오류"** | `debug` | "css", "스타일", "레이아웃", "디자인", "깨짐", "정렬" |
 
 #### ✅ QA 카테고리
 
@@ -66,8 +66,8 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 | 사용자 의도 | 자동 실행 스킬 | 예시 (다양한 표현) |
 |-----------|--------------|------------------|
 | **"코드 검토"** | `review` | "리뷰해줘", "검토해봐", "코드 봐줘", "Review this", "Check code", "피드백줘" |
-| **"품질 체크"** | `review-code` | "품질", "코드 품질", "quality", "best practice", "코드 컨벤션" |
-| **"구조 검토"** | `architecture-designer` | "아키텍처", "설계", "구조", "architecture", "설계 검토" |
+| **"품질 체크"** | `review` | "품질", "코드 품질", "quality", "best practice", "코드 컨벤션" |
+| **"구조 검토"** | `impact` | "아키텍처", "설계", "구조", "architecture", "설계 검토" |
 
 #### 🛠️ 기타 스킬
 
@@ -85,13 +85,11 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 | **"품질 검사"** | `/lint-smart` | "린트", "코드 품질", "quality check" |
 | **"아이디어"** | `/brainstorm` | "아이디어", "브레인스토밍", "생각해", "아이디어링" |
 | **"진행 상황"** | `/stats` | "통계", "현황", "status", "진행 상황", "pipeline trace" |
-| **"상태 저장"** | `/save-point` | "저장", "세이브", "checkpoint", "상태 저장" |
 | **"핫픽스"** | `/quick` | "빨리 수정", "핫픽스", "quick fix" |
 | **"PRD 검증"** | `/gate` | "PRD 검증", "gate", "품질 확인" |
 | **"파이프라인"** | `/pipeline` | "파이프라인", "전체 실행", "자동화" |
 | **"프로파일링"** | `/profile` | "프로파일", "성능 분석", "profiling", "성능 프로파일" |
 | **"추적"** | `/trace` | "추적", "트레이스", "trace", "실행 경로" |
-| **"코드 동기화"** | `/update` | "코드 가져오기", "동기화", "update", "코드 업데이트" |
 | **"초기화"** | `/init` | "설정", "초기화", "setup", "설정 초기화" |
 | **"모드 변경"** | `/mode` | "모드 변경", "solo", "team" |
 
@@ -360,301 +358,4 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 
 ## 최근 변경 내역
 
-> 이 섹션은 Claude Code hooks에 의해 자동으로 업데이트됩니다.
-
-### 2026-03-16 - v2.4 Release
-
-**Pipeline Statistics 강화:**
-- ASCII 시각화 (바 차트, 스파크라인, 타임라인)
-- 로그 필터링 (verdict, PRD type, agent, date)
-- 웹 대시보드 (`/stats --web`)
-- 에이전트 실행 시간 분석
-
-**PRD 템플릿 확장:**
-- API 전용 템플릿 (`/prd api`)
-- DB 마이그레이션 템플릿 (`/prd migration`)
-- ML 모델 개발 템플릿 (`/prd ml`)
-- DevOps 자동화 템플릿 (`/prd devops`)
-
-**에이전트 실행 옵션 강화:**
-- `--verbose` 상세 로그
-- `--retry N` 자동 재시도
-- `--parallel` 병렬 실행 (실험적)
-
-**PRD 검증 개선:**
-- 자동 수정 제안
-- 구체적인 에러 메시지
-- PRD 버전 관리 (자동 백업)
-
-### 2026-03-16
-
-**변경된 파일 수**:
-
-```
-[09:21:46] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[09:22:16] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-### 2026-03-31
-
-**변경된 파일 수**: ��
-
-```
-[09:49:40] 수정: appium-tests/src/test/kotlin/com/ocean/appium/tests/BaseTest.kt
-[09:49:44] 수정: appium-tests/src/test/kotlin/com/ocean/appium/tests/BaseTest.kt
-```
-
-
-### 2026-04-02
-
-**변경된 파일 수**: ��
-
-```
-[08:35:04] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
-[08:35:15] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[08:35:25] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
-[08:36:13] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[08:36:24] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
-[08:36:54] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[08:37:30] 수정: app/src/main/java/com/ocean/moacloud/activity/MainActivity.kt
-```
-
-
-### 2026-04-07
-
-**변경된 파일 수**: ��
-
-```
-[10:19:04] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[10:19:21] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-
-### 2026-04-09
-
-**변경된 파일 수**: ��
-
-```
-[13:13:10] 수정: core/pedometer-api/src/main/AndroidManifest.xml
-[13:13:10] 수정: core/pedometer-core/src/main/AndroidManifest.xml
-[13:13:16] 수정: features/pedometer-aos/src/main/AndroidManifest.xml
-[13:13:16] 수정: features/pedometer-lgu/src/main/AndroidManifest.xml
-[13:13:16] 수정: features/pedometer-sk/src/main/AndroidManifest.xml
-[13:13:19] 수정: libraries/pedometer-aos-lib/src/main/AndroidManifest.xml
-[13:13:19] 수정: libraries/pedometer-lgu-lib/src/main/AndroidManifest.xml
-[13:13:19] 수정: libraries/pedometer-sk-lib/src/main/AndroidManifest.xml
-[13:13:25] 수정: samples/sample-aos/src/main/AndroidManifest.xml
-[13:13:25] 수정: samples/sample-lgu/src/main/AndroidManifest.xml
-[13:13:25] 수정: samples/sample-sk/src/main/AndroidManifest.xml
-[13:13:33] 수정: samples/sample-aos/src/main/java/com/oceanbleu/pedometer/sample/aos/MainActivity.kt
-[13:13:33] 수정: samples/sample-lgu/src/main/java/com/oceanbleu/pedometer/sample/lgu/MainActivity.kt
-[13:13:33] 수정: samples/sample-sk/src/main/java/com/oceanbleu/stepcount/sample/sk/MainActivity.kt
-[13:13:35] 수정: samples/sample-aos/src/main/res/values/strings.xml
-[13:13:35] 수정: samples/sample-lgu/src/main/res/values/strings.xml
-[13:13:35] 수정: samples/sample-sk/src/main/res/values/strings.xml
-[13:13:45] 수정: samples/sample-aos/src/main/res/layout/activity_main.xml
-[13:13:45] 수정: samples/sample-lgu/src/main/res/layout/activity_main.xml
-[13:13:45] 수정: samples/sample-sk/src/main/res/layout/activity_main.xml
-[13:16:17] 수정: samples/sample-aos/src/main/AndroidManifest.xml
-[13:16:22] 수정: samples/sample-lgu/src/main/AndroidManifest.xml
-[13:16:22] 수정: samples/sample-sk/src/main/AndroidManifest.xml
-[13:16:51] 수정: features/pedometer-sk/src/main/AndroidManifest.xml
-[13:16:58] 수정: features/pedometer-aos/src/main/AndroidManifest.xml
-[13:16:58] 수정: features/pedometer-lgu/src/main/AndroidManifest.xml
-```
-
-
-### 2026-04-13
-
-**변경된 파일 수**: ��
-
-```
-[16:59:39] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[17:00:23] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-
-### 2026-04-22
-
-**변경된 파일 수**: ��
-
-```
-[16:39:03] 수정: app/build.gradle
-[16:40:23] 수정: app/build.gradle
-[16:40:28] 수정: app/build.gradle
-[16:45:42] 수정: app/build.gradle
-```
-
-
-### 2026-04-27
-
-**변경된 파일 수**: ��
-
-```
-[12:42:52] 수정: app/src/main/java/com/ocean/moacloud/ApplicationClass.kt
-```
-
-
-### 2026-05-11
-
-**변경된 파일 수**: ��
-
-```
-[13:54:59] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
-[13:55:03] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
-[13:55:28] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
-[13:55:56] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/auth/OneDriveAuthManagerTest.kt
-[13:56:04] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/auth/OneDriveAuthManagerTest.kt
-[13:56:09] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/auth/OneDriveAuthManager.kt
-```
-
-
-### 2026-05-13
-
-**변경된 파일 수**: ��
-
-```
-[09:06:09] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[09:07:22] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[09:07:39] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[09:08:03] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[09:08:48] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[09:09:33] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/act/viewmodel/CloudViewModel.kt
-[09:09:43] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/InitClaud.kt
-[09:11:02] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:11:26] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:11:51] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:12:12] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:12:20] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:12:32] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:12:52] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:13:00] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-[09:13:09] 수정: OceanBleuClaud/src/test/java/com/oceanbleu/cloud/network/WebBridgePluginManagerSearchTest.kt
-```
-
-
-### 2026-05-14
-
-**변경된 파일 수**: ��
-
-```
-[09:17:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/permission/PermissionManager.kt
-[09:18:45] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-
-### 2026-05-15
-
-**변경된 파일 수**: ��
-
-```
-[09:35:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/Config.kt
-```
-
-
-### 2026-05-18
-
-**변경된 파일 수**: ��
-
-```
-[12:34:36] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-
-### 2026-05-19
-
-**변경된 파일 수**: ��
-
-```
-[13:56:32] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-
-### 2026-05-20
-
-**변경된 파일 수**: ��
-
-```
-[15:30:32] 수정: app/src/main/java/co/kr/oceanbleu/safephone/activity/LostModeActivity.kt
-[15:30:55] 수정: app/src/main/java/co/kr/oceanbleu/safephone/activity/LostModeActivity.kt
-```
-
-
-### 2026-06-16
-
-**변경된 파일 수**: ��
-
-```
-[13:30:53] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/cloud/provider/webhard/WebHardProvider.kt
-[13:31:07] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/cloud/provider/webhard/WebHardProvider.kt
-[13:31:29] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/cloud/provider/webhard/WebHardProvider.kt
-[13:31:36] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/cloud/provider/webhard/WebHardProvider.kt
-[13:31:38] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/cloud/provider/webhard/WebHardProvider.kt
-```
-
-
-### 2026-06-17
-
-**변경된 파일 수**: ��
-
-```
-[12:14:57] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[12:15:12] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-[12:15:41] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/network/WebBridgePluginManager.kt
-```
-
-
-### 2026-06-24
-
-**변경된 파일 수**: ��
-
-```
-[09:07:34] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/data/DataSource.kt
-[09:07:43] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/data/CacheManager.kt
-[09:08:04] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
-```
-
-
-### 2026-06-25
-
-**변경된 파일 수**: ��
-
-```
-[14:34:32] 수정: OceanBleuClaud/src/main/java/com/oceanbleu/cloud/picker/PickerCustomTab.kt
-```
-
-
-### 2026-06-26
-
-**변경된 파일 수**: ��
-
-```
-[09:59:05] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppScreen.kt
-[10:00:14] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
-```
-
-
-### 2026-06-30
-
-**변경된 파일 수**: 
-
-```
-[09:51:07] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/data/Trash.kt
-[09:51:18] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
-[09:51:32] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
-[09:51:51] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/sync/Merge.kt
-[09:52:12] 수정: apps/android/app/src/main/java/kr/co/doubledsoft/topdrawer/ui/AppViewModel.kt
-```
-
-
-### 2026-07-09
-
-**변경된 파일 수**: ��
-
-```
-[09:41:32] 수정: Pedometer/src/main/java/com/oceanbleu/pedometer/StepCounterService.kt
-[09:41:49] 수정: Pedometer/src/main/java/com/oceanbleu/pedometer/StepCounterService.kt
-[09:42:00] 수정: Pedometer/src/main/java/com/oceanbleu/pedometer/StepCounterService.kt
-[09:43:04] 수정: Pedometer/src/main/java/com/oceanbleu/pedometer/StepCounterService.kt
-```
-
+변경 이력은 `CHANGELOG.md`에 있다. 이 파일은 매 세션 컨텍스트에 통째로 올라가므로, 날짜별 파일 목록 같은 건 넣지 않는다.

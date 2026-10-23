@@ -1,21 +1,7 @@
 ---
-name: monggle-impact
-version: 1.0.0
-description: |
-  Impact analysis - Find side effects and cascading issues before modifying code (monggle)
-allowed-tools:
-  - Bash
-  - Read
-  - Edit
-  - Write
-  - Grep
-  - Glob
-  - Agent
-  - AskUserQuestion
-triggers:
-  - /impact
-  - /side-effect
-  - monggle impact
+name: impact
+description: Impact analysis - Find side effects and cascading issues before modifying code. "/impact", "/side-effect" 등에서 동작한다.
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
 ---
 
 # impact (monggle)
