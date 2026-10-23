@@ -14,10 +14,10 @@ setup() {
     export PROJECT_ROOT
 
     # 라이브러리 로드
-    source "$PROJECT_ROOT/.claude/lib/common.sh"
-    source "$PROJECT_ROOT/.claude/lib/platform.sh"
-    source "$PROJECT_ROOT/.claude/lib/validation.sh"
-    source "$PROJECT_ROOT/.claude/lib/git.sh"
+    source "$PROJECT_ROOT/lib/common.sh"
+    source "$PROJECT_ROOT/lib/platform.sh"
+    source "$PROJECT_ROOT/lib/validation.sh"
+    source "$PROJECT_ROOT/lib/git.sh"
 
     # 임시 디렉토리
     TEST_TEMP_DIR="$(mktemp -d)"
@@ -41,8 +41,8 @@ run_skill() {
     local skill_script="$1"
     shift
 
-    if [[ -f "$PROJECT_ROOT/.claude/commands/$skill_script" ]]; then
-        run bash "$PROJECT_ROOT/.claude/commands/$skill_script" "$@"
+    if [[ -f "$PROJECT_ROOT/bin/$skill_script" ]]; then
+        run bash "$PROJECT_ROOT/bin/$skill_script" "$@"
     else
         skip "Skill script not found: $skill_script"
     fi
@@ -197,7 +197,7 @@ run_skill() {
 # ============================================
 
 @test "P0 Security: changelog.sh does not use eval for git log" {
-    local changelog_file="$PROJECT_ROOT/.claude/commands/changelog.sh"
+    local changelog_file="$PROJECT_ROOT/bin/changelog.sh"
 
     if [[ ! -f "$changelog_file" ]]; then
         skip "changelog.sh not found"
@@ -213,7 +213,7 @@ run_skill() {
 }
 
 @test "P0 Security: mem-check.sh declares JSON_OUTPUT" {
-    local memcheck_file="$PROJECT_ROOT/.claude/commands/mem-check.sh"
+    local memcheck_file="$PROJECT_ROOT/bin/mem-check.sh"
 
     if [[ ! -f "$memcheck_file" ]]; then
         skip "mem-check.sh not found"
@@ -224,7 +224,7 @@ run_skill() {
 }
 
 @test "P0 Security: bump.sh validates version format" {
-    local bump_file="$PROJECT_ROOT/.claude/commands/bump.sh"
+    local bump_file="$PROJECT_ROOT/bin/bump.sh"
 
     if [[ ! -f "$bump_file" ]]; then
         skip "bump.sh not found"
@@ -245,7 +245,7 @@ run_skill() {
 }
 
 @test "P0 Security: readme-sync.sh defines functions before use" {
-    local readme_sync="$PROJECT_ROOT/.claude/commands/readme-sync.sh"
+    local readme_sync="$PROJECT_ROOT/bin/readme-sync.sh"
 
     if [[ ! -f "$readme_sync" ]]; then
         skip "readme-sync.sh not found"
@@ -257,7 +257,7 @@ run_skill() {
 }
 
 @test "P0 Security: prd.sh has no duplicate variable declarations" {
-    local prd_file="$PROJECT_ROOT/.claude/commands/prd.sh"
+    local prd_file="$PROJECT_ROOT/bin/prd.sh"
 
     if [[ ! -f "$prd_file" ]]; then
         skip "prd.sh not found"
@@ -274,19 +274,19 @@ run_skill() {
 # ============================================
 
 @test "P1 Architecture: platform.sh library exists" {
-    [ -f "$PROJECT_ROOT/.claude/lib/platform.sh" ]
+    [ -f "$PROJECT_ROOT/lib/platform.sh" ]
 }
 
 @test "P1 Architecture: validation.sh library exists" {
-    [ -f "$PROJECT_ROOT/.claude/lib/validation.sh" ]
+    [ -f "$PROJECT_ROOT/lib/validation.sh" ]
 }
 
 @test "P1 Architecture: git.sh library exists" {
-    [ -f "$PROJECT_ROOT/.claude/lib/git.sh" ]
+    [ -f "$PROJECT_ROOT/lib/git.sh" ]
 }
 
 @test "P1 Architecture: common.sh loads libraries" {
-    local common_file="$PROJECT_ROOT/.claude/lib/common.sh"
+    local common_file="$PROJECT_ROOT/lib/common.sh"
 
     run grep -c "platform.sh" "$common_file"
     [ "$output" -ge 1 ]
@@ -308,7 +308,7 @@ run_skill() {
     )
 
     for script in "${scripts[@]}"; do
-        local script_file="$PROJECT_ROOT/.claude/commands/$script"
+        local script_file="$PROJECT_ROOT/bin/$script"
 
         if [[ -f "$script_file" ]]; then
             run grep -c "set -euo pipefail" "$script_file"
@@ -381,9 +381,9 @@ run_skill() {
     local missing=0
 
     for skill in "${skills[@]}"; do
-        if [[ -f "$PROJECT_ROOT/.claude/commands/$skill" ]]; then
+        if [[ -f "$PROJECT_ROOT/bin/$skill" ]]; then
             # 실행 가능 권한 확인
-            if [[ ! -x "$PROJECT_ROOT/.claude/commands/$skill" ]]; then
+            if [[ ! -x "$PROJECT_ROOT/bin/$skill" ]]; then
                 echo "Missing execute permission: $skill"
                 missing=$((missing + 1))
             fi
@@ -397,7 +397,7 @@ run_skill() {
 }
 
 @test "Integration: All skill scripts have proper shebang" {
-    local commands_dir="$PROJECT_ROOT/.claude/commands"
+    local commands_dir="$PROJECT_ROOT/bin"
 
     for script in "$commands_dir"/*.sh; do
         if [[ -f "$script" ]]; then
@@ -408,7 +408,7 @@ run_skill() {
 }
 
 @test "Integration: Common library is sourced in skill scripts" {
-    local commands_dir="$PROJECT_ROOT/.claude/commands"
+    local commands_dir="$PROJECT_ROOT/bin"
 
     # 최소한 몇 개 스크립트는 common.sh를 source해야 함
     local count=$(grep -r "source.*common.sh" "$commands_dir" 2>/dev/null | wc -l)
@@ -421,7 +421,7 @@ run_skill() {
 # ============================================
 
 @test "Security Integration: No hardcoded secrets in scripts" {
-    local commands_dir="$PROJECT_ROOT/.claude/commands"
+    local commands_dir="$PROJECT_ROOT/bin"
 
     # API key 패턴 확인 - 결과가 없어야 함
     run bash -c "grep -r -i 'api_key.*=' '$commands_dir' 2>/dev/null | grep -v '#' | grep -v 'echo' | head -5 || true"
@@ -437,7 +437,7 @@ run_skill() {
 }
 
 @test "Security Integration: No temporary command injection patterns" {
-    local commands_dir="$PROJECT_ROOT/.claude/commands"
+    local commands_dir="$PROJECT_ROOT/bin"
 
     # 위험한 패턴 확인
     run bash -c "grep -r 'eval.*\$' '$commands_dir' 2>/dev/null | grep -v '#' | head -5 || true"

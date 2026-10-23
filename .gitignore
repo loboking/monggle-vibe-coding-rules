@@ -5,9 +5,9 @@ logs/*.log
 # Override global .gitignore for .claude commands
 !.claude/commands/
 !.claude/hooks/
-!.claude/lib/
+!lib/
 !.claude/config/
-!.claude/brain/
+!brain/
 !.claude/skills/
 !.claude/skills/**
 !.claude/agents/

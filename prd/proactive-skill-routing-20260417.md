@@ -11,7 +11,7 @@
 ## 1. 개요
 
 ### 1.1 배경
-gstack의 proactive 기능과 skill routing 규칙을 참고하여, monggle-vibe-coding-rules 프로젝트에도 자동으로 적절한 스킬을 제안하고 실행하는 시스템을 구축합니다.
+gstack의 proactive 기능과 skill routing 규칙을 참고하여, monggle-agent-kit 프로젝트에도 자동으로 적절한 스킬을 제안하고 실행하는 시스템을 구축합니다.
 
 ### 1.2 목표
 - 사용자의 요청을 분석하여 자동으로 적절한 스킬을 제안/실행

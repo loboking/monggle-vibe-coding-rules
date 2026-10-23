@@ -61,4 +61,4 @@ ai_reviewer:
 
 # Git Platform Detection
 git_platform: "github"
-git_remote_url: "https://github.com/loboking/monggle-vibe-coding-rules.git"
+git_remote_url: "https://github.com/loboking/monggle-agent-kit.git"

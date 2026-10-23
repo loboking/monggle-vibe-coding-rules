@@ -23,7 +23,7 @@ setup_bare_remote() {
 }
 
 @test "update.sh: --help shows help message" {
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --help
+    run bash "$PROJECT_ROOT/bin/update.sh" --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage:" ]]
     [[ "$output" =~ "--auto" ]]
@@ -46,7 +46,7 @@ setup_bare_remote() {
     git remote add origin "$bare_repo"
     git push -u origin main >/dev/null 2>&1
 
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --dry-run
+    run bash "$PROJECT_ROOT/bin/update.sh" --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" =~ "[DRY-RUN]" ]] || [[ "$output" =~ "저장할" ]] || [[ "$output" =~ "이미 최신" ]]
 
@@ -57,7 +57,7 @@ setup_bare_remote() {
 
 @test "update.sh: errors when not in git repository" {
     # No git init
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --auto
+    run bash "$PROJECT_ROOT/bin/update.sh" --auto
     [ "$status" -eq 1 ]
     [[ "$output" =~ "Git 저장소가 아닙니다" ]]
 }
@@ -78,7 +78,7 @@ setup_bare_remote() {
     git remote add origin "$bare_repo"
     git push -u origin main >/dev/null 2>&1
 
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --auto
+    run bash "$PROJECT_ROOT/bin/update.sh" --auto
     [ "$status" -eq 0 ]
     [[ "$output" =~ "이미 최신" ]] || [[ "$output" =~ "저장할" ]]
 
@@ -106,7 +106,7 @@ setup_bare_remote() {
     # Make changes (not committed)
     echo "modified" > test.txt
 
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --auto
+    run bash "$PROJECT_ROOT/bin/update.sh" --auto
     # Should show stash saved message or already up to date
     [[ "$output" =~ "안전하게 저장" ]] || [[ "$output" =~ "이미 최신" ]]
 

@@ -2,7 +2,7 @@
 """
 AI Reviewer - Automated Code Review System
 
-Part of monggle-vibe-coding-rules
+Part of monggle-agent-kit
 Reviews PRs/MRs using RULE-BASED static analysis (no external LLM call by design).
 
 Usage:

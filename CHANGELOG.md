@@ -111,7 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **install.sh 개선**
   - `monggle-*.sh` 스킬들도 전역 자동 복사
-  - `~/.claude/lib/` 디렉토리로 라이브러리 전역 복사
+  - `~/lib/` 디렉토리로 라이브러리 전역 복사
   - 모든 .sh 파일 실행 권한 자동 부여
   - 전역 하네스 파일 자동 설치
 
@@ -202,8 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - wrapper.sh에 통합 명령어 처리 로직 추가 (_is_integrated_command, _exec_integrated_command)
 
 ### Files Added
-- `.claude/brain/SPEC.md`: 뇌 시스템 명세서
-- `.claude/brain/brain-core.sh`: 뇌 시스템 코어 라이브러리
+- `brain/SPEC.md`: 뇌 시스템 명세서
+- `brain/brain-core.sh`: 뇌 시스템 코어 라이브러리
 - `.claude/hooks/brain-session-start.sh`: 세션 시작 훅
 - `.claude/hooks/brain-session-end.sh`: 세션 종료 훅
 - `.claude/commands/brain.sh`: 뇌 시스템 커맨드
@@ -280,7 +280,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/mem-check` - 메모리 누수 탐지
 
 #### 공통 유틸리티
-- `.claude/lib/common.sh` - 색상 출력, 로깅, 프로젝트 타입 감지
+- `lib/common.sh` - 색상 출력, 로깅, 프로젝트 타입 감지
 - `scripts/check_tools.py` - 필수 도구 설치 확인
 
 ### Changed
@@ -306,19 +306,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - 뒤처짐 감지 후 자동 `/update` 연동
     - GitHub/GitLab/Bitbucket PR 자동 생성
     - `--no-pr`, `--dry-run` 옵션 지원
-  - **Git 공통 라이브러리** (`.claude/lib/git_helper.sh`)
+  - **Git 공통 라이브러리** (`lib/git_helper.sh`)
     - Git 저장소 감지 (`is_git_repo`)
     - 변경사항 확인 (`has_uncommitted_changes`)
     - 뒤처짐/앞섬 확인 (`is_behind_origin`, `is_ahead_origin`)
     - 브랜치/원격 URL/호스트 감지
     - 충돌 파일/마커 감지
     - stash 자동화 (`git_safe_stash`, `git_safe_stash_pop`)
-  - **PR 생성 라이브러리** (`.claude/lib/pr_helper.sh`)
+  - **PR 생성 라이브러리** (`lib/pr_helper.sh`)
     - GitHub PR 생성 (`create_github_pr`)
     - GitLab MR 생성 (`create_gitlab_pr`)
     - Bitbucket PR 생성 (`create_bitbucket_pr`)
     - 호스트 자동 감지 및 API 연동
-  - **충돌 해결 가이드** (`.claude/lib/conflict_helper.sh`)
+  - **충돌 해결 가이드** (`lib/conflict_helper.sh`)
     - 충돌 원인 분석 (`analyze_conflict`)
     - 충돌 유형 분류 (같은 줄/인접 줄/함수)
     - 해결 옵션 (`resolve_keep`, `resolve_theirs`, `resolve_merge`)
@@ -463,13 +463,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Links
 
-- [GitHub Repository](https://github.com/loboking/monggle-vibe-coding-rules)
+- [GitHub Repository](https://github.com/loboking/monggle-agent-kit)
 - [Contributing](CONTRIBUTING.md)
 
 ---
 
-[2.4.1]: https://github.com/loboking/monggle-vibe-coding-rules/compare/v2.4.0...v2.4.1
-[2.4.0]: https://github.com/loboking/monggle-vibe-coding-rules/compare/v2.3.0...v2.4.0
-[2.3.0]: https://github.com/loboking/monggle-vibe-coding-rules/compare/v2.2.0...v2.3.0
-[2.2.0]: https://github.com/loboking/monggle-vibe-coding-rules/compare/v2.0.0...v2.2.0
-[2.0.0]: https://github.com/loboking/monggle-vibe-coding-rules/releases/tag/v2.0.0
+[2.4.1]: https://github.com/loboking/monggle-agent-kit/compare/v2.4.0...v2.4.1
+[2.4.0]: https://github.com/loboking/monggle-agent-kit/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/loboking/monggle-agent-kit/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/loboking/monggle-agent-kit/compare/v2.0.0...v2.2.0
+[2.0.0]: https://github.com/loboking/monggle-agent-kit/releases/tag/v2.0.0

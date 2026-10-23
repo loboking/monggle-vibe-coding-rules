@@ -23,7 +23,7 @@ setup_bare_remote() {
 }
 
 @test "push-safe.sh: --help shows help message" {
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh" --help
+    run bash "$PROJECT_ROOT/bin/push-safe.sh" --help
     [ "$status" -eq 0 ]
     [[ "$output" =~ "Usage:" ]]
     [[ "$output" =~ "--no-pr" ]]
@@ -46,7 +46,7 @@ setup_bare_remote() {
     git remote add origin "$bare_repo"
     git push -u origin main >/dev/null 2>&1
 
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh" --dry-run
+    run bash "$PROJECT_ROOT/bin/push-safe.sh" --dry-run
     [ "$status" -eq 0 ]
     [[ "$output" =~ "[DRY-RUN]" ]] || [[ "$output" =~ "전송할" ]] || [[ "$output" =~ "없습니다" ]]
 
@@ -57,7 +57,7 @@ setup_bare_remote() {
 
 @test "push-safe.sh: errors when not in git repository" {
     # No git init
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh"
+    run bash "$PROJECT_ROOT/bin/push-safe.sh"
     [ "$status" -eq 1 ]
     [[ "$output" =~ "Git 저장소가 아닙니다" ]]
 }
@@ -79,7 +79,7 @@ setup_bare_remote() {
     git push -u origin main >/dev/null 2>&1
 
     # Make remote up to date (no commits to push)
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh" --no-pr
+    run bash "$PROJECT_ROOT/bin/push-safe.sh" --no-pr
     [[ "$output" =~ "전송할" ]] || [[ "$output" =~ "없습니다" ]]
 
     # cleanup
@@ -108,7 +108,7 @@ setup_bare_remote() {
     git commit -m "Second" >/dev/null 2>&1
 
     # --dry-run should work
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh" --no-pr --dry-run
+    run bash "$PROJECT_ROOT/bin/push-safe.sh" --no-pr --dry-run
     [[ "$output" =~ "DRY-RUN" ]] || [[ "$output" =~ "커밋이 있습니다" ]]
 
     # cleanup
@@ -120,7 +120,7 @@ setup_bare_remote() {
     git init >/dev/null 2>&1
     git remote add origin https://github.com/user/repo.git
 
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
     run detect_git_host
     [ "$output" = "github" ]
 }
@@ -129,7 +129,7 @@ setup_bare_remote() {
     git init >/dev/null 2>&1
     git remote add origin https://gitlab.com/user/repo.git
 
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
     run detect_git_host
     [ "$output" = "gitlab" ]
 }
@@ -138,7 +138,7 @@ setup_bare_remote() {
     git init >/dev/null 2>&1
     git remote add origin https://bitbucket.org/user/repo.git
 
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
     run detect_git_host
     [ "$output" = "bitbucket" ]
 }

@@ -18,7 +18,7 @@ teardown() {
 
 # Load git_helper.sh
 load_git_helper() {
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
 }
 
 @test "is_git_repo: returns true for git repository" {

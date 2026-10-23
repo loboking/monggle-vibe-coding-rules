@@ -7,14 +7,14 @@
 ## 📦 설치
 
 ```bash
-git clone https://github.com/loboking/monggle-vibe-coding-rules.git
-cd monggle-vibe-coding-rules
+git clone https://github.com/loboking/monggle-agent-kit.git
+cd monggle-agent-kit
 ./install.sh
 ```
 
 또는 원라인:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/loboking/monggle-agent-kit/main/install.sh | bash
 ```
 
 ---
@@ -191,7 +191,7 @@ curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/
 ## 📚 더 알아보기
 
 - **전체 명령어**: README.md 참조
-- **뇌 시스템**: `.claude/brain/SPEC.md`
+- **뇌 시스템**: `brain/SPEC.md`
 - **업데이트**: `/monggle-upgrade` 또는 git pull
 
 ---

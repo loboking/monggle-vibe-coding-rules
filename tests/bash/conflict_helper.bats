@@ -25,8 +25,8 @@ teardown() {
     git commit -m "Initial" >/dev/null 2>&1
 
     # Need to source git_helper.sh for get_conflict_files
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     run get_conflict_files
     [ "$status" -eq 0 ]
@@ -34,7 +34,7 @@ teardown() {
 }
 
 @test "conflict_helper.sh: shows conflict guide" {
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     run show_conflict_guide
     [ "$status" -eq 0 ]
@@ -53,7 +53,7 @@ my content
 line after
 EOF
 
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     # Verify file exists
     [ -f conflict.txt ]
@@ -78,7 +78,7 @@ my content
 line after
 EOF
 
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     run resolve_theirs conflict.txt
     [ "$status" -eq 0 ]
@@ -107,7 +107,7 @@ line after
 EOF
 
     # Need git_helper.sh for get_conflict_markers
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
 
     run get_conflict_markers conflict.txt
     [ "$status" -eq 0 ]

@@ -1,7 +1,7 @@
 {
-  "name": "monggle-vibe-coding-rules",
+  "name": "monggle-agent-kit",
   "version": "3.5.0",
-  "description": "Vibe Coding Rules for Claude Code",
+  "description": "Agent kit for Claude Code, Codex CLI, OpenCode, Gemini CLI",
   "language": "ko",
   "created": "2026-07-09T00:41:25Z",
   "hooks": {
@@ -9,7 +9,11 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh",
+            "timeout": 10
+          }
         ]
       }
     ],
@@ -17,7 +21,35 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh", "timeout": 30 }
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-prompt-recall.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-turn-save.sh",
+            "timeout": 15
+          }
         ]
       }
     ]

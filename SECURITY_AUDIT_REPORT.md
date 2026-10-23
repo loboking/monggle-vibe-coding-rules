@@ -2,7 +2,7 @@
 
 > **Audit Date:** 2026-05-14
 > **Auditor:** Agent Judge (Claude Opus)
-> **Project:** monggle-vibe-coding-rules
+> **Project:** monggle-agent-kit
 > **Scope:** Shell scripts, hooks, installers, secrets management
 
 ---
@@ -300,7 +300,7 @@ logs/*.log
 # Override global .gitignore
 !.claude/commands/
 !.claude/hooks/
-!.claude/lib/
+!lib/
 !.claude/config/
 
 # Python
@@ -379,9 +379,9 @@ set -e            # ✓ Acceptable
 ### 🔴 Medium: eval Usage Detected
 
 **Files using eval:**
-- `.claude/lib/loop_detection.sh`
-- `.claude/lib/git.sh`
-- `.claude/brain/brain-core.sh`
+- `lib/loop_detection.sh`
+- `lib/git.sh`
+- `brain/brain-core.sh`
 - Multiple command scripts
 
 **Risk:** `eval` can execute arbitrary code if input is not sanitized.

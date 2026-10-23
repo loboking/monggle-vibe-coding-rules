@@ -1,12 +1,12 @@
-# Vibe Coding Skills for Claude
+# Monggle Agent Kit
 
 <div align="center">
 
-**"Claude는 쓰는데, 잘 쓰는 법은 다릅니다"**
+**코딩 에이전트 하나만 쓰라는 법은 없다**
 
-[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/loboking/monggle-agent-kit)
 
-**Claude Code를 더 잘 쓰기 위한 스킬 모음**
+**Claude Code · Codex CLI · OpenCode · Gemini CLI 에서 같이 쓰는 스킬 모음**
 
 </div>
 
@@ -15,9 +15,31 @@
 ## 🚀 빠른 시작
 
 ```bash
-git clone https://github.com/loboking/monggle-vibe-coding-rules.git
-cd monggle-vibe-coding-rules
-./install.sh
+git clone https://github.com/loboking/monggle-agent-kit.git
+cd monggle-agent-kit
+./install.sh            # 설치된 도구를 찾아 전부
+./install.sh --claude   # Claude Code 만
+./install.sh --codex    # Codex CLI 만
+./install.sh --dry-run  # 무엇을 어디에 쓸지만 확인
+```
+
+## 구조
+
+| 경로 | 설명 |
+|---|---|
+| `AGENTS.md` | 규칙 원본. `CLAUDE.md`·`GEMINI.md` 는 이걸 가리키기만 한다 |
+| `skills/<이름>/SKILL.md` | 스킬 원본 (도구 중립) |
+| `bin/*.sh` | 셸 스크립트. 어느 도구가 부르든 같은 걸 쓴다 |
+| `install.sh` | 도구별 형식으로 변환해 뿌린다 |
+
+설치하면 이렇게 깔린다.
+
+```
+~/.monggle/bin/                     스크립트 한 벌 (공용)
+~/.claude/skills/<이름>/SKILL.md     Claude Code
+~/.codex/prompts/<이름>.md           Codex CLI
+~/.config/opencode/command/<이름>.md OpenCode
+~/.gemini/commands/<이름>.toml       Gemini CLI
 ```
 
 ---

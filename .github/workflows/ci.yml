@@ -31,9 +31,9 @@ jobs:
         run: |
           shellcheck --severity=warning --shell=bash .claude/commands/*.sh
 
-      - name: Run ShellCheck on .claude/lib
+      - name: Run ShellCheck on lib
         run: |
-          shellcheck --severity=warning --shell=bash .claude/lib/*.sh
+          shellcheck --severity=warning --shell=bash lib/*.sh
 
       - name: Check for eval usage (security)
         run: |

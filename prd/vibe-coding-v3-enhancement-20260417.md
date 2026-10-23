@@ -116,7 +116,7 @@ Patch 완료 후 자동 실행:
 ### 2.3 ③ Fail-Fast 및 스마트 롤백 (Self-Healing)
 
 #### 현재 상태
-- `.claude/lib/loop_detection.sh`: 루프 감지 라이브러리
+- `lib/loop_detection.sh`: 루프 감지 라이브러리
 - `max_modifications: 5`, `max_consecutive_failures: 3`
 
 #### 개선 필요 사항
@@ -177,7 +177,7 @@ generate_failure_report()
 ### 2.4 ④ 팀 모드: 동기화 및 충돌 해결 (Conflict Resolution)
 
 #### 현재 상태
-- `.claude/lib/conflict_helper.sh`: 충돌 해결 도구
+- `lib/conflict_helper.sh`: 충돌 해결 도구
 - `/update`: Git 동기화 스크립트
 
 #### 개선 필요 사항
@@ -249,7 +249,7 @@ done
 |------|------|------|
 | 스크립트 | Bash | 기존 유지 |
 | PRD 생성 | Python 3.8+ | scripts/prd_creator.py |
-| 루프 감지 | Bash + jq | .claude/lib/loop_detection.sh |
+| 루프 감지 | Bash + jq | lib/loop_detection.sh |
 | Git 연동 | Git | 충돌 해결 |
 
 ---
@@ -357,7 +357,7 @@ prd/
 ```
 
 #### ② TDD Test-First 강제 ✅
-- **파일**: `.claude/lib/tdd_enforcer.sh`
+- **파일**: `lib/tdd_enforcer.sh`
 - **기능**:
   - `tdd_pre_patch_hook()` - Patch 전 테스트 확인
   - `tdd_validate_before_patch()` - 테스트 파일 존재 검증
@@ -365,12 +365,12 @@ prd/
   - 실패하는 테스트 먼저 작성 원칙 강제
 
 ```bash
-source .claude/lib/tdd_enforcer.sh
+source lib/tdd_enforcer.sh
 tdd_pre_patch_hook <prd_file>
 ```
 
 #### ③ PRD 단위 루프 감지 ✅
-- **파일**: `.claude/lib/loop_detection.sh`
+- **파일**: `lib/loop_detection.sh`
 - **기능**:
   - `loop_check_prd()` - PRD 루프 감지 (3회 연속 실패)
   - `loop_record_prd_attempt()` - 시도 기록
@@ -434,7 +434,7 @@ pre_pipeline_git_check() {
 
 ### ① 원인 분석 자동화 고도화 ✅
 
-**파일**: `.claude/lib/loop_detection.sh`
+**파일**: `lib/loop_detection.sh`
 
 **추가 기능**:
 - `_loop_analyze_patterns()` - 반복 패턴 감지 (파일, 단계)

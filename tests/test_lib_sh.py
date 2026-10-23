@@ -23,7 +23,7 @@ class TestPlatformLibrary(unittest.TestCase):
     def setUp(self):
         """테스트 설정"""
         self.project_root = Path(__file__).parent.parent
-        self.platform_lib = self.project_root / ".claude" / "lib" / "platform.sh"
+        self.platform_lib = self.project_root / "lib" / "platform.sh"
 
     def run_bash_function(self, function_name, args=""):
         """Bash 함수 실행 헬퍼"""
@@ -115,7 +115,7 @@ class TestValidationLibrary(unittest.TestCase):
     def setUp(self):
         """테스트 설정"""
         self.project_root = Path(__file__).parent.parent
-        self.validation_lib = self.project_root / ".claude" / "lib" / "validation.sh"
+        self.validation_lib = self.project_root / "lib" / "validation.sh"
 
     def run_bash_function(self, function_name, args=""):
         """Bash 함수 실행 헬퍼"""
@@ -223,7 +223,7 @@ class TestGitLibrary(unittest.TestCase):
     def setUp(self):
         """테스트 설정"""
         self.project_root = Path(__file__).parent.parent
-        self.git_lib = self.project_root / ".claude" / "lib" / "git.sh"
+        self.git_lib = self.project_root / "lib" / "git.sh"
 
     def run_bash_function(self, function_name, args=""):
         """Bash 함수 실행 헬퍼"""
@@ -284,7 +284,7 @@ class TestSecurityP0(unittest.TestCase):
 
     def test_no_eval_in_changelog(self):
         """changelog.sh에서 eval 사용이 제거되었는지 테스트"""
-        changelog_file = self.project_root / ".claude" / "commands" / "changelog.sh"
+        changelog_file = self.project_root / "bin" / "changelog.sh"
         content = changelog_file.read_text()
 
         # eval 사용이 없어야 함 (안전한 배열 방식 사용)
@@ -300,7 +300,7 @@ class TestSecurityP0(unittest.TestCase):
 
     def test_json_output_declared_in_mem_check(self):
         """mem-check.sh에서 JSON_OUTPUT이 선언되었는지 테스트"""
-        mem_check_file = self.project_root / ".claude" / "commands" / "mem-check.sh"
+        mem_check_file = self.project_root / "bin" / "mem-check.sh"
         content = mem_check_file.read_text()
 
         # JSON_OUTPUT=0 선언 확인
@@ -309,7 +309,7 @@ class TestSecurityP0(unittest.TestCase):
 
     def test_version_validation_in_bump(self):
         """bump.sh에서 버전 유효성 검사가 있는지 테스트"""
-        bump_file = self.project_root / ".claude/commands" / "bump.sh"
+        bump_file = self.project_root / "bin" / "bump.sh"
         content = bump_file.read_text()
 
         # validate_version 함수 사용 또는 정규식 검사 확인
@@ -334,25 +334,25 @@ class TestP1Architecture(unittest.TestCase):
 
     def test_platform_sh_exists(self):
         """platform.sh 라이브러리가 존재하는지 테스트"""
-        platform_lib = self.project_root / ".claude" / "lib" / "platform.sh"
+        platform_lib = self.project_root / "lib" / "platform.sh"
         self.assertTrue(platform_lib.exists(),
             "platform.sh library should exist")
 
     def test_validation_sh_exists(self):
         """validation.sh 라이브러리가 존재하는지 테스트"""
-        validation_lib = self.project_root / ".claude" / "lib" / "validation.sh"
+        validation_lib = self.project_root / "lib" / "validation.sh"
         self.assertTrue(validation_lib.exists(),
             "validation.sh library should exist")
 
     def test_git_sh_exists(self):
         """git.sh 라이브러리가 존재하는지 테스트"""
-        git_lib = self.project_root / ".claude" / "lib" / "git.sh"
+        git_lib = self.project_root / "lib" / "git.sh"
         self.assertTrue(git_lib.exists(),
             "git.sh library should exist")
 
     def test_common_sh_loads_libraries(self):
         """common.sh가 라이브러리들을 로드하는지 테스트"""
-        common_file = self.project_root / ".claude" / "lib" / "common.sh"
+        common_file = self.project_root / "lib" / "common.sh"
         content = common_file.read_text()
 
         # 라이브러리 로드 확인
@@ -365,7 +365,7 @@ class TestP1Architecture(unittest.TestCase):
 
     def test_scripts_use_eu_pipefail(self):
         """스크립트들이 set -euo pipefail을 사용하는지 테스트"""
-        commands_dir = self.project_root / ".claude" / "commands"
+        commands_dir = self.project_root / "bin"
 
         # 주요 스크립트들 확인
         critical_scripts = [

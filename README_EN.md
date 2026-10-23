@@ -5,7 +5,7 @@
 **"Knowing how to use Claude is different from using it well"**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/loboking/monggle-vibe-coding-rules)
+[![Version](https://img.shields.io/badge/version-3.5.0-blue.svg)](https://github.com/loboking/monggle-agent-kit)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Compatible-orange.svg)](https://claude.com/claude-code)
 
 **Skills collection to get better results with Claude Code**
@@ -60,15 +60,15 @@ A **collection of skills that help developers get better results when using Clau
 ### Git Clone
 
 ```bash
-git clone https://github.com/loboking/monggle-vibe-coding-rules.git
-cd monggle-vibe-coding-rules
+git clone https://github.com/loboking/monggle-agent-kit.git
+cd monggle-agent-kit
 ./install.sh
 ```
 
 ### Curl One-liner
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/loboking/monggle-agent-kit/main/install.sh | bash
 ```
 
 ---
@@ -427,7 +427,7 @@ cat VERSION  # Or check README badge
 **Check GitHub Release:**
 ```bash
 # In browser
-https://github.com/loboking/monggle-vibe-coding-rules/releases
+https://github.com/loboking/monggle-agent-kit/releases
 ```
 
 **Or Check Git Tags:**
@@ -442,7 +442,7 @@ git tag -l | tail -5  # Last 5 tags
 
 ```bash
 # Go to project directory
-cd monggle-vibe-coding-rules
+cd monggle-agent-kit
 
 # Check changes (optional)
 git fetch origin
@@ -459,7 +459,7 @@ git pull origin main
 
 ```bash
 # Full reinstall
-curl -fsSL https://raw.githubusercontent.com/loboking/monggle-vibe-coding-rules/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/loboking/monggle-agent-kit/main/install.sh | bash
 ```
 
 > **💡 Tip**: Config files (`.claude/config/user.conf`) are preserved, so update with confidence!
@@ -484,7 +484,7 @@ git log --oneline -5
 git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 # Check release notes
-# https://github.com/loboking/monggle-vibe-coding-rules/blob/main/CHANGELOG.md
+# https://github.com/loboking/monggle-agent-kit/blob/main/CHANGELOG.md
 ```
 
 ### ⚠️ Update Notes
@@ -504,9 +504,9 @@ git log -10 --pretty=format:"%h - %s (%ar)" --author="loboking"
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/loboking/monggle-vibe-coding-rules)
-- [Issues](https://github.com/loboking/monggle-vibe-coding-rules/issues)
-- [Discussions](https://github.com/loboking/monggle-vibe-coding-rules/discussions)
+- [GitHub Repository](https://github.com/loboking/monggle-agent-kit)
+- [Issues](https://github.com/loboking/monggle-agent-kit/issues)
+- [Discussions](https://github.com/loboking/monggle-agent-kit/discussions)
 
 ---
 

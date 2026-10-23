@@ -60,7 +60,7 @@ setup_developer_repo() {
     cd "$dev_dir"
 
     # Run /update (verify with dry-run)
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --auto
+    run bash "$PROJECT_ROOT/bin/update.sh" --auto
 
     # Verify success
     [ "$status" -eq 0 ]
@@ -84,7 +84,7 @@ setup_developer_repo() {
     echo "work in progress" > work.txt
 
     # Run /update (auto mode)
-    run bash "$PROJECT_ROOT/.claude/commands/update.sh" --auto
+    run bash "$PROJECT_ROOT/bin/update.sh" --auto
 
     # Verify success (stash saved)
     [ "$status" -eq 0 ]
@@ -141,7 +141,7 @@ EOF
     cd "$dev_b_dir"
 
     # Load conflict_helper.sh
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     # Resolve conflict (keep remote changes)
     if [ -f auth.js ]; then
@@ -192,7 +192,7 @@ EOF
 
     # Resolve conflict in my repo (keep my changes)
     cd "$dev_b_dir"
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     if [ -f auth.js ]; then
         run resolve_keep auth.js
@@ -225,7 +225,7 @@ EOF
     git commit -m "Add feature" >/dev/null 2>&1
 
     # Run push-safe (dry-run)
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh" --dry-run --no-pr
+    run bash "$PROJECT_ROOT/bin/push-safe.sh" --dry-run --no-pr
     [ "$status" -eq 0 ] || [ "$status" -eq 1 ]  # push may fail (no real remote)
     [[ "$output" =~ "DRY-RUN" ]] || [[ "$output" =~ "커밋" ]] || [[ "$output" =~ "전송" ]]
 
@@ -263,7 +263,7 @@ EOF
 
     # B runs push-safe (behind state)
     cd "$dev_b_dir"
-    run bash "$PROJECT_ROOT/.claude/commands/push-safe.sh" --dry-run --no-pr
+    run bash "$PROJECT_ROOT/bin/push-safe.sh" --dry-run --no-pr
 
     # Verify behind detection message
     [[ "$output" =~ "뒤처져" ]] || [[ "$output" =~ "DRY-RUN" ]] || [[ "$output" =~ "update" ]]
@@ -288,12 +288,12 @@ EOF
     git remote add origin https://github.com/user/repo.git
 
     # Host detection
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
     run detect_git_host
     [ "$output" = "github" ]
 
     # Load PR helper functions
-    source "$PROJECT_ROOT/.claude/lib/pr_helper.sh"
+    source "$PROJECT_ROOT/lib/pr_helper.sh"
 
     # Verify PR creation function exists
     run type create_github_pr
@@ -304,7 +304,7 @@ EOF
     git init >/dev/null 2>&1
     git remote add origin https://gitlab.com/user/repo.git
 
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
     run detect_git_host
     [ "$output" = "gitlab" ]
 }
@@ -313,7 +313,7 @@ EOF
     git init >/dev/null 2>&1
     git remote add origin https://bitbucket.org/user/repo.git
 
-    source "$PROJECT_ROOT/.claude/lib/git_helper.sh"
+    source "$PROJECT_ROOT/lib/git_helper.sh"
     run detect_git_host
     [ "$output" = "bitbucket" ]
 }
@@ -334,7 +334,7 @@ my content
 line after
 EOF
 
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     # Conflict analysis
     run analyze_conflict conflict_file.txt
@@ -350,7 +350,7 @@ EOF
     git add test.txt
     git commit -m "Initial" >/dev/null 2>&1
 
-    source "$PROJECT_ROOT/.claude/lib/conflict_helper.sh"
+    source "$PROJECT_ROOT/lib/conflict_helper.sh"
 
     # No conflict state
     run show_conflict_files

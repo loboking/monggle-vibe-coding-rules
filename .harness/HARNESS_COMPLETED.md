@@ -30,7 +30,7 @@
 
 | 파일 | 설명 |
 |------|------|
-| `.claude/lib/loop_detection.sh` | 루프 탐지 라이브러리 |
+| `lib/loop_detection.sh` | 루프 탐지 라이브러리 |
 | `.harness/loop-detection.json` | 루프 추적 데이터 |
 | `.claude/commands/pipeline.sh` | 파이프라인과 통합 |
 

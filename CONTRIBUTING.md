@@ -10,11 +10,11 @@ Vibe Coding Rules 프로젝트에 기여해주셔서 감사합니다! 이 문서
 
 ```bash
 # 포크 후 클론
-git clone https://github.com/YOUR_USERNAME/monggle-vibe-coding-rules.git
-cd monggle-vibe-coding-rules
+git clone https://github.com/YOUR_USERNAME/monggle-agent-kit.git
+cd monggle-agent-kit
 
 # 원격 저장소 추가
-git remote add upstream https://github.com/loboking/monggle-vibe-coding-rules.git
+git remote add upstream https://github.com/loboking/monggle-agent-kit.git
 ```
 
 ### 2. 개발 환경 설정
@@ -169,7 +169,7 @@ python3 -m coverage report
 ## 📁 프로젝트 구조
 
 ```
-monggle-vibe-coding-rules/
+monggle-agent-kit/
 ├── .claude/
 │   ├── commands/          # 슬래시 명령어
 │   ├── hooks/             # 자동화 훅

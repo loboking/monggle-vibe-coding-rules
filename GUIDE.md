@@ -15,8 +15,8 @@
 ### 설치
 
 ```bash
-git clone https://github.com/loboking/monggle-vibe-coding-rules.git
-cd monggle-vibe-coding-rules
+git clone https://github.com/loboking/monggle-agent-kit.git
+cd monggle-agent-kit
 ./install.sh
 ```
 
@@ -212,7 +212,7 @@ Gate(검증) → Scan(분석) → Fold(평가) → Verdict(판단) → Patch(구
 cd ~/.claude/commands
 ./fix-skills.sh
 # 또는
-cd monggle-vibe-coding-rules
+cd monggle-agent-kit
 ./install.sh
 ```
 

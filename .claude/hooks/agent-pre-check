@@ -21,7 +21,7 @@ _load_valid_skills() {
         grep -v '^#' "$skills_file" 2>/dev/null | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//'
     else
         # fallback: commands 폴더 직접 스캔
-        find "$PROJECT_ROOT/.claude/commands" -maxdepth 1 -type f \( -name "*.sh" -o -name "*.py" \) 2>/dev/null | \
+        find "$PROJECT_ROOT/bin" -maxdepth 1 -type f \( -name "*.sh" -o -name "*.py" \) 2>/dev/null | \
             xargs -I{} basename {} | sed 's/\.[^.]*$//' | sort | tr '\n' ' ' | sed 's/  */ /g'
     fi
 }

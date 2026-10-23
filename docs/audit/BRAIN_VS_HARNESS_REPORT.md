@@ -1,4 +1,4 @@
-All claims fully verified against live code and data. Confirmed: the global `~/.claude/brain/brain-core.sh` uses a completely different format (`short_<epoch>_<hex>.json`, separate `.json` files, hippocampus/cortex dirs) versus the project version (`paste -sd ','` bug at lines 197/285, central `index.json`), and `brain.sh` sources the project version. SessionStart hooks confirmed NOT registered (only detect-project, docs-on-session-start, update-claude-md). Now writing the report.
+All claims fully verified against live code and data. Confirmed: the global `~/brain/brain-core.sh` uses a completely different format (`short_<epoch>_<hex>.json`, separate `.json` files, hippocampus/cortex dirs) versus the project version (`paste -sd ','` bug at lines 197/285, central `index.json`), and `brain.sh` sources the project version. SessionStart hooks confirmed NOT registered (only detect-project, docs-on-session-start, update-claude-md). Now writing the report.
 
 # Brain 시스템 vs 하네스 — 시스템 분석 리포트
 
@@ -55,7 +55,7 @@ All claims fully verified against live code and data. Confirmed: the global `~/.
 |----|-----------|-------------|
 | **목적** | 사람이 만든 **지식**(결정/패턴/버그/컨텍스트) 기억 | 스킬 **실행 관측** + 자기개선 |
 | **대상** | 뉴런(.md) + 시냅스 + 감정가중 | 메트릭(성공/실패/duration/diff크기) |
-| **저장** | `~/.claude/brain` (.md + `synapses/index.json` + jq) | `~/.claude/.harness` (JSON/JSONL + jq) |
+| **저장** | `~/brain` (.md + `synapses/index.json` + jq) | `~/.claude/.harness` (JSON/JSONL + jq) |
 | **수명** | 고착(consolidation) ↔ 망각(forgetting) | per-run (track_start → track_end) |
 | **통합** | wrapper 미경유. debug/test 2개 스킬만 `brain-core` 직접 source | wrapper 경유 6개 스킬 계측 |
 
@@ -84,9 +84,9 @@ All claims fully verified against live code and data. Confirmed: the global `~/.
 
 4. **split-brain — 3개의 무관한 `/brain`**
    - `~/.claude/skills/brain/skill.sh` (실제 등록 스킬): brain-core 미사용, 프로젝트명.md 에 메모하는 단순 노트
-   - `~/.claude/commands/brain.sh`: 생체모방 brain-core source (단, **프로젝트판** `monggle-vibe-coding-rules/.claude/brain/brain-core.sh`를 BRAIN_ROOT 로 가리킴)
+   - `~/.claude/commands/brain.sh`: 생체모방 brain-core source (단, **프로젝트판** `monggle-agent-kit/brain/brain-core.sh`를 BRAIN_ROOT 로 가리킴)
    - `~/.claude/commands/brain.md`: 또 다른 short/long/promote 설계
-   - 추가로 글로벌 `~/.claude/brain/brain-core.sh`(19KB)는 **포맷 비호환 재작성본**(`short_<epoch>_<hex>.json`, 개별 .json 시냅스, index 없음). 디스크 실데이터는 구형 `.md + index.json`뿐 → 이 재작성본은 **한 번도 실행된 적 없음**
+   - 추가로 글로벌 `~/brain/brain-core.sh`(19KB)는 **포맷 비호환 재작성본**(`short_<epoch>_<hex>.json`, 개별 .json 시냅스, index 없음). 디스크 실데이터는 구형 `.md + index.json`뿐 → 이 재작성본은 **한 번도 실행된 적 없음**
 
 5. **디렉토리 단/복수 불일치** — `init`은 복수형(`decisions/`, `bugs/`) 생성, `create_neuron`은 단수형(`decision/`)에 저장. 런타임에 빈 복수형과 채워진 단수형 공존 확인. **ID 초단위 충돌**(같은 초+같은 type → 무경고 덮어쓰기)도 존재
 
