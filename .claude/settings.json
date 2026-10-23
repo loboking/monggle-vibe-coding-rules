@@ -3,55 +3,5 @@
   "version": "3.5.0",
   "description": "Agent kit for Claude Code, Codex CLI, OpenCode, Gemini CLI",
   "language": "ko",
-  "created": "2026-07-09T00:41:25Z",
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-prompt-recall.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/brain-turn-save.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ]
-  }
+  "created": "2026-07-09T00:41:25Z"
 }

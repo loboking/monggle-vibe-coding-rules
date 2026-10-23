@@ -17,6 +17,8 @@ from pathlib import Path
 HOME = Path.home()
 BRAIN = HOME / ".claude" / "brain"
 PROJECTS = HOME / ".claude" / "projects"
+# data.json 은 코드 폴더가 아니라 전용 폴더에 둔다(서버가 코드 폴더를 통째로 보여주지 않게).
+DATA_DIR = HOME / ".agents" / "brain-web-data"
 
 def proj_name(raw):
     """경로 인코딩된 프로젝트 키 → 읽는 이름 (JS projName과 동일 규칙)."""
@@ -228,16 +230,38 @@ def apply_retention(nodes, now):
         except (ValueError, TypeError):
             ac = 0
         ew = float(n.get("emotional_weight", 0.5) or 0.5)
-        S = 2.0 + ac * 3.0 + ew * 5.0          # 강도(일 단위). 기본 2일, 접근·감정에 비례
-        n["retention"] = round(math.exp(-dt_days / S), 4)
+        # brain-core(brain_calc_retention·cleanup)와 같은 공식: 반감 시간 72h×(1+6·감정+0.4·접근).
+        # 공식이 다르면 화면에서 '곧 잊힘'으로 보이는 것과 실제로 지워지는 것이 어긋난다.
+        ew = min(1.0, max(0.0, ew))
+        S = 72.0 * (1 + ew * 6.0 + ac * 0.4) / 24.0   # 일 단위
+        n["retention"] = 1.0 if dt_days < 1 / 24 else round(math.exp(-dt_days / S), 4)
         n["days_since"] = round(dt_days, 1)
         n["strength"] = round(S, 1)
 
+def brain_homes():
+    """전역 보관소(~/.claude/brain) + 프로젝트별 기억(<프로젝트>/.agents/brain).
+    프로젝트 목록은 brain-resolve.sh 가 처음 기억 폴더를 만들 때 ~/.agents/brain-projects 에 적는다."""
+    homes = [(HOME / ".claude" / "brain", None)]
+    reg = HOME / ".agents" / "brain-projects"
+    if reg.exists():
+        for line in sorted(set(reg.read_text(encoding="utf-8", errors="replace").splitlines())):
+            b = Path(line.strip()) / ".agents" / "brain"
+            if line.strip() and b.is_dir() and not b.is_symlink():
+                homes.append((b, Path(line.strip()).name))
+    return homes
+
 def main():
-    out = Path(sys.argv[1]) if len(sys.argv) > 1 else (Path(__file__).parent / "data.json")
-    n_nodes, n_edges = scan_neurons(load_index_neurons())
+    global BRAIN
+    out = Path(sys.argv[1]) if len(sys.argv) > 1 else DATA_DIR / "data.json"
+    n_nodes, n_edges, s_edges = [], [], []
+    for home, pname in brain_homes():
+        BRAIN = home
+        nn, ne = scan_neurons(load_index_neurons())
+        if pname:
+            for n in nn:
+                n["project"] = pname
+        n_nodes += nn; n_edges += ne; s_edges += scan_synapses()
     m_nodes, m_edges = scan_memory()
-    s_edges = scan_synapses()
     nodes = n_nodes + m_nodes
 
     # ---- 프로젝트 정규화 + 뉴런 프로젝트 추출 ----
@@ -252,6 +276,8 @@ def main():
     # 뉴런 노드: tags 중 "알려진 프로젝트명"과 일치하면 그 프로젝트로. (오추정 방지 — 매칭만 신뢰)
     #  + tags에 'project' 다음에 오는 토큰이 프로젝트명인 brain 관습도 보조로 사용.
     for n in n_nodes:
+        if n.get("project"):          # 프로젝트별 기억은 위치로 이미 정해짐
+            known.add(n["project"]); continue
         tags = n.get("tags", []) or []
         pn = next((t for t in tags if t in known), None)
         if not pn and "project" in tags:
@@ -283,7 +309,12 @@ def main():
             "vivid": len([n for n in nodes if (n.get("retention") or 0) > 0.7]),     # 생생한 기억
         },
     }
-    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 서빙 중에 반쯤 쓴 파일이 읽히지 않게 임시 파일에 쓰고 교체한다. 개인 기억이라 본인만 읽게.
+    out.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    tmp = out.with_suffix(".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, out)
     s = payload["stats"]
     print(f"✅ {out}")
     print(f"   뉴런 {s['neurons']} · 기억 {s['memories']} · 시냅스 {s['synapses']} · 기억링크 {s['mem_links']} · 총엣지 {s['total_edges']}")

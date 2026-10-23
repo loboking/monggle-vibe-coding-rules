@@ -330,7 +330,7 @@ function applyGraphFilter(){
   });
 }
 
-function esc(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function showNode(n){
   const tags=(n.tags||[]).map(t=>`<span style="display:inline-block;font-size:11px;padding:2px 9px;border-radius:11px;background:#0e1016;border:1px solid var(--line);margin:2px 4px 2px 0">${esc(t)}</span>`).join('');
   document.getElementById('side').innerHTML=`

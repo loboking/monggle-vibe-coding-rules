@@ -8,7 +8,7 @@ LABEL="com.monggle.brain-web"
 URL="http://localhost:$PORT/index.html"
 
 echo "🧠 brain-web: 데이터 스캔 중…"
-python3 "$DIR/scan.py" "$DIR/data.json"
+python3 "$DIR/scan.py"
 
 open_browser() {
   ( sleep 1; command -v open >/dev/null && open "$URL" || (command -v xdg-open >/dev/null && xdg-open "$URL") ) >/dev/null 2>&1 &
@@ -35,4 +35,4 @@ fi
 echo "🌐 서버 시작: $URL  (Ctrl+C 로 종료)"
 open_browser
 cd "$DIR"
-exec python3 -m http.server "$PORT" --bind 127.0.0.1
+exec python3 "$DIR/server.py" "$PORT"

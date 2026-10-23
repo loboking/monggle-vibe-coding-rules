@@ -55,7 +55,7 @@ brain_find_project_root() {
 }
 
 # 프로젝트 데이터 홈을 해석하여 CLAUDE_BRAIN_HOME 으로 export.
-#   - 프로젝트 루트 확정 시: CLAUDE_BRAIN_HOME="<root>/brain" export 후 0 반환.
+#   - 프로젝트 루트 확정 시: CLAUDE_BRAIN_HOME="<root>/.agents/brain" export 후 0 반환.
 #   - 프로젝트 아님: 아무것도 export 하지 않고 1 반환
 #     (호출 훅은 1 을 받으면 조용히 exit 0 → 저장/회상 스킵, brain 폴더 미생성).
 # 사용:
@@ -66,6 +66,21 @@ brain_resolve_project_home() {
     local root
     root="$(brain_find_project_root)" || return 1
     [[ -z "$root" ]] && return 1
-    export CLAUDE_BRAIN_HOME="$root/brain"
+    # 숨김 폴더: 프로젝트의 brain/ 코드 폴더와 섞이지 않게 .agents/brain 에 둔다.
+    local home="$root/.agents/brain"
+    # 남이 만든 기억은 쓰지 않는다: 클론한 저장소에 커밋돼 있거나(git 추적) 다른 곳을 가리키는
+    # 심볼릭 링크라면, 그 안의 내용이 회상으로 주입되거나 링크 대상에 파일이 생길 수 있다.
+    [[ -L "$root/.agents" || -L "$home" ]] && return 1
+    if [[ -d "$root/.git" || -f "$root/.git" ]] && \
+       [[ -n "$(git -C "$root" ls-files -- .agents/brain 2>/dev/null | head -1)" ]]; then
+        return 1
+    fi
+    export CLAUDE_BRAIN_HOME="$home"
+    # 기억은 개인 데이터라 커밋되면 안 된다. 프로젝트 .gitignore 를 건드리지 않고 폴더 스스로 무시한다.
+    if [[ ! -f "$CLAUDE_BRAIN_HOME/.gitignore" ]]; then
+        mkdir -p "$CLAUDE_BRAIN_HOME" 2>/dev/null && printf '*\n' > "$CLAUDE_BRAIN_HOME/.gitignore" 2>/dev/null
+        # brain-web 이 프로젝트별 기억을 찾을 수 있게 목록에 남긴다(처음 한 번).
+        mkdir -p "$HOME/.agents" 2>/dev/null && printf '%s\n' "$root" >> "$HOME/.agents/brain-projects" 2>/dev/null
+    fi
     return 0
 }

@@ -52,58 +52,7 @@ fi
 
 export PROJECT_ROOT
 
-# ============================================================================
-# Brain 자동 부트스트랩 (스킬 첫 실행 시 brain 상시 기억 훅 자동 등록)
-# ============================================================================
-# Vibe Coding 스킬을 쓰는 프로젝트면, 별도 install 없이도 스킬 실행 순간
-# 그 프로젝트의 .claude/settings.json 에 brain 훅(회상/저장/세션)을 조용히
-# 자동 등록한다. 이후 모든 메시지에서 Brain 이 상시 작동.
-# 안전: 어떤 실패도 스킬 작동을 막지 않는다. 멱등(중복 등록 안 함).
-_brain_bootstrap() {
-    # 비활성화 스위치
-    [[ "${BRAIN_AUTOREGISTER:-true}" == "false" ]] && return 0
-    command -v jq &>/dev/null || return 0
-
-    # --- 프로젝트 루트 판정: git 루트 우선, 없으면 cwd ---
-    local proj
-    proj="$(git rev-parse --show-toplevel 2>/dev/null)" || proj=""
-    [[ -z "$proj" ]] && proj="$(pwd)"
-    [[ -d "$proj" ]] || return 0
-
-    # 프로젝트에 brain 훅 파일이 실제로 있어야 등록(없으면 이 프로젝트는 brain 미설치)
-    local hooks_dir="$proj/.claude/hooks"
-    [[ -f "$hooks_dir/brain-prompt-recall.sh" ]] || return 0
-
-    local sf="$proj/.claude/settings.json"
-    # settings.json 없으면 최소 골격 생성
-    if [[ ! -f "$sf" ]]; then
-        mkdir -p "$proj/.claude" 2>/dev/null || return 0
-        echo '{}' > "$sf" 2>/dev/null || return 0
-    fi
-
-    # 이미 회상 훅 등록됐으면 종료 (멱등)
-    jq -e '.hooks.UserPromptSubmit[]?.hooks[]?.command | select(test("brain-prompt-recall"))' "$sf" &>/dev/null && return 0
-
-    # 조용히 4개 brain 훅 주입 (각 이벤트에 이미 있으면 건너뜀)
-    local tmp; tmp="$(mktemp 2>/dev/null)" || return 0
-    if jq '
-        .hooks = (.hooks // {})
-        | (((.hooks.SessionStart // []) | map(.hooks[]?.command) | any(test("brain-session-start"))) as $h
-           | if $h then . else .hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-start.sh","timeout":10}]}]) end)
-        | (((.hooks.UserPromptSubmit // []) | map(.hooks[]?.command) | any(test("brain-prompt-recall"))) as $h
-           | if $h then . else .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-prompt-recall.sh","timeout":15}]}]) end)
-        | (((.hooks.Stop // []) | map(.hooks[]?.command) | any(test("brain-turn-save"))) as $h
-           | if $h then . else .hooks.Stop = ((.hooks.Stop // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-turn-save.sh","timeout":15}]}]) end)
-        | (((.hooks.SessionEnd // []) | map(.hooks[]?.command) | any(test("brain-session-end"))) as $h
-           | if $h then . else .hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{"matcher":"*","hooks":[{"type":"command","command":"$CLAUDE_PROJECT_DIR/.claude/hooks/brain-session-end.sh","timeout":30}]}]) end)
-    ' "$sf" > "$tmp" 2>/dev/null; then
-        mv "$tmp" "$sf" 2>/dev/null || rm -f "$tmp"
-    else
-        rm -f "$tmp"
-    fi
-    return 0
-}
-_brain_bootstrap 2>/dev/null || true
+# brain 훅은 install.sh 가 도구별 전역 설정에 한 번 등록한다(프로젝트마다 등록하면 중복 실행).
 
 # 스킬 이름 자동 감지
 HARNESS_SKILL_NAME="$(basename "$0" .sh)"

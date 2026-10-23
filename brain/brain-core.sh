@@ -77,6 +77,24 @@ brain_iso_to_epoch() {
     return 1
 }
 
+# 비밀값 마스킹. 사용자가 프롬프트에 붙여 넣은 키·비밀번호가 뉴런 본문·태그로 저장되고
+# 나중에 다른 질문의 회상으로 다시 주입되는 것을 막는다. 저장 직전 한 곳(brain_create_neuron)과
+# turn-save 입력에서 거친다. 사용: brain_redact "<text>"
+brain_redact() {
+    printf '%s' "$1" | perl -0pe '
+        s/\b(sk|rk|pk)-[A-Za-z0-9_\-]{16,}/[REDACTED]/g;
+        s/\b(ghp|gho|ghs|ghu|github_pat)_[A-Za-z0-9_]{20,}/[REDACTED]/g;
+        s/\bAIza[0-9A-Za-z_\-]{30,}/[REDACTED]/g;
+        s/\bGOCSPX-[A-Za-z0-9_\-]+/[REDACTED]/g;
+        s/\bxox[abprs]-[A-Za-z0-9\-]{10,}/[REDACTED]/g;
+        s/\bAKIA[0-9A-Z]{16}\b/[REDACTED]/g;
+        s/-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(-----END [A-Z ]*PRIVATE KEY-----|\z)/[REDACTED]/gs;
+        s/\b(password|passwd|pwd|token|secret|api[_\-]?key|client[_\-]?secret)(\s*[:=]\s*|\s+is\s+)\S+/$1=[REDACTED]/gi;
+        s/(비밀번호|패스워드|암호|토큰|시크릿)(는|은|:|=)?\s*\S+/$1 [REDACTED]/g;
+        s/\b(?=[A-Za-z0-9_+\-]*\d)(?=[A-Za-z0-9_+\-]*[A-Za-z])[A-Za-z0-9_+\-]{32,}\b/[REDACTED]/g;
+    ' 2>/dev/null || printf '%s' "$1"
+}
+
 # 텍스트에서 '의미있는' 키워드 태그를 추출 (불용어/시스템토큰 제거).
 # 사용: brain_extract_keywords "<text>" [max=4]
 #   - 소문자화, 영숫자/한글만, 길이 3+ 영문 / 2+ 한글
@@ -95,7 +113,14 @@ brain_extract_keywords() {
             {
                 w=$0
                 # 길이 필터: 한글 포함이면 2자+(바이트 6+), 순영숫자면 3자+
-                if (w ~ /[가-힣]/) { if (length(w) < 2) next }
+                # 비밀값 조각이 태그가 되지 않게 영문+숫자 섞인 16자+ 토큰은 버린다.
+                if (length(w) >= 16 && w ~ /[0-9]/ && w ~ /[a-z]/) next
+                if (w ~ /[가-힣]/) {
+                    # 흔한 조사 떼기("버그를"·"버그가" → "버그"). 남는 게 2글자 이상일 때만.
+                    # BSD awk 는 바이트 단위라 한글 1글자=3바이트로 센다.
+                    v=w; if (sub(/(에서|으로|에게|까지|부터|은|는|이|가|을|를|에|의|로|와|과|도)$/, "", v) && length(v) >= 6) w=v
+                    if (length(w) < 6) next
+                }
                 else { if (length(w) < 3) next }
                 if (w in sw) next
                 if (!(w in seen)) { seen[w]=1; order[++c]=w }
@@ -116,6 +141,8 @@ brain_extract_keywords() {
 brain_atomic_commit() {
     local tmp="$1" dest="$2"
     if [[ -s "$tmp" ]] && jq -e . "$tmp" >/dev/null 2>&1; then
+        # 직전 정본을 남겨 두면 정본이 깨졌을 때 brain_lock 이 되살린다.
+        [[ -s "$dest" ]] && cp -p "$dest" "$dest.bak" 2>/dev/null
         mv "$tmp" "$dest"
         return 0
     fi
@@ -123,6 +150,29 @@ brain_atomic_commit() {
     rm -f "$tmp" 2>/dev/null
     log_warn "brain: jq 산출물이 유효하지 않아 쓰기를 건너뜀(데이터 보존): $dest"
     return 1
+}
+
+# 쓰기 잠금. 세션 여러 개가 동시에 index 를 읽고-고치고-쓰면 갱신이 유실된다.
+# macOS 에는 flock 이 기본으로 없어 mkdir(원자적)로 잠근다. 최대 약 5초 기다리고,
+# 1분 넘게 남은 잠금은 죽은 프로세스의 것으로 보고 치운다. 못 잡으면 1 → 훅은 저장을 건너뛴다.
+# 잡을 때 index 가 깨져 있으면 .bak 에서 되살린다.
+brain_lock() {
+    local lock="$BRAIN_HOME/.lock" i=0
+    mkdir -p "$BRAIN_HOME" 2>/dev/null
+    while ! mkdir "$lock" 2>/dev/null; do
+        if [[ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]]; then rmdir "$lock" 2>/dev/null; continue; fi
+        (( ++i > 50 )) && return 1
+        sleep 0.1
+    done
+    trap 'rmdir "$BRAIN_HOME/.lock" 2>/dev/null' EXIT
+    # 세션 시작 훅을 거치지 않은 프로젝트(도중에 설치 등)도 인덱스가 있어야 뉴런이 등록된다.
+    [[ -f "$SYNAPSES_FILE" ]] || brain_init >/dev/null 2>&1
+    if [[ -f "$SYNAPSES_FILE" ]] && ! jq -e . "$SYNAPSES_FILE" >/dev/null 2>&1 \
+       && jq -e . "$SYNAPSES_FILE.bak" >/dev/null 2>&1; then
+        cp -p "$SYNAPSES_FILE.bak" "$SYNAPSES_FILE"
+        log_warn "brain: 손상된 index 를 백업에서 복구함"
+    fi
+    return 0
 }
 
 # ============================================================================
@@ -222,6 +272,10 @@ brain_create_neuron() {
         done
     fi
 
+    # type 은 폴더 이름이 된다 — 영소문자만 허용해 경로 이탈("../")을 막는다.
+    [[ "$type" =~ ^[a-z]+$ ]] || { log_warn "잘못된 뉴런 type: $type"; return 1; }
+    title="$(brain_redact "$title")"; content="$(brain_redact "$content")"; tags="$(brain_redact "$tags")"
+
     local neuron_id
     neuron_id=$(brain_generate_id "$type")
 
@@ -233,7 +287,7 @@ brain_create_neuron() {
 
     # 감정 가중치 가져오기
     local emotional_weight
-    emotional_weight=$(jq -r ".emotions.${emotion} // 0.5" "$AMYGDALA_FILE")
+    emotional_weight=$(jq -r --arg e "$emotion" '.emotions[$e] // 0.5' "$AMYGDALA_FILE" 2>/dev/null || echo 0.5)
 
     # 뉴런 파일 생성
     cat > "$neuron_file" << EOF
@@ -278,7 +332,7 @@ brain_register_neuron() {
     local tags="$3"
     local emotional_weight="$4"
 
-    local tmp_file="${SYNAPSES_FILE}.tmp"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 0
 
     # 태그 파싱 (JSON 배열로)
     # 빈 태그는 [] 로 정규화(빈 문자열이 [""] 가 되어 false-match 유발하는 것 방지)
@@ -319,7 +373,7 @@ brain_create_synapse() {
     local weight="${3:-0.5}"
 
     local synapse_id="${source}-${target}"
-    local tmp_file="${SYNAPSES_FILE}.tmp"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 0
 
     jq --arg src "$source" \
        --arg tgt "$target" \
@@ -350,7 +404,7 @@ brain_strengthen_synapse() {
     local synapse_id="$1"
     local boost="${2:-0.1}"
 
-    local tmp_file="${SYNAPSES_FILE}.tmp"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 0
 
     jq --arg synapse "$synapse_id" \
        --argjson boost "$boost" \
@@ -384,7 +438,7 @@ brain_link_to_related() {
     [[ -z "$new_id" ]] && return 0
     [[ -f "$SYNAPSES_FILE" ]] || return 0
 
-    local tmp_file="${SYNAPSES_FILE}.tmp"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 0
 
     # 단일 jq 트랜잭션:
     #   1) 신규 뉴런의 의미태그($sig) 계산
@@ -473,55 +527,25 @@ brain_link_to_related() {
                 (((.neurons[$tid].synapses_out // []) + [$new]) | unique)
           end)
        )
-       # MAX_LINKS 대칭 보정 (Brain v4 ③):
-       #   허브 뉴런 무한 누적 방지를 위해 각 뉴런의 정방향 링크를 weight 상위
-       #   maxlinks 로 trim 하되, 시냅스를 쌍(pair) 단위로 유지/제거하여 양방향 대칭
-       #   불변식을 보장한다 (A→B 존재 ⟺ B→A 존재).
-       #
-       #   절차:
-       #   1) 각 뉴런 nid 의 keep 집합 = 정방향 weight 상위 maxlinks 의 target.
-       #   2) 페어 a-b 가 살아남으려면 [a 의 keep 에 b] AND [b 의 keep 에 a] 둘 다.
-       #      한쪽이라도 trim 되면 양방향 모두 제거(동반 삭제) -> 대칭 유지.
-       #   3) 살아남은 정방향 시냅스로 synapses_out 재구성(dangling/orphan 0).
+       # MAX_LINKS 대칭 보정 (Brain v4 ③): 각 뉴런의 정방향 링크를 weight 상위 maxlinks 로 trim 하고,
+       # 한쪽이라도 버린 연결은 양방향 모두 제거해 대칭(A→B ⟺ B→A)을 유지한다.
+       # 이번 연결로 바뀐 뉴런(신규 + 대상)만 다시 계산한다 — 전체를 돌면 뉴런 수에 비례해 느려져
+       # 약 1,500개부터 Stop 훅 15초 제한을 넘는다. 나머지 뉴런의 연결은 이전 상태 그대로 일관하다.
+       | ([$new] + ($targets | map(.key))) as $aff
        | . as $final
-       # 각 뉴런별 keep 집합을 객체로 구성: { nid: [keepTargets] }
-       | reduce ($final.neurons | keys[]) as $nid ({keepmap: {}, root: $final};
-           .root as $r
-           | ((($r.neurons[$nid].synapses_out // [])
-               | map({tid: ., w: ($r.synapses[($nid + "-" + .)].weight // 0)})
-               | sort_by(-(.w))
-               | .[0:$maxlinks]
-               | map(.tid))) as $keep
-           | .keepmap[$nid] = $keep
-         )
-       | .keepmap as $keepmap
-       | $final
-       # 시냅스: 양쪽 모두 서로를 keep 할 때만 생존
-       | .synapses = (.synapses | with_entries(
-           .value.source as $s
-           | .value.target as $t
-           | select(
-               (($keepmap[$s] // []) | index($t)) != null
-               and (($keepmap[$t] // []) | index($s)) != null
-             )))
-       # synapses_out: 생존한 정방향 시냅스 기준으로 재구성 (대칭/일관성)
-       | .synapses as $surv
-       | .neurons = (.neurons | with_entries(
-           .key as $nid
-           | .value.synapses_out = (
-               $surv | to_entries
-               | map(select(.value.source == $nid) | .value.target)
-               | unique)
-         ))
+       | (reduce $aff[] as $nid ({}; .[$nid] = (($final.neurons[$nid].synapses_out // [])
+             | map({tid: ., w: ($final.synapses[($nid + "-" + .)].weight // 0)})
+             | sort_by(-(.w)) | .[0:$maxlinks] | map(.tid)))) as $keepmap
+       | ([$aff[] as $a | ($final.neurons[$a].synapses_out // [])[] as $b
+            | select(($keepmap[$a] | index($b)) == null) | [$a, $b]]) as $drop
+       | reduce $drop[] as $p (.;
+           del(.synapses[$p[0] + "-" + $p[1]], .synapses[$p[1] + "-" + $p[0]])
+           | .neurons[$p[0]].synapses_out = ((.neurons[$p[0]].synapses_out // []) - [$p[1]])
+           | .neurons[$p[1]].synapses_out = ((.neurons[$p[1]].synapses_out // []) - [$p[0]]))
        ' "$SYNAPSES_FILE" > "$tmp_file" 2>/dev/null || { rm -f "$tmp_file"; return 0; }
 
     # jq 산출물이 유효 JSON 인지 확인 후 교체(원자성 + 손상 방지)
-    if [[ -s "$tmp_file" ]] && jq -e . "$tmp_file" >/dev/null 2>&1; then
-        mv "$tmp_file" "$SYNAPSES_FILE"
-        log_debug "자동 시냅스 연결 완료: $new_id"
-    else
-        rm -f "$tmp_file"
-    fi
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" && log_debug "자동 시냅스 연결 완료: $new_id"
 
     return 0
 }
@@ -536,7 +560,7 @@ brain_query_by_tags() {
     local limit="${2:-10}"
     local min_overlap="${3:-1}"  # 최소 교집합 수 (흔한 공통태그 노이즈 컷용)
 
-    local tmp_file="${SYNAPSES_FILE}.tmp"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 0
 
     # 태그 배열로 변환
     local search_tags="[$(echo "$tags" | tr ',' '\n' | sed 's/\(.*\)/"\1"/' | paste -sd ',' -)]"
@@ -696,7 +720,7 @@ brain_recall_excerpt() {
     # maxchars 로 자르기 (잘리면 … 부착)
     # head -c 바이트 절단 후 iconv -c 로 깨진 멀티바이트(한글 중간 잘림) 제거
     if [[ ${#body} -gt $maxchars ]]; then
-        body="$(printf '%s' "$body" | head -c "$maxchars" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c "$maxchars")…"
+        body="$(printf '%s' "$body" | head -c "$maxchars" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)…"
     fi
 
     printf '%s' "$body"
@@ -707,7 +731,7 @@ brain_recall_excerpt() {
 brain_update_access() {
     local neuron_id="$1"
 
-    local tmp_file="${SYNAPSES_FILE}.tmp"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 0
 
     jq --arg id "$neuron_id" \
        '
@@ -836,52 +860,57 @@ print('%.10f' % r)
     echo "$retention"
 }
 
-# 오래된 기억 청소 (bash 3.x 호환 - 임시 파일 사용)
+# 뉴런 ID 형식 검증. 파일 삭제 경로에 쓰기 전에 반드시 거친다("*"·"../" 차단).
+brain_valid_id() { [[ "$1" =~ ^n[0-9]{14}-[a-z]+-[0-9]+$ ]]; }
+
+# 여러 뉴런을 index 에서 한 번에 지우고(시냅스·synapses_out 포함) 파일도 정확한 경로로 지운다.
+# 입력(stdin): "id<TAB>type" 줄들.
+_brain_remove_many() {
+    local lines; lines="$(cat)"
+    [[ -z "$lines" ]] && return 0
+    local ids_json; ids_json="$(printf '%s\n' "$lines" | cut -f1 | jq -R . | jq -sc .)"
+    local tmp_file; tmp_file="$(mktemp "${SYNAPSES_FILE}.XXXXXX")" || return 1
+    jq --argjson ids "$ids_json" '
+        ($ids | map({(.): true}) | add // {}) as $gone
+        | .neurons |= with_entries(select($gone[.key] | not)
+              | .value.synapses_out = ((.value.synapses_out // []) | map(select($gone[.] | not))))
+        | .synapses |= with_entries(select(($gone[.value.source] or $gone[.value.target]) | not))
+    ' "$SYNAPSES_FILE" > "$tmp_file" 2>/dev/null
+    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
+    local id type
+    while IFS=$'\t' read -r id type; do
+        brain_valid_id "$id" && [[ "$type" =~ ^[a-z]+$ ]] && rm -f "$NEURONS_DIR/$type/$id.md"
+    done <<< "$lines"
+    return 0
+}
+
+# 오래된 기억 청소. 유지율 계산(brain_calc_retention 과 같은 공식)을 jq 한 번으로 끝낸다.
+# 이전에는 "id:시각:가중치:횟수"를 ':' 로 잘라 시각 안의 ':' 때문에 값이 뒤섞였고(가중치=분, 횟수=초),
+# 뉴런마다 date·bc 를 띄워 500개면 세션 종료 30초 제한을 넘었다.
 brain_cleanup_forgotten() {
     log_info "망각된 기억 청소 중..."
-
-    local tmp_remove="${SYNAPSES_FILE}.remove"
-    > "$tmp_remove"  # 비우기
-
-    # 낮은 유지율의 뉴런 찾아서 임시 파일에 저장
-    while IFS= read -r line; do
-        local neuron_id=$(echo "$line" | cut -d: -f1)
-        local last_access=$(echo "$line" | cut -d: -f2)
-        local emotional_weight=$(echo "$line" | cut -d: -f3)
-        local activation_count=$(echo "$line" | cut -d: -f4)
-
-        local retention
-        retention=$(brain_calc_retention "$last_access" "$emotional_weight" "$activation_count")
-
-        if [[ $(echo "$retention < $FORGET_THRESHOLD" | bc -l 2>/dev/null || echo "0") -eq 1 ]]; then
-            echo "$neuron_id" >> "$tmp_remove"
-            log_debug "망감 예정: $neuron_id (retention: $retention)"
-        fi
-    done < <(jq -r '.neurons | to_entries[] | "\(.key):\(.value.last_accessed):\(.value.emotional_weight):\(.value.access_count)"' "$SYNAPSES_FILE")
-
-    # 제거
+    local gone
+    gone="$(jq -r --argjson th "$FORGET_THRESHOLD" '
+        def retention:
+            (((now - ((.last_accessed // "") | try fromdateiso8601 catch now)) / 3600 | floor)
+                | if . < 0 then 0 else . end) as $age
+            | ((.emotional_weight // 0.5) | if . < 0 then 0 elif . > 1 then 1 else . end) as $emo
+            | (72 * (1 + $emo * 6 + (.access_count // 0) * 0.4)) as $hl
+            | if $age == 0 then 1 else ((0 - $age / $hl) | exp) end;
+        .neurons | to_entries[] | select(.value | retention < $th) | "\(.key)\t\(.value.type // "")"
+    ' "$SYNAPSES_FILE" 2>/dev/null)"
     local count=0
-    while IFS= read -r neuron_id; do
-        [[ -n "$neuron_id" ]] && brain_remove_neuron "$neuron_id"
-        count=$((count + 1))
-    done < "$tmp_remove"
-
-    rm -f "$tmp_remove"
+    [[ -n "$gone" ]] && count=$(printf '%s\n' "$gone" | wc -l | tr -d ' ')
+    printf '%s' "$gone" | _brain_remove_many || return 1
     log_info "청소 완료: ${count}개 뉴런 제거됨"
 }
 
-# 뉴런 제거
+# 뉴런 하나 제거
 brain_remove_neuron() {
     local neuron_id="$1"
-
-    # 파일 제거
-    find "$NEURONS_DIR" -name "${neuron_id}.md" -delete 2>/dev/null || true
-
-    # 시냅스에서 제거
-    local tmp_file="${SYNAPSES_FILE}.tmp"
-    jq --arg id "$neuron_id" 'del(.neurons[$id]) | del(.synapses[$id+"-*"]) | del(.synapses["*-"+$id])' "$SYNAPSES_FILE" > "$tmp_file"
-    brain_atomic_commit "$tmp_file" "$SYNAPSES_FILE" || return 1
-
+    brain_valid_id "$neuron_id" || { log_warn "잘못된 뉴런 ID: $neuron_id"; return 1; }
+    local type; type="$(jq -r --arg id "$neuron_id" '.neurons[$id].type // ""' "$SYNAPSES_FILE" 2>/dev/null)"
+    printf '%s\t%s\n' "$neuron_id" "$type" | _brain_remove_many || return 1
     log_debug "뉴런 제거됨: $neuron_id"
 }
 
@@ -891,7 +920,9 @@ brain_remove_neuron() {
 
 # 세션 시작
 brain_session_start() {
-    local session_id="session-$$-$(date +%s)"
+    # 도구가 준 세션 ID 를 쓰면 종료 훅이 같은 파일에 이어 쓴다(이전엔 시작·종료 파일이 따로 생겨 고착화가 안 됐다).
+    local session_id="${1:-session-$$-$(date +%s)}"
+    session_id="${session_id//[^A-Za-z0-9_-]/}"
     local session_file="$HIPPOCAMPUS_DIR/sessions/${session_id}.md"
 
     cat > "$session_file" << EOF
@@ -926,7 +957,7 @@ EOF
 
 # 세션 종료 및 고착화
 brain_session_end() {
-    local session_id="$1"
+    local session_id="${1//[^A-Za-z0-9_-]/}"
 
     local session_file="$HIPPOCAMPUS_DIR/sessions/${session_id}.md"
 
@@ -997,7 +1028,7 @@ brain_consolidate_session() {
     # 5) 핵심 본문 1000자 제한
     local body="$clean"
     if [[ ${#body} -gt 1000 ]]; then
-        body="$(printf '%s' "$body" | head -c 1000 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$body" | head -c 1000)…"
+        body="$(printf '%s' "$body" | head -c 1000 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)…"
     fi
 
     # 6) 태그 추출 (키워드 + 메타 태그)

@@ -116,13 +116,49 @@ PY
     say "  명령 ${n}개"
 }
 
+# brain 은 모든 도구가 같이 쓰도록 공용 위치(~/.agents/skills/brain)에 코드·훅을 한 벌 둔다.
+# 기억 데이터는 여기가 아니라 각 프로젝트의 .agents/brain 에 쌓인다(brain-resolve.sh).
+BRAIN_DST="$HOME/.agents/skills/brain"
+install_brain() {
+    say "brain → $BRAIN_DST"
+    if [ "$DRY" = 0 ]; then
+        rm -rf "$BRAIN_DST"; mkdir -p "$BRAIN_DST/scripts"
+        cp "$ROOT/skills/brain/SKILL.md" "$BRAIN_DST/"
+        cp "$ROOT"/brain/*.sh "$ROOT"/.claude/hooks/brain-*.sh "$BRAIN_DST/scripts/"
+        chmod +x "$BRAIN_DST"/scripts/*.sh
+    fi
+}
+
+# Claude 는 ~/.agents/skills 를 읽는지 확인되지 않아 링크로 연결하고, 훅은 전역 settings.json 에 건다.
+# 기존 설정은 보존하고 brain 항목만 추가·교체한다(재실행해도 중복 없음).
+register_claude_brain() {
+    local sf="$HOME/.claude/settings.json" s="$BRAIN_DST/scripts"
+    say "Claude Code brain 훅 → $sf"
+    [ "$DRY" = 1 ] && return 0
+    command -v jq >/dev/null || { say "  jq 가 없어 건너뜀"; return 0; }
+    rm -rf "$HOME/.claude/skills/brain"; ln -s "$BRAIN_DST" "$HOME/.claude/skills/brain"
+    [ -f "$sf" ] || echo '{}' > "$sf"
+    local tmp; tmp="$(mktemp)"
+    jq --arg s "$s" '
+        def put($ev; $file; $t):
+            .hooks[$ev] = ([(.hooks[$ev] // [])[] | select(any(.hooks[]?; .command | test("brain-")) | not)]
+                           + [{"matcher":"*","hooks":[{"type":"command","command":"\($s)/\($file)","timeout":$t}]}]);
+        .hooks = (.hooks // {})
+        | put("SessionStart"; "brain-session-start.sh"; 10)
+        | put("UserPromptSubmit"; "brain-prompt-recall.sh"; 15)
+        | put("Stop"; "brain-turn-save.sh"; 15)
+        | put("SessionEnd"; "brain-session-end.sh"; 30)
+    ' "$sf" > "$tmp" && mv "$tmp" "$sf" || { rm -f "$tmp"; say "  settings.json 갱신 실패"; }
+}
+
 say "monggle-agent-kit 설치 — 대상: ${TARGETS[*]}"
 [ "$DRY" = 1 ] && say "(--dry-run: 실제로 쓰지 않는다)"
 say ""
 install_scripts
+install_brain
 for t in "${TARGETS[@]}"; do
     case "$t" in
-        claude)   install_claude ;;
+        claude)   install_claude; register_claude_brain ;;
         codex)    [ -d "$HOME/.codex" ] && install_markdown_prompts "$HOME/.codex/prompts" "Codex CLI" || say "Codex CLI → 건너뜀(~/.codex 없음)" ;;
         opencode) [ -d "$HOME/.config/opencode" ] && install_markdown_prompts "$HOME/.config/opencode/command" "OpenCode" || say "OpenCode → 건너뜀(~/.config/opencode 없음)" ;;
         gemini)   [ -d "$HOME/.gemini" ] && install_gemini || say "Gemini CLI → 건너뜀(~/.gemini 없음)" ;;

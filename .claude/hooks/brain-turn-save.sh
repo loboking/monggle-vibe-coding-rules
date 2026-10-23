@@ -16,6 +16,9 @@
 
 set -uo pipefail
 
+# 기억은 개인 데이터 — 새로 만드는 파일은 본인만 읽게 한다.
+umask 077
+
 INPUT="$(cat 2>/dev/null || echo '{}')"
 
 command -v jq &>/dev/null || exit 0
@@ -23,33 +26,27 @@ command -v jq &>/dev/null || exit 0
 TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")"
 [[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]] && exit 0
 
-# --- 마지막 사용자 메시지 추출 (transcript 는 JSONL) ---
-# user role 의 가장 최근 '진짜 사람 입력' 한 건.
-#   content 가 array 면 type=="text" 블록만 취하고 tool_result/tool_use 는 제외.
-#   (도구 결과·도구 호출 블록은 사람 입력이 아니므로 본문 저장 대상이 아님)
-LAST_USER="$(jq -rs '
-    map(select(.type? == "user" or .role? == "user"))
-    | last
-    | (.message.content // .content // "")
-    | if type == "array" then
-        ( map(select((.type? == "text") or (.type? == null and (.text? != null))))
-          | map(.text? // "")
-          | map(select(. != ""))
-          | join(" ") )
-      else tostring end
-' "$TRANSCRIPT" 2>/dev/null || echo "")"
-
-# 폴백: 위 스키마가 안 맞으면 마지막 user 라인 raw (text 블록만)
-[[ -z "$LAST_USER" || "$LAST_USER" == "null" ]] && \
-    LAST_USER="$(grep -E '"role"[[:space:]]*:[[:space:]]*"user"|"type"[[:space:]]*:[[:space:]]*"user"' "$TRANSCRIPT" 2>/dev/null | tail -1 | jq -r '
-        (.message.content // .content // "")
-        | if type == "array" then
-            ( map(select((.type? == "text") or (.type? == null and (.text? != null))))
-              | map(.text? // "") | map(select(. != "")) | join(" ") )
-          else tostring end
-    ' 2>/dev/null | head -c 500 || echo "")"
-
-[[ -z "$LAST_USER" || "$LAST_USER" == "null" ]] && exit 0
+# --- 마지막 사용자 발언·AI 응답 추출 (transcript 는 JSONL) ---
+# 도구를 쓴 턴은 마지막 user 항목이 tool_result 라서, '마지막을 집고 나서 거르면' 빈 값이 된다
+# (코딩 턴 대부분이 저장되지 않던 원인). 텍스트가 있는 사람 발언만 먼저 거른 뒤 마지막을 고른다.
+# isMeta(스킬 본문 등 도구가 넣은 메시지)는 사람 발언이 아니다.
+# 큰 transcript 를 통째로 읽지 않도록 끝부분만 본다.
+_texts() {
+    tail -n 400 "$TRANSCRIPT" 2>/dev/null | jq -rs --arg role "$1" '
+        map(select((.type? == $role or .role? == $role or .message.role? == $role) and (.isMeta? != true))
+            | (.message.content // .content // "")
+            | if type == "array" then (map(select(.type? == "text") | .text) | join(" ")) else tostring end
+            # 도구가 사람 발언 앞에 붙이는 안내 블록은 잘라 낸다(통째로 버리면 실제 발언까지 저장되지 않는다).
+            | gsub("(?s)<system-reminder>.*?</system-reminder>"; "") | gsub("^\\s+|\\s+$"; "")
+            | select(. != "" and . != "null"))
+        | last // ""' 2>/dev/null
+}
+LAST_USER="$(_texts user)"
+[[ -z "$LAST_USER" ]] && exit 0
+# 사용자가 붙여 넣은 키·비밀번호가 본문·태그로 저장되지 않게 먼저 가린다.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/brain-core.sh" >/dev/null 2>&1 \
+    || source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../brain/brain-core.sh" >/dev/null 2>&1 || exit 0
+LAST_USER="$(brain_redact "$LAST_USER")"
 
 # --- [ⓐ] 시스템/도구 메시지 본문 저장 차단 ---
 # Claude 응답에 섞인 시스템 메시지(task-notification, tool_result, hook context 등)가
@@ -93,9 +90,9 @@ if command -v git &>/dev/null && git rev-parse --git-dir &>/dev/null 2>&1; then
     fi
 fi
 
-# 키워드도 행동도 없으면 저장 안 함 (잡담/단순질문 컷)
-# (기본 원칙 유지: ⓒ 휴리스틱은 저장 여부를 바꾸지 않고 emotion 가중치만 미세조정)
-[[ $IMPORTANT -eq 0 && $ACTION -eq 0 ]] && exit 0
+# 키워드 신호가 없으면 저장 안 함. 작업트리 변경(ACTION)은 태그로만 쓴다 —
+# 변경이 남아 있는 동안 모든 메시지(잡담 포함)가 저장되던 문제 때문.
+[[ $IMPORTANT -eq 0 ]] && exit 0
 
 # --- [ⓒ] AI 중요도 '약한 신호' 휴리스틱 (emotion 미세조정만) ---
 # 키워드/행동으로 이미 저장이 확정된 턴에 한해, 약한 신호로 가중치를 살짝 조정.
@@ -114,9 +111,15 @@ if [[ "$EMOTION" == "normal" ]]; then
 fi
 
 # --- 뇌 코어 로드 후 저장 ---
-BRAIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../brain" 2>/dev/null && pwd)" || exit 0
+# 설치본은 훅과 코어가 같은 폴더(~/.agents/skills/brain/scripts), 저장소에서는 루트 brain/ 에 있다.
+_hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for BRAIN_ROOT in "$_hook_dir" "$_hook_dir/../../brain"; do [[ -f "$BRAIN_ROOT/brain-core.sh" ]] && break; done
 [[ -f "$BRAIN_ROOT/brain-core.sh" ]] || exit 0
+# 다른 훅과 같은 프로젝트 데이터 위치에 저장한다(없으면 ~/brain 으로 새어 나감).
+source "$BRAIN_ROOT/brain-resolve.sh" >/dev/null 2>&1 || exit 0
+brain_resolve_project_home || exit 0
 source "$BRAIN_ROOT/brain-core.sh" >/dev/null 2>&1 || exit 0
+brain_lock || exit 0
 
 PROJECT="$(basename "$(pwd)" 2>/dev/null || echo "")"
 
@@ -125,15 +128,24 @@ PROJECT="$(basename "$(pwd)" 2>/dev/null || echo "")"
 # 남는다 → iconv -c 로 불완전 멀티바이트 시퀀스를 제거(없으면 원본 유지).
 # 본문 한도는 키워드 추출 원천 보존을 위해 brain-core 와 동일 변수로 통일.
 BRAIN_BODY_MAXCHARS="${BRAIN_BODY_MAXCHARS:-2500}"
-TITLE="$(printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80)"
-CONTENT="$(printf '%s' "$LAST_USER" | head -c "$BRAIN_BODY_MAXCHARS" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null || printf '%s' "$LAST_USER" | head -c "$BRAIN_BODY_MAXCHARS")"
+# macOS iconv 는 -c 를 줘도 잘린 글자에서 실패 코드를 내서, '|| 원본' 을 붙이면 출력이 두 번 붙었다.
+TITLE="$(printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
+CONTENT="$(printf '%s' "$LAST_USER" | head -c "$BRAIN_BODY_MAXCHARS" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
+# 결정·결과도 남긴다: 이번 턴 AI 응답 앞부분을 '결과'로 붙인다.
+LAST_AI="$(brain_redact "$(_texts assistant)" | head -c 600 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
+[[ -n "$LAST_AI" ]] && CONTENT="$CONTENT
+
+## 결과
+$LAST_AI"
 
 # 태그: project + 프로젝트명 + 신호 종류 + 의미 키워드 일부
+# 프로젝트명 태그는 넣지 않는다 — 기억이 이미 프로젝트별로 나뉘어 있어, 모든 뉴런에 같은 태그가 붙으면
+# 키워드 하나만 겹쳐도 회상·연결 기준(겹침 2개)을 넘어 노이즈가 된다.
 TAGS="project"
-[[ -n "$PROJECT" ]] && TAGS="$TAGS,$PROJECT"
 [[ $IMPORTANT -eq 1 ]] && TAGS="$TAGS,decision"
 [[ $ACTION -eq 1 ]] && TAGS="$TAGS,change"
-KW="$(brain_extract_keywords "$LAST_USER" 4 2>/dev/null || echo "")"
+# 4개면 빈도가 같은 단어 중 무엇이 뽑힐지 정해지지 않아 핵심어가 빠지곤 했다 → 넉넉히 8개.
+KW="$(brain_extract_keywords "$LAST_USER" 8 2>/dev/null || echo "")"
 [[ -n "$KW" ]] && TAGS="$TAGS,$KW"
 
 # 메시지 단위 뉴런 저장 (조용히)
