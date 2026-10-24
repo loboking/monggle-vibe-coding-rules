@@ -19,6 +19,9 @@ umask 077
 
 # --- 입력 읽기 (stdin JSON) ---
 INPUT="$(cat 2>/dev/null || echo '{}')"
+# 도구가 훅을 프로젝트가 아닌 곳에서 실행할 수 있다(Codex). 입력의 작업 폴더로 옮겨야 프로젝트 기억을 찾는다.
+_cwd="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+[[ -n "$_cwd" && -d "$_cwd" ]] && cd "$_cwd"
 
 # jq 없으면 조용히 통과 (회상 불가하나 대화는 정상)
 if ! command -v jq &>/dev/null; then
@@ -27,6 +30,11 @@ fi
 
 PROMPT="$(printf '%s' "$INPUT" | jq -r '.prompt // ""' 2>/dev/null || echo "")"
 [[ -z "$PROMPT" ]] && exit 0
+# 회상 주입 형식은 세 도구가 같고 이벤트 이름만 다르다(Gemini 는 BeforeAgent).
+EVENT="$(printf '%s' "$INPUT" | jq -r '.hook_event_name // "UserPromptSubmit"' 2>/dev/null || echo UserPromptSubmit)"
+# Codex 의 Stop 입력에는 사용자 발언이 없다 → 질문 훅이 세션별 임시 파일에 남겨 두고 저장 훅이 쓴 뒤 지운다.
+_sid="$(printf '%s' "$INPUT" | jq -r '.session_id // .conversation_id // empty' 2>/dev/null | tr -cd 'A-Za-z0-9_-')"
+STASH="${TMPDIR:-/tmp}/brain-prompt-${_sid:-none}"
 
 # --- 뇌 코어 로드 ---
 # BRAIN_ROOT: 글로벌 '코드' 위치 (변경 금지). CLAUDE_BRAIN_HOME: 프로젝트 '데이터' 위치.
@@ -43,6 +51,7 @@ brain_resolve_project_home || exit 0
 
 # log_* 가 stdout 을 오염시키지 않도록 회상 출력만 캡처
 source "$BRAIN_ROOT/brain-core.sh" >/dev/null 2>&1 || exit 0
+brain_redact "$PROMPT" > "$STASH" 2>/dev/null
 
 # --- 프롬프트에서 검색 태그 추출 ---
 # 프로젝트명 + 프롬프트의 의미있는 토큰(영문/한글 키워드) 일부.
@@ -95,7 +104,7 @@ CONTEXT="$CONTEXT
 </brain-recall>"
 
 jq -nc --arg ctx "$CONTEXT" \
-    '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $ctx}}' \
+    --arg ev "$EVENT" '{hookSpecificOutput: {hookEventName: $ev, additionalContext: $ctx}}' \
     2>/dev/null || true
 
 exit 0

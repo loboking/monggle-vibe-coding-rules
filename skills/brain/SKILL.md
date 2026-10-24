@@ -17,7 +17,9 @@ description: 프로젝트별 장기 기억(결정·버그·주의사항)을 저�
 | 응답 끝 | `brain-turn-save.sh` | "결정·버그·수정·기억해·중요·주의" 같은 신호가 있으면 사용자 발언 + AI 응답 요약을 저장 |
 | 세션 끝 | `brain-session-end.sh` | 세션 고착화, 하루 한 번 망각 정리, 30일 지난 세션 기록 삭제 |
 
-`install.sh --claude` 가 Claude Code 전역 설정에 등록한다. 다른 도구는 아래 수동 사용법을 따른다.
+`install.sh` 가 Claude Code·Codex·Gemini 전역 훅에 등록한다(Codex 는 `CODEX_HOME` 우선, 처음 한 번 `/hooks` 에서 신뢰 필요).
+
+훅을 신뢰하지 않은 Codex 에서도 쓰도록 MCP 서버 `brain-mcp.py` 를 `codex mcp add brain` 으로 같이 등록한다. 도구는 `brain_recall`(회상)·`brain_save`(저장) 두 개다.
 
 ## 수동 사용 (훅이 없는 도구 · 직접 요청)
 

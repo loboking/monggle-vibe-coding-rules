@@ -11,6 +11,9 @@ set -euo pipefail
 umask 077
 # 훅마다 별도 프로세스라 환경변수로는 세션 ID 가 이어지지 않는다 → 도구가 넘겨주는 session_id 를 쓴다.
 INPUT="$(cat 2>/dev/null || echo '{}')"
+# 도구가 훅을 프로젝트가 아닌 곳에서 실행할 수 있다(Codex). 입력의 작업 폴더로 옮겨야 프로젝트 기억을 찾는다.
+_cwd="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+[[ -n "$_cwd" && -d "$_cwd" ]] && cd "$_cwd"
 SID="$(printf '%s' "$INPUT" | jq -r '.session_id // .conversation_id // empty' 2>/dev/null || true)"
 
 # 뇌 코어 로드

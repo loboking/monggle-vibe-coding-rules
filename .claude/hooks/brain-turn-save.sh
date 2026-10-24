@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# brain-turn-save.sh - Stop 훅
+# brain-turn-save.sh - 응답 끝 훅 (Claude·Codex: Stop, Gemini: AfterAgent)
 #
 # Claude 응답이 끝날 때마다 실행됨. 직전 사용자 메시지를 중요도 선별하여
 # '의미있는' 턴만 메시지 단위 뉴런으로 저장한다 (잡담 폭증 방지).
@@ -20,11 +20,16 @@ set -uo pipefail
 umask 077
 
 INPUT="$(cat 2>/dev/null || echo '{}')"
+# 도구가 훅을 프로젝트가 아닌 곳에서 실행할 수 있다(Codex). 입력의 작업 폴더로 옮겨야 프로젝트 기억을 찾는다.
+_cwd="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)"
+[[ -n "$_cwd" && -d "$_cwd" ]] && cd "$_cwd"
 
 command -v jq &>/dev/null || exit 0
 
 TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")"
-[[ -z "$TRANSCRIPT" || ! -f "$TRANSCRIPT" ]] && exit 0
+# Codex 의 Stop 입력에는 사용자 발언이 없다 → 질문 훅이 세션별 임시 파일에 남겨 두고 저장 훅이 쓴 뒤 지운다.
+_sid="$(printf '%s' "$INPUT" | jq -r '.session_id // .conversation_id // empty' 2>/dev/null | tr -cd 'A-Za-z0-9_-')"
+STASH="${TMPDIR:-/tmp}/brain-prompt-${_sid:-none}"
 
 # --- 마지막 사용자 발언·AI 응답 추출 (transcript 는 JSONL) ---
 # 도구를 쓴 턴은 마지막 user 항목이 tool_result 라서, '마지막을 집고 나서 거르면' 빈 값이 된다
@@ -41,7 +46,11 @@ _texts() {
             | select(. != "" and . != "null"))
         | last // ""' 2>/dev/null
 }
-LAST_USER="$(_texts user)"
+# 도구마다 넘겨주는 값이 다르다: Gemini(AfterAgent)는 prompt, Claude 는 기록 파일(JSONL), Codex 는 임시 파일.
+LAST_USER="$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)"
+[[ -z "$LAST_USER" && -f "$TRANSCRIPT" ]] && LAST_USER="$(_texts user)"
+[[ -z "$LAST_USER" && -f "$STASH" ]] && LAST_USER="$(cat "$STASH" 2>/dev/null)"
+rm -f "$STASH" 2>/dev/null
 [[ -z "$LAST_USER" ]] && exit 0
 # 사용자가 붙여 넣은 키·비밀번호가 본문·태그로 저장되지 않게 먼저 가린다.
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/brain-core.sh" >/dev/null 2>&1 \
@@ -132,7 +141,9 @@ BRAIN_BODY_MAXCHARS="${BRAIN_BODY_MAXCHARS:-2500}"
 TITLE="$(printf '%s' "$LAST_USER" | tr '\n' ' ' | head -c 80 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
 CONTENT="$(printf '%s' "$LAST_USER" | head -c "$BRAIN_BODY_MAXCHARS" | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
 # 결정·결과도 남긴다: 이번 턴 AI 응답 앞부분을 '결과'로 붙인다.
-LAST_AI="$(brain_redact "$(_texts assistant)" | head -c 600 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
+LAST_AI="$(printf '%s' "$INPUT" | jq -r '.prompt_response // .last_assistant_message // empty' 2>/dev/null)"
+[[ -z "$LAST_AI" && -f "$TRANSCRIPT" ]] && LAST_AI="$(_texts assistant)"
+LAST_AI="$(brain_redact "$LAST_AI" | head -c 600 | iconv -c -f UTF-8 -t UTF-8 2>/dev/null; true)"
 [[ -n "$LAST_AI" ]] && CONTENT="$CONTENT
 
 ## 결과

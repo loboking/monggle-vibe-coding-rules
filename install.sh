@@ -124,31 +124,59 @@ install_brain() {
     if [ "$DRY" = 0 ]; then
         rm -rf "$BRAIN_DST"; mkdir -p "$BRAIN_DST/scripts"
         cp "$ROOT/skills/brain/SKILL.md" "$BRAIN_DST/"
-        cp "$ROOT"/brain/*.sh "$ROOT"/.claude/hooks/brain-*.sh "$BRAIN_DST/scripts/"
-        chmod +x "$BRAIN_DST"/scripts/*.sh
+        cp "$ROOT"/brain/*.sh "$ROOT"/brain/brain-mcp.py "$ROOT"/.claude/hooks/brain-*.sh "$BRAIN_DST/scripts/"
+        chmod +x "$BRAIN_DST"/scripts/*.sh "$BRAIN_DST"/scripts/*.py
     fi
 }
 
-# Claude 는 ~/.agents/skills 를 읽는지 확인되지 않아 링크로 연결하고, 훅은 전역 settings.json 에 건다.
-# 기존 설정은 보존하고 brain 항목만 추가·교체한다(재실행해도 중복 없음).
-register_claude_brain() {
-    local sf="$HOME/.claude/settings.json" s="$BRAIN_DST/scripts"
-    say "Claude Code brain 훅 → $sf"
+# 도구의 전역 훅 설정 파일에 brain 훅을 건다. 기존 설정은 보존하고 brain 항목만 추가·교체한다
+# (재실행해도 중복 없음). 형식은 Claude·Codex·Gemini 가 같다: hooks.<이벤트> = [{matcher, hooks:[{type,command,timeout}]}].
+# 사용: register_brain_hooks <설정파일> "<이벤트>:<스크립트>:<timeout> ..."
+register_brain_hooks() {
+    local sf="$1" spec="$2" s="$BRAIN_DST/scripts"
+    say "  brain 훅 → $sf"
     [ "$DRY" = 1 ] && return 0
     command -v jq >/dev/null || { say "  jq 가 없어 건너뜀"; return 0; }
-    rm -rf "$HOME/.claude/skills/brain"; ln -s "$BRAIN_DST" "$HOME/.claude/skills/brain"
-    [ -f "$sf" ] || echo '{}' > "$sf"
+    [ -s "$sf" ] || echo '{}' > "$sf"
+    local map; map="$(printf '%s\n' $spec | jq -R 'split(":") | {ev: .[0], file: .[1], t: (.[2] | tonumber)}' | jq -sc .)"
     local tmp; tmp="$(mktemp)"
-    jq --arg s "$s" '
-        def put($ev; $file; $t):
-            .hooks[$ev] = ([(.hooks[$ev] // [])[] | select(any(.hooks[]?; .command | test("brain-")) | not)]
-                           + [{"matcher":"*","hooks":[{"type":"command","command":"\($s)/\($file)","timeout":$t}]}]);
+    jq --arg s "$s" --argjson map "$map" '
         .hooks = (.hooks // {})
-        | put("SessionStart"; "brain-session-start.sh"; 10)
-        | put("UserPromptSubmit"; "brain-prompt-recall.sh"; 15)
-        | put("Stop"; "brain-turn-save.sh"; 15)
-        | put("SessionEnd"; "brain-session-end.sh"; 30)
-    ' "$sf" > "$tmp" && mv "$tmp" "$sf" || { rm -f "$tmp"; say "  settings.json 갱신 실패"; }
+        | reduce $map[] as $m (.;
+            .hooks[$m.ev] = ([(.hooks[$m.ev] // [])[] | select(any(.hooks[]?; .command | test("brain-")) | not)]
+                + [{"matcher":"*","hooks":[{"type":"command","command":"\($s)/\($m.file)","timeout":$m.t}]}]))
+    ' "$sf" > "$tmp" && mv "$tmp" "$sf" || { rm -f "$tmp"; say "  설정 갱신 실패: $sf"; }
+}
+
+# Claude 는 ~/.agents/skills 를 읽는지 확인되지 않아 링크로 연결한다. timeout 단위: 초.
+register_claude_brain() {
+    say "Claude Code brain 연결"
+    [ "$DRY" = 0 ] && { rm -rf "$HOME/.claude/skills/brain"; ln -s "$BRAIN_DST" "$HOME/.claude/skills/brain"; }
+    register_brain_hooks "$HOME/.claude/settings.json" "SessionStart:brain-session-start.sh:10 UserPromptSubmit:brain-prompt-recall.sh:15 Stop:brain-turn-save.sh:15 SessionEnd:brain-session-end.sh:30"
+}
+
+# Codex 는 ~/.agents/skills 를 직접 읽는다. timeout 단위: 초, SessionEnd 는 최대 3초.
+# 설정 폴더는 CODEX_HOME(Orca 등이 바꿔 둔다)이 우선이고, 없으면 ~/.codex 다. 둘이 다르면 양쪽에 건다.
+# 훅은 처음 한 번 Codex 안에서 /hooks 로 신뢰(trust)해야 돈다. 그 전에도 쓰도록 MCP 서버(brain_recall·brain_save)를
+# 같이 등록한다 — MCP 는 신뢰 절차가 없다.
+register_codex_brain() {
+    say "Codex CLI brain 연결"
+    local d spec="SessionStart:brain-session-start.sh:10 UserPromptSubmit:brain-prompt-recall.sh:15 Stop:brain-turn-save.sh:15 SessionEnd:brain-session-end.sh:3"
+    # 경로에 공백이 있다("Application Support") → 줄 단위로 읽는다.
+    while IFS= read -r d; do
+        [ -d "$d" ] && register_brain_hooks "$d/hooks.json" "$spec"
+    done < <(printf '%s\n' "${CODEX_HOME:-$HOME/.codex}" "$HOME/.codex" | awk '!seen[$0]++')
+    if command -v codex >/dev/null; then
+        say "  brain MCP 서버 → codex mcp add brain"
+        [ "$DRY" = 0 ] && { codex mcp remove brain >/dev/null 2>&1; codex mcp add brain -- python3 "$BRAIN_DST/scripts/brain-mcp.py" >/dev/null || say "  MCP 등록 실패"; }
+    fi
+    say "  ※ 자동 회상·저장까지 원하면 Codex 에서 /hooks 를 열고 brain 훅 4개를 신뢰(trust)하세요. 안 해도 MCP 로 동작합니다."
+}
+
+# Gemini 도 ~/.agents/skills 를 읽는다. 이벤트 이름이 다르고(BeforeAgent·AfterAgent) timeout 단위는 밀리초.
+register_gemini_brain() {
+    say "Gemini CLI brain 연결"
+    register_brain_hooks "$HOME/.gemini/settings.json" "SessionStart:brain-session-start.sh:10000 BeforeAgent:brain-prompt-recall.sh:15000 AfterAgent:brain-turn-save.sh:15000 SessionEnd:brain-session-end.sh:30000"
 }
 
 say "monggle-agent-kit 설치 — 대상: ${TARGETS[*]}"
@@ -159,9 +187,9 @@ install_brain
 for t in "${TARGETS[@]}"; do
     case "$t" in
         claude)   install_claude; register_claude_brain ;;
-        codex)    [ -d "$HOME/.codex" ] && install_markdown_prompts "$HOME/.codex/prompts" "Codex CLI" || say "Codex CLI → 건너뜀(~/.codex 없음)" ;;
+        codex)    [ -d "${CODEX_HOME:-$HOME/.codex}" ] || [ -d "$HOME/.codex" ] && { install_markdown_prompts "$HOME/.codex/prompts" "Codex CLI"; register_codex_brain; } || say "Codex CLI → 건너뜀(~/.codex 없음)" ;;
         opencode) [ -d "$HOME/.config/opencode" ] && install_markdown_prompts "$HOME/.config/opencode/command" "OpenCode" || say "OpenCode → 건너뜀(~/.config/opencode 없음)" ;;
-        gemini)   [ -d "$HOME/.gemini" ] && install_gemini || say "Gemini CLI → 건너뜀(~/.gemini 없음)" ;;
+        gemini)   [ -d "$HOME/.gemini" ] && { install_gemini; register_gemini_brain; } || say "Gemini CLI → 건너뜀(~/.gemini 없음)" ;;
     esac
 done
 say ""
