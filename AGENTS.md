@@ -66,6 +66,7 @@ tests/
 ├── bash/
 │   ├── skills.bats           # bin/ 스크립트·라이브러리·보안 패턴
 │   ├── push-safe.bats        # 임시 원격으로 push·rebase·충돌·비밀값
+│   ├── test-report.bats      # 테스트 보고서(결론·지난번 비교·관련 테스트)
 │   └── brain_harness.bats    # brain MCP·훅, 하네스, 설치본, 스킬 구조
 └── run_tests.sh              # 통합 실행기 (--python, --bats, --verbose)
 ```

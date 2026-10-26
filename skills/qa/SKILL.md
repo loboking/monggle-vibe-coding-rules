@@ -26,5 +26,13 @@ bash "$SCRIPT"   # 사용자가 준 인자를 그대로 덧붙인다
 | 린트·포맷 | `references/lint-smart.md`, `references/format-check.md` |
 | 구현 간 속도 비교 | `references/bench.md` |
 
-## 3. 보고
-PASS/FAIL 을 항목별로, 실패는 재현 방법과 함께. `--report` 나 "수정하지 마"면 코드를 바꾸지 않는다.
+## 3. 보고서 (생략 금지)
+테스트 결과는 보고서로 남긴다. 판단 문구(✅ 진행 / ⚠️ 판단 필요 / ❌ 보류)는 스크립트가 정한다.
+```bash
+SCRIPT=bin/test-report.sh
+[ -f "$SCRIPT" ] || SCRIPT="$HOME/.monggle/bin/test-report.sh"
+bash "$SCRIPT" --kind qa [--note <메모 파일>]   # 테스트 명령을 직접 주려면: -- <명령>
+```
+- 린트·보안 점검 결과가 있으면 메모에 쉬운 말로 넣는다: `- 린트: 경고 3건(src/a.ts) — 동작엔 영향 없음`
+- 스크립트의 결론 한 줄과 다음 할 일을 전하고 **"보고서를 열어볼까요?"** 라고 묻는다. 보겠다고 하면 `bash "$SCRIPT" --open-last --kind qa`.
+- `--report` 나 "수정하지 마"면 코드를 바꾸지 않는다.

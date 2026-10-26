@@ -67,7 +67,7 @@ related: docs/audit/SKILLS_HARNESS_REVIEW-20261024.md, prd/feature-20261026-team
 
 ## 5. 진행 단계
 1. **(이번)** 입구 스킬 재작성 + references 이동 + 보관 + install 정리 + push-safe 재작성 + 테스트 정리 + AGENTS.md 갱신
-2. fix 의 "관련 테스트 찾아 실행"을 스크립트로, spec↔팀 기억 연결(팀 모드 PRD)
+2. fix 의 "관련 테스트 찾아 실행"을 스크립트로 — **완료**: `bin/test-report.sh`(qa·fix 공용, 결론 먼저인 보고서·지난번 비교). spec↔팀 기억 연결은 팀 모드 PRD
 3. 2주 관찰(2026-11-09까지): Skill 호출 기록으로 자동 선택 횟수 집계, 아쉬운 것 복구
 4. 사용자가 보관분 삭제 여부 결정
 

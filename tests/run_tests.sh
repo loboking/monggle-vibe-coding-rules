@@ -153,6 +153,7 @@ run_bats_tests() {
     local bats_files=(
         "tests/bash/skills.bats"
         "tests/bash/push-safe.bats"
+        "tests/bash/test-report.bats"
         "tests/bash/brain_harness.bats"
     )
 

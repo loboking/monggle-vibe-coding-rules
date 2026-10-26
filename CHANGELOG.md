@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Codex·Gemini 용으로 `~/.agents/skills` 에도 입구 스킬을 설치(두 도구가 직접 읽는 위치). brain 은 덮어쓰지 않음
 - CI 에 push-safe 테스트 추가, brain·설치 테스트는 macOS 에서만
 
+### Added — 테스트 보고서
+- `bin/test-report.sh`: 테스트를 돌리고 `.monggle/reports/<시각>-<qa|fix>.md`(+ 보기용 `.html`)를 남긴다. 맨 위에 결론(✅ 진행 / ⚠️ 판단 필요 / ❌ 보류)·이유·다음 할 일, 지난 보고서 대비 새로 깨짐·고쳐짐, 바뀐 파일과 이어진 관련 테스트. 보고서 폴더는 스스로 git 에서 빠진다
+- `fix`·`qa` 는 끝날 때 보고서를 남기고 "보고서를 열어볼까요?"라고 묻는다(`--open-last`)
+
 ### Fixed
 - `push-safe.sh` 재작성: 없는 `git_helper.sh`·`pr_helper.sh` 의존 제거. 받기 → rebase(autostash, 충돌 시 멈춤) → 보낼 커밋 비밀값 검사(`pragma: allowlist secret` 예외) → push(force 없음) → 팀 모드 PR(`gh`)
 - 루트 `push-safe` 바로가기가 없는 `.claude/commands/` 를 가리키던 것 수정
