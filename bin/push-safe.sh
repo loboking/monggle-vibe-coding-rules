@@ -1,211 +1,94 @@
 #!/bin/bash
-# bin/push-safe.sh
-# push-safe.sh - monggle: Safe push with safety checks
+# push-safe.sh - 받기 → (뒤처지면) rebase → 보낼 커밋 비밀값 검사 → push → (팀 모드) PR
+# force push 는 하지 않는다. 테스트용 가짜 값은 그 줄에 "pragma: allowlist secret" 을 붙인다.
+set -euo pipefail
 
-set -e
-
-# 라이브러리 로드
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIB_DIR="$(dirname "$SCRIPT_DIR")/lib"
-
-source "$LIB_DIR/git_helper.sh"
-source "$LIB_DIR/pr_helper.sh"
-
-# 설정 로드
-CONFIG_DIR="$(dirname "$SCRIPT_DIR")/config"
-PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_DIR")/.." && pwd)"
-if [ -f "$CONFIG_DIR/git.conf" ]; then
-    source "$CONFIG_DIR/git.conf"
-fi
-
-# YAML 값 읽기 헬퍼: yq 있으면 yq, 없으면 들여쓰기 무시 grep 폴백
-# 사용법: yaml_get <file> <key> <yq_path>
-yaml_get() {
-    local file="$1" key="$2" yq_path="$3"
-    [ -f "$file" ] || return 0
-    if command -v yq >/dev/null 2>&1; then
-        local v
-        v=$(yq -r "$yq_path" "$file" 2>/dev/null)
-        [ "$v" = "null" ] && v=""
-        printf '%s' "$v"
-    else
-        # 들여쓰기 포함 가능: 선행 공백 허용, 첫 매칭만, 따옴표 제거
-        grep -E "^[[:space:]]*${key}:" "$file" 2>/dev/null \
-            | head -1 \
-            | sed -E "s/^[[:space:]]*${key}:[[:space:]]*//; s/^[\"']//; s/[\"']$//; s/[[:space:]]*#.*$//"
-    fi
-}
-
-# 팀 작업 모드(solo/team)는 mode.sh가 monggle.config.yaml(col0 mode:)에 기록함
-# create_pr 키는 선택 사항 (없으면 기본: PR 생성 허용)
-MONGGLE_CONFIG="$PROJECT_ROOT/monggle.config.yaml"
-TEAM_MODE=$(yaml_get "$MONGGLE_CONFIG" "mode" ".mode")
-CREATE_PR=$(yaml_get "$MONGGLE_CONFIG" "create_pr" ".create_pr")
-
-# 사용법
 show_usage() {
-    cat << EOF
+    cat <<'EOF'
 Usage: push-safe [options]
 
-원격 저장소에 안전하게 코드를 전송합니다.
-
-Options:
-  --no-pr      PR 생성 건너뛰기
-  --branch     특정 브랜치에 전송
-  --dry-run    실행 계획만 표시
-  -h, --help   이 도움말 표시
-
-Examples:
-  push-safe           # 안전하게 push (Team 모드 시 PR 생성)
-  push-safe --no-pr   # PR 생성 없이 push
-  push-safe --dry-run # 계획만 확인
+  --no-pr          PR 생성 건너뛰기 (팀 모드에서도)
+  --branch <name>  보낼 브랜치 (기본: 현재 브랜치)
+  --dry-run        계획만 표시, 아무것도 바꾸지 않음
+  -h, --help       도움말
 EOF
 }
 
-# 변수
-NO_PR=false
-DRY_RUN=false
-TARGET_BRANCH=""
+info() { echo "[push-safe] $*"; }
+die()  { echo "[push-safe] STOP: $*" >&2; exit 1; }
 
-# 인자 파싱
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --no-pr)
-            NO_PR=true
-            shift
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --branch)
-            TARGET_BRANCH="$2"
-            shift 2
-            ;;
-        -h|--help)
-            show_usage
-            exit 0
-            ;;
-        *)
-            log_error "알 수 없는 옵션: $1"
-            show_usage
-            exit 1
-            ;;
+NO_PR=false DRY_RUN=false BRANCH=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --no-pr) NO_PR=true ;;
+        --dry-run) DRY_RUN=true ;;
+        --branch) BRANCH="${2:?--branch 에 브랜치 이름이 필요합니다}"; shift ;;
+        -h|--help) show_usage; exit 0 ;;
+        *) show_usage >&2; die "알 수 없는 옵션: $1" ;;
     esac
+    shift
 done
 
-# Git 저장소 확인
-if ! is_git_repo; then
-    log_error "Git 저장소가 아닙니다."
-    exit 1
-fi
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "Git 저장소가 아닙니다."
+ROOT="$(git rev-parse --show-toplevel)"
+CURRENT="$(git symbolic-ref --short -q HEAD)" || die "브랜치가 아닌 상태(detached HEAD)입니다."
+BRANCH="${BRANCH:-$CURRENT}"
+MODE="$(sed -n 's/^mode:[[:space:]]*["'\'']\{0,1\}\([a-z]*\).*/\1/p' "$ROOT/monggle.config.yaml" 2>/dev/null | head -1 || true)"
+info "브랜치: $BRANCH (모드: ${MODE:-solo})"
 
-# 현재 브랜치
-CURRENT_BRANCH=$(get_current_branch)
-if [ -z "$CURRENT_BRANCH" ]; then
-    log_error "현재 브랜치를 확인할 수 없습니다."
-    exit 1
-fi
-
-# 전송할 브랜치 결정
-PUSH_BRANCH="${TARGET_BRANCH:-$CURRENT_BRANCH}"
-
-log_info "현재 브랜치: $CURRENT_BRANCH"
-log_info "전송 대상: $PUSH_BRANCH"
-
-# 1. 원본 상태 확인
-log_info "원본 상태 확인 중..."
-# dry-run 에서는 원격 접근 실패가 계획 확인을 막지 않도록 가드
-if [ "$DRY_RUN" = true ]; then
-    git fetch origin 2>/dev/null || log_warn "[DRY-RUN] git fetch 실패(원격 미설정 가능) - 계획만 계속"
-else
-    git fetch origin
-fi
-
-# 2. 뒤처짐 감지
-if is_behind_origin; then
-    log_warn "로컬이 원본보다 뒤처져 있습니다."
-    log_info "먼저 /update를 실행하세요."
-
-    # 자동 update 시도
-    if [ "$DRY_RUN" = false ]; then
-        read -p "지금 /update를 실행하시겠습니까? (Y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]] || [ -z $REPLY ]; then
-            log_info "/update 실행 중..."
-            "$SCRIPT_DIR/update.sh" --auto || {
-                log_error "/update 실패. push를 중단합니다."
-                exit 1
-            }
-            # 다시 확인
-            git fetch origin
-            if is_behind_origin; then
-                log_error "여전히 뒤처져 있습니다. 수동으로 해결하세요."
-                exit 1
-            fi
-        else
-            log_info "취소되었습니다."
-            exit 0
-        fi
-    else
-        log_info "[DRY-RUN] /update 필요"
-        exit 0
-    fi
-fi
-
-# 3. 앞서간 커밋 확인
-AHEAD_COUNT=$(is_ahead_origin)
-if [ -z "$AHEAD_COUNT" ]; then
-    log_info "전송할 커밋이 없습니다."
-    exit 0
-fi
-
-log_success "로컬에 ${AHEAD_COUNT}개의 커밋이 있습니다."
-
-# 커밋 메시지 표시
-log_info "전송할 커밋:"
-git log --oneline "@{u}.." | head -5 | sed 's/^/  /'
-
-# 4. Team 모드 확인
-if [ "$TEAM_MODE" = "team" ] && [ "$NO_PR" = false ] && [ "$CREATE_PR" != "false" ]; then
-    # main/master 브랜치가 아니면 PR 생성
-    if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
-        log_info "Team 모드: PR 생성을 진행합니다."
-
+# 1. 받기 + 뒤처짐 처리
+UPSTREAM="origin/$BRANCH"
+if git fetch -q origin 2>/dev/null && git rev-parse -q --verify "$UPSTREAM" >/dev/null; then
+    BEHIND="$(git rev-list --count "HEAD..$UPSTREAM")"
+    if [ "$BEHIND" -gt 0 ]; then
+        info "원격보다 ${BEHIND}개 뒤처짐 → rebase 로 맞춘다"
         if [ "$DRY_RUN" = true ]; then
-            log_info "[DRY-RUN] PR 생성 예정"
-            exit 0
+            info "[DRY-RUN] git pull --rebase --autostash origin $BRANCH"
+        elif ! git pull -q --rebase --autostash origin "$BRANCH"; then
+            die "충돌. 'git status' 로 충돌 파일을 보고 해결한 뒤 'git rebase --continue' (취소: 'git rebase --abort'). push 하지 않았습니다."
         fi
-
-        # 먼저 push
-        log_info "먼저 브랜치를 전송합니다..."
-        git push -u origin "$PUSH_BRANCH" || {
-            log_error "Push 실패"
-            exit 1
-        }
-
-        # PR 생성
-        log_info "PR 생성 중..."
-        if create_pr "Update from $CURRENT_BRANCH" "" "$CURRENT_BRANCH" "main"; then
-            log_success "완료!"
-        else
-            log_warn "PR 생성 실패. 코드는 이미 전송되었습니다."
-            log_info "수동으로 PR을 생성하세요."
-        fi
-        exit 0
     fi
-fi
-
-# 5. 일반 push
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] git push origin $PUSH_BRANCH 실행 예정"
-    exit 0
-fi
-
-log_info "전송 시작..."
-if git push origin "$PUSH_BRANCH"; then
-    log_success "전송 완료!"
+    RANGE="$UPSTREAM..HEAD"
 else
-    log_error "전송 실패"
-    exit 1
+    git remote get-url origin >/dev/null 2>&1 || die "origin 원격이 없습니다."
+    info "원격에 $BRANCH 가 아직 없음 → 새 브랜치로 보낸다"
+    RANGE="HEAD"
+    git rev-parse -q --verify "origin/HEAD" >/dev/null && RANGE="origin/HEAD..HEAD"
+fi
+
+COUNT="$(git rev-list --count $RANGE)"
+[ "$COUNT" -gt 0 ] || { info "보낼 커밋이 없습니다."; exit 0; }
+info "보낼 커밋 ${COUNT}개:"
+git log --oneline $RANGE | head -10 | sed 's/^/  /'
+
+# 2. 비밀값 검사 (보낼 커밋 전체)
+SECRET_FILES='\.(env|pem|key|p12|keystore)$'
+SECRET_LINES='(API[_-]?KEY|SECRET[_-]?KEY|password|passwd|token)["'\'']?[[:space:]]*[:=][[:space:]]*["'\'']?[^[:space:]"'\'']{6,}|sk_live_[A-Za-z0-9]+|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|GOCSPX-[A-Za-z0-9_-]+|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+BAD_FILES="$(git diff --name-only --diff-filter=AM $RANGE -- | grep -E "$SECRET_FILES" || true)"
+BAD_LINES="$(git diff $RANGE -- | grep -E '^\+[^+]' | grep -vi 'pragma: allowlist secret' | grep -E "$SECRET_LINES" | cut -c1-160 || true)"
+if [ -n "$BAD_FILES$BAD_LINES" ]; then
+    [ -n "$BAD_FILES" ] && echo "비밀 파일:" >&2 && echo "$BAD_FILES" | sed 's/^/  /' >&2
+    [ -n "$BAD_LINES" ] && echo "의심 줄:" >&2 && echo "$BAD_LINES" | sed 's/^/  /' >&2
+    die "비밀값 의심. 커밋에서 빼고(git reset/rebase) .gitignore 에 추가하세요. 테스트용 가짜 값이면 그 줄에 'pragma: allowlist secret'."
+fi
+info "비밀값 검사 통과"
+
+# 3. push (force 금지)
+if [ "$DRY_RUN" = true ]; then
+    info "[DRY-RUN] git push -u origin HEAD:$BRANCH"
+else
+    git push -q -u origin "HEAD:$BRANCH" || die "push 실패"
+    info "push 완료"
+fi
+
+# 4. 팀 모드 + main 이 아닌 브랜치 → PR
+if [ "$MODE" = team ] && [ "$NO_PR" = false ] && [ "$BRANCH" != main ] && [ "$BRANCH" != master ]; then
+    if [ "$DRY_RUN" = true ]; then
+        info "[DRY-RUN] gh pr create --fill --head $BRANCH"
+    elif command -v gh >/dev/null 2>&1; then
+        gh pr view "$BRANCH" >/dev/null 2>&1 && info "PR 이 이미 있습니다." \
+            || gh pr create --fill --head "$BRANCH" || info "PR 생성 실패. 코드는 이미 보냈습니다. 직접 만드세요."
+    else
+        info "gh 가 없어 PR 은 직접 만드세요 (브랜치: $BRANCH)."
+    fi
 fi

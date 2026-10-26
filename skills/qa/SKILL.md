@@ -1,66 +1,30 @@
 ---
 name: qa
-description: Smart QA testing - Project auto-detection + platform-specific tests. "/qa", "/smart-qa", "/code-qa" 등에서 동작한다.
-allowed-tools: Bash, Read, Edit, Write, Grep, Glob, Agent, AskUserQuestion
+description: 만든 것이 실제로 동작하는지 확인할 때 쓴다. 프로젝트 종류(Android·iOS·Web·서버)를 자동으로 알아내 테스트·문법·린트·포맷·보안 점검을 돌리고 결과를 보고한다(요청하면 고친다). "작동해?", "테스트 돌려", "점검해줘", "머지 전 확인", "보안 점검", "린트", "보고서만" 등.
+allowed-tools: Bash, Read, Edit, Write, Grep, Glob
 ---
 
-# smart-qa (monggle)
+# qa
 
-프로젝트 자동 감지 및 플랫폼별 QA 테스트
+참고 파일 위치: 저장소 안이면 `skills/qa/references/`, 아니면 `~/.monggle/skills/qa/references/`.
 
-**Usage:** `/smart-qa [options] [platform]`
-
-**자동 감지 플랫폼:**
-- `--android` - Android 프로젝트 (.kt, .java, AndroidManifest.xml)
-- `--ios` - iOS 프로젝트 (.swift, .m, .h, .xib)
-- `--web` - Web 프론트엔드 (.ts, .tsx, .js, .css)
-- `--mobile` - Mobile 전체 (Android + iOS)
-- `--server` - 서버/백엔드 (.py, .go, .java)
-- `--code` - 코드 전체 (모든 언어)
-
+## 1. 기본 실행
 ```bash
-/smart-qa                   # 자동 감지 + 전체 테스트 + 수정
-/smart-qa --android         # Android만 테스트
-/smart-qa --web --report    # Web 보고서만
+SCRIPT=bin/smart-qa.sh
+[ -f "$SCRIPT" ] || SCRIPT="$HOME/.monggle/bin/smart-qa.sh"
+bash "$SCRIPT"   # 사용자가 준 인자를 그대로 덧붙인다
 ```
+- 프로젝트 자동 판별: `build.gradle*`·`AndroidManifest.xml` → Android, `*.xcodeproj`·`Podfile` → iOS, `package.json` → Web, `requirements.txt`·`go.mod`·`pom.xml` → 서버
+- 옵션: `--android --ios --web --mobile --server --code`, `--report`(수정 없이 보고만), `--quick`(스모크), `--format json|text|markdown`
+- 프로젝트 자체 테스트 명령이 있으면 그것을 먼저 돌린다. 스크립트 결과보다 실제 테스트 결과가 우선이다.
 
-## 보고서 전용 모드 (--report)
+## 2. 목적별 절차 (해당할 때만 읽는다)
+| 목적 | 참고 파일 |
+|---|---|
+| 테스트 실행·자동 수정 상세 | `references/code-qa.md`, `references/test.md` |
+| 보안 취약점·비밀값 | `references/security.md`, `references/audit.md` |
+| 린트·포맷 | `references/lint-smart.md`, `references/format-check.md` |
+| 구현 간 속도 비교 | `references/bench.md` |
 
-읽기 전용 모드 - 코드 수정 없이 보고서만 생성
-
-```bash
-/smart-qa --report          # 자동 감지 + 보고서만
-/smart-qa --ios --report    # iOS 보고서
-```
-
-## 옵션
-
-| 옵션 | 설명 |
-|-----|------|
-| `--android` | Android 프로젝트 테스트 |
-| `--ios` | iOS 프로젝트 테스트 |
-| `--web` | Web 프론트엔드 테스트 |
-| `--mobile` | Mobile (Android + iOS) |
-| `--server` | 서버/백엔드 테스트 |
-| `--code` | 코드 전체 테스트 |
-| `--report` | 보고서만 생성 (smart-qa만) |
-| `--quick` | 빠른 스모크 테스트 |
-| `--format <fmt>` | 출력 형식: json\|text\|markdown |
-| `--verbose, -v` | 상세 출력 |
-
-## 자동 감지 규칙
-
-| 플랫폼 | 감지 파일 |
-|--------|----------|
-| Android | build.gradle*, AndroidManifest.xml |
-| iOS | *.xcodeproj, Podfile, Info.plist |
-| Web | package.json (react, vue, angular) |
-| Server | requirements.txt, go.mod, pom.xml |
-| Mobile | Android + iOS 결합 |
-
-## 테스트 항목
-
-1. **Syntax Check** - Shell, Python, JS/TS 문법
-2. **Code Quality** - TODO/FIXME 주석 확인
-3. **Debug Statements** - console.log/print 문 확인
-4. **Git Status** - 커밋되지 않은 파일 확인
+## 3. 보고
+PASS/FAIL 을 항목별로, 실패는 재현 방법과 함께. `--report` 나 "수정하지 마"면 코드를 바꾸지 않는다.

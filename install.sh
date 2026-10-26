@@ -41,10 +41,10 @@ skill_field() { awk -v k="$2" 'BEGIN{d=0} /^---$/{d++; next} d==1 && $0 ~ "^"k":
 # 스크립트는 bin/.. 을 킷 루트로 보고 lib/ scripts/ 등을 찾는다 → 설치본도 저장소와 같은 구조로 둔다.
 install_scripts() {
     local kit d; kit="$(dirname "$BIN_DST")"
-    say "스크립트 → $kit (bin lib scripts brain agents 훅)"
+    say "스크립트 → $kit (bin lib scripts brain agents skills 훅)"
     [ "$DRY" = 1 ] && return 0
     mkdir -p "$kit"
-    for d in bin lib scripts brain agents; do
+    for d in bin lib scripts brain agents skills; do
         [ -d "$ROOT/$d" ] || continue
         rm -rf "${kit:?}/$d"; cp -R "$ROOT/$d" "$kit/$d"
     done
@@ -55,49 +55,17 @@ install_scripts() {
     say "  스크립트 $(ls "$ROOT/bin" | wc -l | tr -d ' ')개"
 }
 
-install_claude() {
-    local dst="$HOME/.claude/skills"
-    say "Claude Code → $dst"
-    run mkdir -p "$dst"
-    local n=0
-    for d in "$ROOT"/skills/*/; do
-        local name; name="$(basename "$d")"
-        if [ "$DRY" = 0 ]; then rm -rf "$dst/$name"; cp -R "$d" "$dst/$name"; fi
-        n=$((n+1))
-    done
-    say "  스킬 ${n}개"
+# Codex·OpenCode 용 마크다운 프롬프트 한 개를 stdout 으로 만든다
+render_prompt() {
+    local name="$1" f="$2" desc; desc="$(skill_field "$f" description)"
+    printf '%s\n\n' "<!-- monggle-agent-kit 에서 생성됨. 원본: skills/$name/SKILL.md -->"
+    [ -n "$desc" ] && printf '%s\n\n' "$desc"
+    skill_body "$f"
 }
 
-# Codex·OpenCode 는 frontmatter 없는 마크다운 슬래시 프롬프트를 읽는다
-install_markdown_prompts() {
-    local dst="$1" label="$2"
-    say "$label → $dst"
-    run mkdir -p "$dst"
-    local n=0
-    for f in "$ROOT"/skills/*/SKILL.md; do
-        local name; name="$(basename "$(dirname "$f")")"
-        local desc; desc="$(skill_field "$f" description)"
-        if [ "$DRY" = 0 ]; then
-            { printf '%s\n\n' "<!-- monggle-agent-kit 에서 생성됨. 원본: skills/$name/SKILL.md -->"
-              [ -n "$desc" ] && printf '%s\n\n' "$desc"
-              skill_body "$f"
-            } > "$dst/$name.md"
-        fi
-        n=$((n+1))
-    done
-    say "  프롬프트 ${n}개"
-}
-
-# Gemini CLI 는 TOML(description + prompt)을 읽는다
-install_gemini() {
-    local dst="$HOME/.gemini/commands"
-    say "Gemini CLI → $dst"
-    run mkdir -p "$dst"
-    local n=0
-    for f in "$ROOT"/skills/*/SKILL.md; do
-        local name; name="$(basename "$(dirname "$f")")"
-        if [ "$DRY" = 0 ]; then
-            python3 - "$f" "$dst/$name.toml" <<'PY'
+# Gemini 용 TOML 한 개를 만든다: render_toml <SKILL.md> <출력>
+render_toml() {
+    python3 - "$1" "$2" <<'PY'
 import re, sys, pathlib
 src, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 t = src.read_text(encoding="utf-8", errors="replace")
@@ -117,10 +85,103 @@ else:
     block = TQ + "\n" + body.replace(TQ, "\\" + chr(34) + "\\" + chr(34) + "\\" + chr(34)) + "\n" + TQ
 out.write_text('description = "' + desc + '"\n\nprompt = ' + block + "\n", encoding="utf-8")
 PY
+}
+
+# 원본에서 빠진(보관·흡수된) 스킬의 설치본을 지운다. 설치본이 킷 원본과 **똑같을 때만** 지우므로
+# 사용자가 고친 것이나 킷이 만들지 않은 스킬은 남는다.
+retired_sources() {
+    local f n
+    for f in "$ROOT"/archive/skills/*/SKILL.md "$ROOT"/skills/*/references/*.md; do
+        [ -f "$f" ] || continue
+        case "$f" in */archive/skills/*) n="$(basename "$(dirname "$f")")" ;; *) n="$(basename "$f" .md)" ;; esac
+        [ -d "$ROOT/skills/$n" ] && continue
+        printf '%s\t%s\n' "$n" "$f"
+    done
+}
+
+prune_retired() {   # prune_retired <claude|md|toml> <설치 위치>
+    local kind="$1" dst="$2" n src tmp removed=0 kept=0
+    [ -d "$dst" ] || return 0
+    tmp="$(mktemp)"
+    while IFS=$'\t' read -r n src; do
+        local target same=0
+        case "$kind" in
+            claude) target="$dst/$n"
+                    [ -d "$target" ] || continue
+                    if [ "$(ls -A "$target")" = "SKILL.md" ]; then cmp -s "$target/SKILL.md" "$src" && same=1
+                    else diff -rq -x __pycache__ "$target" "$(dirname "$src")" >/dev/null 2>&1 && same=1; fi ;;
+            md)     target="$dst/$n.md"; [ -f "$target" ] || continue
+                    render_prompt "$n" "$src" > "$tmp"; cmp -s "$target" "$tmp" && same=1 ;;
+            toml)   target="$dst/$n.toml"; [ -f "$target" ] || continue
+                    render_toml "$src" "$tmp"; cmp -s "$target" "$tmp" && same=1 ;;
+        esac
+        if [ "$same" = 1 ]; then
+            [ "$DRY" = 0 ] && rm -rf "$target"; removed=$((removed+1))
+        else
+            say "  남김(고친 흔적): $target"; kept=$((kept+1))
+        fi
+    done < <(retired_sources)
+    rm -f "$tmp"
+    [ $((removed+kept)) -gt 0 ] && say "  보관된 스킬 정리: ${removed}개 제거, ${kept}개 남김"
+    return 0
+}
+
+# Codex·Gemini 는 ~/.agents/skills 를 스킬 위치로 직접 읽는다. brain 은 install_brain 이 같은 곳에 따로 둔다.
+AGENTS_SKILLS_DONE=0
+install_agents_skills() {
+    [ "$AGENTS_SKILLS_DONE" = 1 ] && return 0; AGENTS_SKILLS_DONE=1
+    local dst="$HOME/.agents/skills" n=0 d name
+    say "공용 스킬(Codex·Gemini) → $dst"
+    run mkdir -p "$dst"
+    for d in "$ROOT"/skills/*/; do
+        name="$(basename "$d")"; [ "$name" = brain ] && continue
+        if [ "$DRY" = 0 ]; then rm -rf "${dst:?}/$name"; cp -R "$d" "$dst/$name"; fi
+        n=$((n+1))
+    done
+    say "  스킬 ${n}개"; prune_retired claude "$dst"
+}
+
+install_claude() {
+    local dst="$HOME/.claude/skills"
+    say "Claude Code → $dst"
+    run mkdir -p "$dst"
+    local n=0
+    for d in "$ROOT"/skills/*/; do
+        local name; name="$(basename "$d")"
+        if [ "$DRY" = 0 ]; then rm -rf "$dst/$name"; cp -R "$d" "$dst/$name"; fi
+        n=$((n+1))
+    done
+    say "  스킬 ${n}개"; prune_retired claude "$dst"
+}
+
+# Codex·OpenCode 는 frontmatter 없는 마크다운 슬래시 프롬프트를 읽는다
+install_markdown_prompts() {
+    local dst="$1" label="$2"
+    say "$label → $dst"
+    run mkdir -p "$dst"
+    local n=0
+    for f in "$ROOT"/skills/*/SKILL.md; do
+        local name; name="$(basename "$(dirname "$f")")"
+        [ "$DRY" = 0 ] && render_prompt "$name" "$f" > "$dst/$name.md"
+        n=$((n+1))
+    done
+    say "  프롬프트 ${n}개"; prune_retired md "$dst"
+}
+
+# Gemini CLI 는 TOML(description + prompt)을 읽는다
+install_gemini() {
+    local dst="$HOME/.gemini/commands"
+    say "Gemini CLI → $dst"
+    run mkdir -p "$dst"
+    local n=0
+    for f in "$ROOT"/skills/*/SKILL.md; do
+        local name; name="$(basename "$(dirname "$f")")"
+        if [ "$DRY" = 0 ]; then
+            render_toml "$f" "$dst/$name.toml"
         fi
         n=$((n+1))
     done
-    say "  명령 ${n}개"
+    say "  명령 ${n}개"; prune_retired toml "$dst"
 }
 
 # brain 은 모든 도구가 같이 쓰도록 공용 위치(~/.agents/skills/brain)에 코드·훅을 한 벌 둔다.
@@ -194,9 +255,9 @@ install_brain
 for t in "${TARGETS[@]}"; do
     case "$t" in
         claude)   install_claude; register_claude_brain ;;
-        codex)    [ -d "${CODEX_HOME:-$HOME/.codex}" ] || [ -d "$HOME/.codex" ] && { install_markdown_prompts "$HOME/.codex/prompts" "Codex CLI"; register_codex_brain; } || say "Codex CLI → 건너뜀(~/.codex 없음)" ;;
+        codex)    [ -d "${CODEX_HOME:-$HOME/.codex}" ] || [ -d "$HOME/.codex" ] && { install_markdown_prompts "$HOME/.codex/prompts" "Codex CLI"; install_agents_skills; register_codex_brain; } || say "Codex CLI → 건너뜀(~/.codex 없음)" ;;
         opencode) [ -d "$HOME/.config/opencode" ] && install_markdown_prompts "$HOME/.config/opencode/command" "OpenCode" || say "OpenCode → 건너뜀(~/.config/opencode 없음)" ;;
-        gemini)   [ -d "$HOME/.gemini" ] && { install_gemini; register_gemini_brain; } || say "Gemini CLI → 건너뜀(~/.gemini 없음)" ;;
+        gemini)   [ -d "$HOME/.gemini" ] && { install_gemini; install_agents_skills; register_gemini_brain; } || say "Gemini CLI → 건너뜀(~/.gemini 없음)" ;;
     esac
 done
 say ""

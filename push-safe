@@ -1,5 +1,3 @@
 #!/bin/bash
-# Git-safe push shortcut
-# Usage: ./push-safe [options]
-
-exec "$(dirname "$0")/.claude/commands/push-safe.sh" "$@"
+# push-safe 바로가기
+exec "$(dirname "$0")/bin/push-safe.sh" "$@"

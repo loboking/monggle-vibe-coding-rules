@@ -108,11 +108,16 @@ jobs:
         run: bats --version
 
       - name: Run bats tests
-        run: bats tests/bash/skills.bats
+        run: bats tests/bash/skills.bats tests/bash/push-safe.bats
+
+      # brain 스크립트는 macOS 에서만 검증됐다(Linux 이식성 미확인)
+      - name: Run brain/harness/install tests (macOS)
+        if: runner.os == 'macOS'
+        run: bats tests/bash/brain_harness.bats
 
       - name: Run tests with verbose output on failure
         if: failure()
-        run: bats --verbose --trace tests/bash/skills.bats
+        run: bats --verbose --trace tests/bash/skills.bats tests/bash/push-safe.bats
 
   validate-markdown:
     name: Validate Markdown

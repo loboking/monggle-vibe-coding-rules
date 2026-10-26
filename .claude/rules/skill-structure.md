@@ -1,103 +1,35 @@
-# Vibe Coding Skill Structure v2.6
+# 스킬 구조 v3.0
 
-> **Last Updated:** 2026-05-11
-> 별칭 스킬(debug-css·debug-perf·review-code 등)은 알맹이가 없어 2026-10-22에 제거했다. 정식 이름만 쓴다.
+> **Last Updated:** 2026-10-26 — 51개를 입구 스킬로 줄였다. 근거: `prd/refactor-20261026-skill-consolidation.md`
 
----
+## 원칙
+- AI 에게 보이는 건 입구 스킬 몇 개. 세부 절차는 `skills/<입구>/references/*.md` 에 두고 고른 뒤에만 읽는다.
+- description 은 **"언제 쓰는지"로 시작**한다.
+- 반드시 지켜야 하는 것(기억 저장·비밀값 검사)은 훅·스크립트로 고정한다.
+- 킷은 AI 를 직접 부르지 않는다. 판단은 각 플랫폼 AI 가 한다.
 
-## 스킬 구조
+## 입구 스킬
+| 스킬 | 언제 | references |
+|---|---|---|
+| `fix` | 버그·기존 코드 수정 | impact, debug, bottleneck, mem-check, profile, refactor, complexity |
+| `qa` | 동작 확인·점검 | code-qa, test, audit, security, lint-smart, format-check, bench |
+| `spec` | 새 기능·위험한 변경 전 | prd, new, gate, pipeline, quick, monggle-planner, product-manager, brainstorm |
+| `push-safe` | 커밋·푸시·PR | — |
+| `answer-check` | 답변 검증 (구 verify, 별칭 2026-11-09까지) | — |
+| `team` | 큰 일을 AI 팀에게 | team-builder |
+| `mode` | solo/team 전환 | — |
+| `brain`, `brain-web` | 기억 (훅 자동) | — |
 
-### 🔍 Debug 카테고리 (/debug-*)
+## 전환 규칙
+| 상황 | 스킬 |
+|---|---|
+| 무엇이 문제인지 모름, 느림, 메모리 | `fix` (증상별 reference) |
+| 수정 전 영향만 보고 싶음 | `fix --dry` |
+| 새 기능인데 스펙 없음 | `spec` → `fix`/구현 |
+| 오타·한 줄 수정 | `spec` 없이 `fix` |
+| 머지 전 | `qa` → `push-safe` |
 
-| 스킬 | 설명 | 원본 이름 |
-|-----|------|----------|
-| `/debug` | 일반 디버깅, 버그 원인 파악 | `debug` |
-| `/bottleneck` | 성능 병목, 최적화 |
-| `/mem-check` | 메모리 누수, OOM |
-
-### ✅ QA 카테고리 (/qa-*)
-
-| 스킬 | 설명 | 원본 이름 |
-|-----|------|----------|
-| `/qa` | QA 테스트 (fix 포함) | `qa` |
-| `/qa --report` | 보고서만 (수정 없음) | `qa --report` (플래그) |
-| `/qa --quick` | 빠른 스모크 테스트 | — |
-
-### 👁️ Review 카테고리 (/review-*)
-
-| 스킬 | 설명 | 원본 이름 |
-|-----|------|----------|
-| `/review` | PR diff 리뷰 | `review` |
-
-### 📊 Analysis 카테고리
-
-| 스킬 | 설명 |
-|-----|------|
-| `/impact` | 영향도 분석, 사이드 이펙트 예측 |
-| `/complexity` | 코드 복잡도 분석 |
-
----
-
-## 카테고리별 목적
-
-| 카테고리 | 목적 | 질문 예시 |
-|---------|------|----------|
-| `/debug-*` | **원인 파악** | "왜 오류가 나나?" |
-| `/qa` | **동작 확인** | "기능이 작동하나?" |
-| `/review-*` | **코드 품질** | "코드가 깔끔한가?" |
-| `/impact` | **영향도 분석** | "수정하면 어디 영향받아?" |
-
----
-
-## 명확한 구분 기준
-
-| 상황 | 사용할 스킬 |
-|-----|-----------|
-| 무엇이 문제인지 모르겠다 | `/debug` |
-| 성능이 느리다 | `/bottleneck` |
-| 메모리 문제다 | `/mem-check` |
-| 코드 머지 전 확인 | `/qa` + `/review` |
-| 코드 품질 체크 | `/review` |
-| 수정 전 영향도 확인 | `/impact` |
-
----
-
-## 스킬 분리 기준
-
-1. **대상 분리**: web, mobile, api, db
-2. **목적 분리**: perf(성능), security(보안), memory(메모리)
-3. **단계 분리**: review(정적), test(동적), fix(수정)
-
----
-
-## 🔄 스킬 자동 전환 규칙 (v2.6) 🆕
-
-### 전환 규칙 테이블
-
-| 요청 스킬 | 전환 조건 | 전환할 스킬 | 이유 |
-|----------|----------|-----------|------|
-| `/prd` | "기존 코드 수정", "리팩토링", "변경" | `/impact` | 기존 코드 수정은 영향도 분석 우선 |
-| `/prd` | "버그", "오류", "안돼" | `/debug` | 버그는 원인 파악 우선 |
-| `/prd` | "느려", "성능", "최적화" | `/bottleneck` | 성능 문제는 병목 분석 우선 |
-| `/impact` | PRD 없이 "새 기능", "추가" | `/prd` | 새 기능은 기획 우선 |
-| `/debug` | "느려", "성능" | `/bottleneck` | 성능 문제는 병목 분석 |
-| `/review` | "버그", "고침" | `/debug` | 버그는 수정 전 원인 파악 |
-| `/qa` | "보고서만", "수정하지 마" | `/qa --report` | 리포트 모드 |
-
-### 전환 결정 트리
-
-```
-사용자 입력
-    ↓
-의도 파악
-    ↓
-문맥 분석
-    ├─ 기존 코드 존재? → /impact
-    ├─ 새 기능? → /prd
-    ├─ 버그/오류? → /debug
-    └─ 성능 문제? → /bottleneck
-```
-
----
-
-## END - 자동 관리 섹션
+## 새 스킬을 만들 때
+1. 기존 입구의 reference 로 넣을 수 있으면 그렇게 한다.
+2. 새 입구는 "다른 입구와 언제가 겹치지 않을 때"만. 입구는 10개 이하(`tests/bash/brain_harness.bats` 가 검사).
+3. 옛 스킬은 지우지 않고 `archive/skills/` 로 옮긴다. 재설치 때 설치본은 킷 원본과 같을 때만 정리된다.

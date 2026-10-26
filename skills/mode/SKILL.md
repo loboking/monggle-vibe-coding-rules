@@ -1,6 +1,6 @@
 ---
 name: mode
-description: Work mode switcher - Toggle between solo/team mode. "/mode" 등에서 동작한다.
+description: 혼자 개발하는지 사람 여러 명이 같은 저장소에서 같이 개발하는지(solo/team)를 확인·전환할 때 쓴다. 팀 모드는 PR 절차와 스펙 요구를 켠다. "모드 변경", "팀 모드", "solo", "같이 개발" 등. AI 팀(페르소나)은 team 스킬이다.
 allowed-tools: Bash, Read, Grep, Glob, Edit, Write
 ---
 

@@ -1,144 +1,128 @@
 #!/usr/bin/env bats
-# test_push_safe.bats - /push-safe script tests
-# Vibe Coding Rules v2.5
+# push-safe.sh — 받기·rebase·비밀값 검사·push·PR 을 임시 원격(bare)으로 검사한다.
 
 load ../test_helper.sh
 
+PS() { bash "$PROJECT_ROOT/bin/push-safe.sh" "$@"; }
+
 setup() {
-    # Test temp directory
-    TEST_DIR=$(mktemp -d)
-    cd "$TEST_DIR"
-    export PROJECT_ROOT
+    TEST_DIR="$(mktemp -d)"
+    export GIT_CONFIG_GLOBAL="$TEST_DIR/gitconfig"
+    git config --global user.email t@t.t; git config --global user.name t
+    git config --global init.defaultBranch main
+    git init -q --bare "$TEST_DIR/remote.git"
+    git clone -q "$TEST_DIR/remote.git" "$TEST_DIR/a" 2>/dev/null
+    cd "$TEST_DIR/a"
+    echo base > f.txt; git add f.txt; git commit -qm base; git push -q -u origin main
 }
 
-teardown() {
-    cd "$PROJECT_ROOT"
-    rm -rf "$TEST_DIR"
+teardown() { cd /; rm -rf "$TEST_DIR"; }
+
+remote_head() { git --git-dir="$TEST_DIR/remote.git" rev-parse "${1:-main}"; }
+
+# 다른 사람(b)이 원격에 커밋을 올린다
+other_pushes() {
+    git clone -q "$TEST_DIR/remote.git" "$TEST_DIR/b"
+    (cd "$TEST_DIR/b" && echo "$1" > "${2:-g.txt}" && git add -A && git commit -qm other && git push -q)
 }
 
-# Helper to create a bare remote repository
-setup_bare_remote() {
-    local bare_repo="$1"
-    git init --bare "$bare_repo" >/dev/null 2>&1
-}
-
-@test "push-safe.sh: --help shows help message" {
-    run bash "$PROJECT_ROOT/bin/push-safe.sh" --help
+@test "help lists options" {
+    run PS --help
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "Usage:" ]]
-    [[ "$output" =~ "--no-pr" ]]
-    [[ "$output" =~ "--dry-run" ]]
+    [[ "$output" == *"--no-pr"* && "$output" == *"--dry-run"* ]]
 }
 
-@test "push-safe.sh: --dry-run shows execution plan" {
-    # Create bare remote repository
-    local bare_repo
-    bare_repo=$(mktemp -d)
-    setup_bare_remote "$bare_repo"
+@test "errors outside a git repository" {
+    cd "$TEST_DIR"
+    run PS
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"Git 저장소가 아닙니다"* ]]
+}
 
-    # Create git repository with remote
-    git init >/dev/null 2>&1
-    git config user.email "test@test.com"
-    git config user.name "Test User"
-    echo "test" > test.txt
-    git add test.txt
-    git commit -m "Initial" >/dev/null 2>&1
-    git remote add origin "$bare_repo"
-    git push -u origin main >/dev/null 2>&1
-
-    run bash "$PROJECT_ROOT/bin/push-safe.sh" --dry-run
+@test "nothing to push" {
+    run PS
     [ "$status" -eq 0 ]
-    [[ "$output" =~ "[DRY-RUN]" ]] || [[ "$output" =~ "전송할" ]] || [[ "$output" =~ "없습니다" ]]
-
-    # cleanup
-    cd "$TEST_DIR"
-    rm -rf "$bare_repo"
+    [[ "$output" == *"보낼 커밋이 없습니다"* ]]
 }
 
-@test "push-safe.sh: errors when not in git repository" {
-    # No git init
-    run bash "$PROJECT_ROOT/bin/push-safe.sh"
-    [ "$status" -eq 1 ]
-    [[ "$output" =~ "Git 저장소가 아닙니다" ]]
+@test "normal push reaches the remote" {
+    echo x >> f.txt; git commit -qam change
+    run PS
+    [ "$status" -eq 0 ]
+    [ "$(remote_head)" = "$(git rev-parse HEAD)" ]
 }
 
-@test "push-safe.sh: shows message when no commits to push" {
-    # Create bare remote repository
-    local bare_repo
-    bare_repo=$(mktemp -d)
-    setup_bare_remote "$bare_repo"
-
-    # Create git repository with remote
-    git init >/dev/null 2>&1
-    git config user.email "test@test.com"
-    git config user.name "Test User"
-    echo "test" > test.txt
-    git add test.txt
-    git commit -m "Initial" >/dev/null 2>&1
-    git remote add origin "$bare_repo"
-    git push -u origin main >/dev/null 2>&1
-
-    # Make remote up to date (no commits to push)
-    run bash "$PROJECT_ROOT/bin/push-safe.sh" --no-pr
-    [[ "$output" =~ "전송할" ]] || [[ "$output" =~ "없습니다" ]]
-
-    # cleanup
-    cd "$TEST_DIR"
-    rm -rf "$bare_repo"
+@test "behind: rebases with autostash then pushes" {
+    other_pushes theirs
+    echo mine >> f.txt; git commit -qam mine
+    echo dirty > untracked-but-staged.txt; git add untracked-but-staged.txt
+    run PS
+    [ "$status" -eq 0 ]
+    [ "$(remote_head)" = "$(git rev-parse HEAD)" ]
+    [ -f g.txt ]                                   # 남의 커밋을 받았고
+    git diff --cached --name-only | grep -q untracked-but-staged.txt   # 내 작업은 그대로
 }
 
-@test "push-safe.sh: --no-pr option works" {
-    # Create bare remote repository
-    local bare_repo
-    bare_repo=$(mktemp -d)
-    setup_bare_remote "$bare_repo"
-
-    # Create git repository with remote
-    git init >/dev/null 2>&1
-    git config user.email "test@test.com"
-    git config user.name "Test User"
-    echo "test" > test.txt
-    git add test.txt
-    git commit -m "Initial" >/dev/null 2>&1
-    git remote add origin "$bare_repo"
-    git push -u origin main >/dev/null 2>&1
-
-    echo "changed" > test.txt
-    git add test.txt
-    git commit -m "Second" >/dev/null 2>&1
-
-    # --dry-run should work
-    run bash "$PROJECT_ROOT/bin/push-safe.sh" --no-pr --dry-run
-    [[ "$output" =~ "DRY-RUN" ]] || [[ "$output" =~ "커밋이 있습니다" ]]
-
-    # cleanup
-    cd "$TEST_DIR"
-    rm -rf "$bare_repo"
+@test "conflict: stops and does not push" {
+    other_pushes theirs f.txt
+    echo mine > f.txt; git commit -qam mine
+    before="$(remote_head)"
+    run PS
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"충돌"* ]]
+    [ "$(remote_head)" = "$before" ]
+    git rebase --abort
 }
 
-@test "push-safe.sh: detects GitHub host" {
-    git init >/dev/null 2>&1
-    git remote add origin https://github.com/user/repo.git
-
-    source "$PROJECT_ROOT/lib/git_helper.sh"
-    run detect_git_host
-    [ "$output" = "github" ]
+@test "secret in outgoing commit blocks push" {
+    echo 'API_KEY = "abcd1234efgh5678"' > conf.py; git add conf.py; git commit -qm secret  # pragma: allowlist secret
+    before="$(remote_head)"
+    run PS
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"비밀값 의심"* ]]
+    [ "$(remote_head)" = "$before" ]
 }
 
-@test "push-safe.sh: detects GitLab host" {
-    git init >/dev/null 2>&1
-    git remote add origin https://gitlab.com/user/repo.git
-
-    source "$PROJECT_ROOT/lib/git_helper.sh"
-    run detect_git_host
-    [ "$output" = "gitlab" ]
+@test "secret file (.env) blocks push" {
+    echo X=1 > .env; git add .env; git commit -qm env
+    run PS
+    [ "$status" -ne 0 ]
+    [[ "$output" == *".env"* ]]
 }
 
-@test "push-safe.sh: detects Bitbucket host" {
-    git init >/dev/null 2>&1
-    git remote add origin https://bitbucket.org/user/repo.git
+@test "allowlisted fake value passes" {
+    echo 'password = "hunter2hunter2"  # pragma: allowlist secret' > t.sh; git add t.sh; git commit -qm fake
+    run PS
+    [ "$status" -eq 0 ]
+    [ "$(remote_head)" = "$(git rev-parse HEAD)" ]
+}
 
-    source "$PROJECT_ROOT/lib/git_helper.sh"
-    run detect_git_host
-    [ "$output" = "bitbucket" ]
+@test "dry-run changes nothing" {
+    other_pushes theirs
+    echo mine >> f.txt; git commit -qam mine
+    head_before="$(git rev-parse HEAD)"; remote_before="$(remote_head)"
+    run PS --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"[DRY-RUN]"* ]]
+    [ "$(git rev-parse HEAD)" = "$head_before" ]
+    [ "$(remote_head)" = "$remote_before" ]
+}
+
+@test "new branch is pushed with upstream" {
+    git checkout -qb feat; echo n > n.txt; git add n.txt; git commit -qm n
+    run PS --no-pr
+    [ "$status" -eq 0 ]
+    [ "$(remote_head feat)" = "$(git rev-parse HEAD)" ]
+}
+
+@test "team mode on a feature branch plans a PR" {
+    echo 'mode: team' > monggle.config.yaml; git add monggle.config.yaml; git commit -qm mode; git push -q
+    git checkout -qb feat; echo n > n.txt; git add n.txt; git commit -qm n
+    run PS --dry-run
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"gh pr create"* ]]
+}
+
+@test "script never force-pushes" {
+    ! grep -nE 'push.*(--force|-f( |$)|\+HEAD)' "$PROJECT_ROOT/bin/push-safe.sh"
 }

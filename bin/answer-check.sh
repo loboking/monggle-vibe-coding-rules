@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# verify.sh - AI 응답 검증 스킬 (읽기 전용)
+# answer-check.sh (구 verify.sh) - AI 응답 검증 스킬 (읽기 전용)
 #
 # AI가 준 답변의 정확성, 안전성, 완결성을 검증
 # 수정 권한 없이 리뷰만 수행

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased] - 2026-10-26
+
+### Changed — 스킬 축소 (`prd/refactor-20261026-skill-consolidation.md`)
+- 보이는 스킬 51 → 10: `fix` `qa` `spec`(신규) `push-safe` `answer-check`(구 verify) `team` `mode` `brain` `brain-web` + `verify` 별칭(2026-11-09까지)
+- 흡수한 스킬의 절차는 `skills/<입구>/references/` 로(impact·debug·bottleneck … → fix, prd·gate·pipeline … → spec 등). description 은 "언제 쓰는지"로 시작
+- 나머지는 `archive/` 로 보관(삭제 아님). `install.sh` 는 재설치 때 보관된 스킬의 설치본을 **킷 원본과 같을 때만** 지운다
+- 설치본에 `skills/` 도 복사해 Codex·Gemini 처럼 SKILL.md 만 받는 도구도 references 를 읽는다
+- `AGENTS.md` 363 → 116줄
+- Codex·Gemini 용으로 `~/.agents/skills` 에도 입구 스킬을 설치(두 도구가 직접 읽는 위치). brain 은 덮어쓰지 않음
+- CI 에 push-safe 테스트 추가, brain·설치 테스트는 macOS 에서만
+
+### Fixed
+- `push-safe.sh` 재작성: 없는 `git_helper.sh`·`pr_helper.sh` 의존 제거. 받기 → rebase(autostash, 충돌 시 멈춤) → 보낼 커밋 비밀값 검사(`pragma: allowlist secret` 예외) → push(force 없음) → 팀 모드 PR(`gh`)
+- 루트 `push-safe` 바로가기가 없는 `.claude/commands/` 를 가리키던 것 수정
+- 테스트가 Orca 의 `CODEX_HOME` 을 그대로 써서 실제 Codex 설정에 임시 경로를 등록하던 문제 — 테스트에서 비움
+
+### Tests
+- bats 76개 전부 통과(기존 실패 28개는 사라진 협업 스크립트 전제 → 보관, push-safe 13개 새로 작성)
+
 ## [Unreleased] - 2026-06-16
 
 ### Fixed 🐛

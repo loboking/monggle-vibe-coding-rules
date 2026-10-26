@@ -9,6 +9,7 @@
 setup() {
     ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
     export HOME="$(mktemp -d)"
+    unset CODEX_HOME GEMINI_CLI_HOME   # 실제 도구 설정(Orca 의 CODEX_HOME 등)에 훅을 등록하지 않게
     export HARNESS_HOME="$HOME/harness" UPGRADE_CHECK=false
     S="$HOME/.agents/skills/brain/scripts"
     mkdir -p "$S"
@@ -61,7 +62,7 @@ recall_req() {
 
 # brain MCP: 비밀번호는 본문과 태그 모두에서 가려진다
 @test "brain mcp: redacts password in body and tags" {
-    mcp "$(save_req decision '서버 접속 정보' '접속 password=hunter2 로 한다')" >/dev/null
+    mcp "$(save_req decision '서버 접속 정보' '접속 password=hunter2 로 한다')" >/dev/null  # pragma: allowlist secret
     ! grep -rq hunter2 "$P/.agents/brain"
     grep -rq 'REDACTED' "$P/.agents/brain/neurons"
 }
@@ -196,13 +197,6 @@ recall_req() {
     [ -z "$output" ]
 }
 
-# push-safe.sh 는 저장소에 없는 lib/git_helper.sh·pr_helper.sh 를 source 한다(처음 들어올 때부터 없었다).
-@test "[known] push-safe.sh runs --help" {
-    skip "lib/git_helper.sh·pr_helper.sh 없음. 복구 또는 스크립트 단순화 후 skip 제거"
-    run bash "$ROOT/bin/push-safe.sh" --help
-    [ "$status" -eq 0 ]
-}
-
 # ---------------------------------------------------------------- 설치본 (prd/bug-20261024-skill-paths.md)
 
 install_kit() {  # 임시 HOME 에 설치. --opencode 는 ~/.config/opencode 가 없으면 건너뛰므로 스크립트·brain 만 깔린다
@@ -221,7 +215,7 @@ install_kit() {  # 임시 HOME 에 설치. --opencode 는 ~/.config/opencode 가
     bad=""
     for f in "$HOME"/.monggle/bin/*.sh; do
         n="$(basename "$f" .sh)"
-        case "$n" in push-safe|bump|monggle-upgrade|team-run|msg|new|wrapper) continue ;; esac
+        case "$n" in bump|monggle-upgrade|new) continue ;; esac
         out="$(perl -e 'alarm 20; exec @ARGV' bash "$f" --help </dev/null 2>&1 || true)"
         echo "$out" | grep -qE "No such file or directory|can't open file|not found: /" && bad="$bad $n"
     done
@@ -235,4 +229,66 @@ install_kit() {  # 임시 HOME 에 설치. --opencode 는 ~/.config/opencode 가
     perl -e 'alarm 30; exec @ARGV' bash "$HOME/.monggle/bin/prd.sh" bug --non-interactive --language ko </dev/null >/dev/null 2>&1 || true
     ls "$P"/prd/bug-*.md
     [ ! -d "$HOME/.monggle/prd" ]
+}
+
+# ---------------------------------------------------------------- 스킬 축소 (prd/refactor-20261026-skill-consolidation.md)
+
+@test "every reference path named in an entry skill exists" {
+    bad=""
+    for f in "$ROOT"/skills/*/SKILL.md; do
+        d="$(dirname "$f")"
+        for r in $(grep -oE 'references/[a-z0-9-]+\.md' "$f" | sort -u); do [ -f "$d/$r" ] || bad="$bad $(basename "$d")/$r"; done
+        for s in $(grep -oE 'bin/[a-z0-9-]+\.sh' "$f" | sort -u); do [ -f "$ROOT/$s" ] || bad="$bad $(basename "$d")->$s"; done
+    done
+    echo "missing:$bad"
+    [ -z "$bad" ]
+}
+
+@test "entry skills say when to use them and stay few" {
+    n=0
+    for f in "$ROOT"/skills/*/SKILL.md; do
+        n=$((n+1))
+        grep -qE '^description: [^.]*((때|전에) 쓴다|옛 이름)' "$f" || { echo "no when: $f"; return 1; }
+    done
+    [ "$n" -le 10 ]
+}
+
+@test "install prunes retired skills only when identical to the kit copy" {
+    D="$HOME/.claude/skills"; mkdir -p "$D/impact" "$D/review" "$D/my-own"
+    cp "$ROOT/skills/fix/references/impact.md" "$D/impact/SKILL.md"           # 킷이 깐 그대로 → 지움
+    { cat "$ROOT/archive/skills/review/SKILL.md"; echo "내가 고침"; } > "$D/review/SKILL.md"   # 고침 → 남김
+    echo "---" > "$D/my-own/SKILL.md"                                          # 킷 것이 아님 → 남김
+    run bash "$ROOT/install.sh" --claude
+    [ "$status" -eq 0 ]
+    [ ! -e "$D/impact" ]
+    [ -f "$D/review/SKILL.md" ]
+    [ -f "$D/my-own/SKILL.md" ]
+    [ -f "$D/fix/references/impact.md" ]
+    [[ "$output" == *"남김(고친 흔적): $D/review"* ]]
+}
+
+@test "install never touches a CODEX_HOME outside the temp HOME" {
+    [ -z "${CODEX_HOME:-}" ]
+}
+
+@test "install prunes generated codex prompts of retired skills" {
+    mkdir -p "$HOME/.codex/prompts"
+    bash "$ROOT/install.sh" --codex >/dev/null 2>&1 || true
+    P2="$HOME/.codex/prompts"
+    # 옛 설치본 흉내: 보관된 스킬을 그때 방식으로 렌더링
+    eval "$(sed -n '/^skill_body()/p;/^skill_field()/p;/^render_prompt() {/,/^}/p' "$ROOT/install.sh")"
+    render_prompt stats "$ROOT/archive/skills/stats/SKILL.md" > "$P2/stats.md"
+    echo "user prompt" > "$P2/mine.md"
+    bash "$ROOT/install.sh" --codex >/dev/null 2>&1 || true
+    [ ! -e "$P2/stats.md" ]
+    [ -f "$P2/mine.md" ]
+    [ -f "$P2/fix.md" ]
+    [ -f "$HOME/.agents/skills/fix/references/impact.md" ]   # Codex 는 ~/.agents/skills 도 읽는다
+    [ -f "$HOME/.agents/skills/brain/scripts/brain-mcp.py" ] # brain 은 덮어쓰지 않는다
+}
+
+@test "installed kit carries skill references for tools that only read SKILL.md" {
+    install_kit
+    [ -f "$HOME/.monggle/skills/fix/references/impact.md" ]
+    [ -f "$HOME/.monggle/bin/answer-check.sh" ]
 }

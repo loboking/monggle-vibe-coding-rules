@@ -34,138 +34,25 @@ PRD는 선택 사항이지만 복잡한 작업에는 권장됩니다.
 
 ---
 
-## 🤖 자동 스킬 실행 시스템 (의도 기반)
+## 🤖 스킬 (사용자는 이름을 몰라도 된다)
 
-**핵심 원칙**: 사용자의 입력에서 **의도(intent)**를 파악하여 자동으로 적절한 스킬을 실행합니다. 키워드 매칭이 아니라 **의미 이해**가 핵심입니다.
+사용자는 "고쳐줘", "작동해?", "올려줘"처럼 말한다. **의도를 보고 아래 입구 스킬을 고른다.** 확인하지 말고 바로 쓰되, 시작할 때 한 줄로 알린다: `의도: <의도> → <스킬>`.
+세부 절차는 각 스킬의 `references/` 에 있고, 고른 뒤 필요한 것만 읽는다.
 
-### 의도 분석 및 스킬 매핑
+| 의도 | 스킬 | 안에 든 절차 |
+|---|---|---|
+| 버그·오류·느림·메모리·리팩토링·"수정하면 어디 영향?" | `fix` | 영향 범위 → 증상별 절차(debug·bottleneck·mem-check·profile·refactor) → 최소 수정 → 관련 테스트 실행 |
+| 작동 확인·테스트·점검·보안·린트·"보고서만" | `qa` | 프로젝트 자동 판별, 테스트·보안·린트·포맷 |
+| 새 기능·위험한 변경 전 기획·PRD·스펙·아이디어 | `spec` | 가벼운 스펙(목표·완료 조건·안 할 것·영향 파일), 필요 시 계획·작업 분해 |
+| 커밋·푸시·PR | `push-safe` | 커밋 메시지 승인 → rebase → 비밀값 검사 → push → (팀 모드) PR |
+| "이 답 맞아?"·검증 | `answer-check` | 읽기 전용 검증 (구 `verify`) |
+| 설계·구현·리뷰가 다 필요한 큰 일, 팀원 채용 | `team` | AI 팀(페르소나 서브에이전트), 팀장 도현이 분배 |
+| 혼자/여럿이 개발 전환 | `mode` | solo/team |
+| 기억 저장·회상 | `brain` | 훅이 자동으로 돈다. 훅이 없는 도구에서만 직접 |
 
-사용자의 어떤 표현이든 **의도**를 파악하세요:
+- 작은 일에 `team`·`spec` 을 쓰지 않는다(비용·마찰).
+- 보관된 옛 스킬은 `archive/skills/` 에 있다. 사용자가 옛 이름(예: `/impact`, `/debug`)을 말하면 위 표의 입구 스킬로 처리한다.
 
-#### 🔍 Debug 카테고리
-
-| 사용자 의도 | 자동 실행 스킬 | 예시 (다양한 표현) |
-|-----------|--------------|------------------|
-| **"버그가 나"** | `debug` | "버그", "오류", "안돼", "에러", "error", "broken", "작동 안해", "고장" |
-| **"왜 이러지?"** | `debug` | "왜 안돼?", "이유", "원인", "why", "고장난 것 같아", "문제 발생" |
-| **"느려"** | `bottleneck` | "느려", "느림", "최적화", "병목", "slow", "lag", "성능", "터짐" |
-| **"메모리 문제"** | `mem-check` | "메모리", "RAM", "누수", "memory leak", "oom", "메모리 부족" |
-| **"프론트 오류"** | `debug` | "프론트", "js 오류", "react 버그", "클릭 안돼", "화면 문제" |
-| **"스타일 오류"** | `debug` | "css", "스타일", "레이아웃", "디자인", "깨짐", "정렬" |
-
-#### ✅ QA 카테고리
-
-| 사용자 의도 | 자동 실행 스킬 | 예시 (다양한 표현) |
-|-----------|--------------|------------------|
-| **"작동 확인"** | `/qa` | "작동해?", "되나요?", "테스트", "작동 확인", "working?", "동작 확인" |
-| **"점검해줘"** | `/qa` | "점검", "확인해봐", "검사", "check", "inspect", "테스트해봐" |
-| **"보고서만"** | `/qa --report` | "보고서만", "리포트", "수정하지 마", "보고만", "report only" |
-| **"빠른 테스트"** | `/qa --quick` | "빠르게 확인", "훑어봐", "quick test", "스모크 테스트" |
-
-#### 👁️ Review 카테고리
-
-| 사용자 의도 | 자동 실행 스킬 | 예시 (다양한 표현) |
-|-----------|--------------|------------------|
-| **"코드 검토"** | `review` | "리뷰해줘", "검토해봐", "코드 봐줘", "Review this", "Check code", "피드백줘" |
-| **"품질 체크"** | `review` | "품질", "코드 품질", "quality", "best practice", "코드 컨벤션" |
-| **"구조 검토"** | `impact` | "아키텍처", "설계", "구조", "architecture", "설계 검토" |
-
-#### 🛠️ 기타 스킬
-
-| 사용자 의도 | 자동 실행 스킬 | 예시 (다양한 표현) |
-|-----------|--------------|------------------|
-| **"계획을 세워줘"** | `/prd` | "기획서 작성", "PRD 만들어줘", "계획 세워", "Planning", "요구사항 정리" |
-| **"보안 점검"** | `/audit` | "보안 점검", "취약점", "Security check", "Audit", "보안 검사" |
-| **"복잡도 분석"** | `/complexity` | "복잡해", "복잡도", "너무 어려워", "Complex", "복잡도 분석" |
-| **"속도 비교"** | `/bench` | "벤치마크", "성능 비교", "빠른 게 뭐?", "Benchmark", "Compare" |
-| **"API 문서"** | `/api-docs` | "API 문서", "API docs", "docstring 변환", "자동 문서화" |
-| **"변경 로그"** | `/changelog` | "변경 로그", "CHANGELOG", "커밋 내역 정리", "변경사항 정리" |
-| **"버전 업"** | `/bump` | "버전 업", "태그 생성", "release", "배포 준비" |
-| **"코드 공유"** | `/push-safe` | "올려", "푸시", "공유", "Push", "동기화", "코드 올리기" |
-| **"포맷 점검"** | `/format-check` | "포맷 확인", "lint check", "스타일 검사" |
-| **"품질 검사"** | `/lint-smart` | "린트", "코드 품질", "quality check" |
-| **"아이디어"** | `/brainstorm` | "아이디어", "브레인스토밍", "생각해", "아이디어링" |
-| **"진행 상황"** | `/stats` | "통계", "현황", "status", "진행 상황", "pipeline trace" |
-| **"핫픽스"** | `/quick` | "빨리 수정", "핫픽스", "quick fix" |
-| **"PRD 검증"** | `/gate` | "PRD 검증", "gate", "품질 확인" |
-| **"파이프라인"** | `/pipeline` | "파이프라인", "전체 실행", "자동화" |
-| **"프로파일링"** | `/profile` | "프로파일", "성능 분석", "profiling", "성능 프로파일" |
-| **"추적"** | `/trace` | "추적", "트레이스", "trace", "실행 경로" |
-| **"초기화"** | `/init` | "설정", "초기화", "setup", "설정 초기화" |
-| **"모드 변경"** | `/mode` | "모드 변경", "solo", "team" |
-
-### Claude 실행 프로세스
-
-**1단계: 의도 파악**
-- 사용자 입력의 **핵심 의도**를 파악하세요
-- 표면적인 단어가 아니라 **무엇을 원하는지** 이해하세요
-- 언어(한국어/영어/기타)와 표현 방식은 상관없습니다
-
-**2단계: 스킬 선택**
-- 파악된 의도에 해당하는 스킬을 찾으세요
-- 여러 스킬이 가능하면 가장 적합한 것을 선택하세요
-
-**3단계: 자동 실행**
-- 사용자에게 확인하지 말고 **즉시 실행**하세요
-- 실행 전에 간단히 알리세요: "의도: [의도] → /{skill} 실행합니다"
-
-**4단계: 결과 보고**
-- 실행 결과를 명확히 보고하세요
-- 추가 조치가 필요하면 제안하세요
-
-### 언어 독립적 의도 파악
-
-**핵심**: 같은 의도라면 어떤 언어로든 인식하세요.
-
-| 의도 | 한국어 예시 | 영어 예시 | 다른 표현 |
-|-----|-----------|----------|----------|
-| "작동 확인" | "작동해?", "되나요?", "확인해" | "Does it work?", "Working?", "Check" | "OK?", "동작?", "작동?" |
-| "버그 수정" | "버그", "오류", "안돼" | "Bug", "Error", "Broken" | "고장", "안됨", "fail" |
-| "배포" | "배포", "커밋", "푸시" | "Deploy", "Commit", "Push" | "올려", "save", "upload" |
-
-### 예시 시나리오
-
-**시나리오 1: 계획 수립 (한국어)**
-```
-사용자: "로그인 기능 추가할 건데 기획 좀 세워줘"
-Claude 분석: 의도 = "계획 수립 요청"
-→ 자동 실행: /prd
-→ 결과: PRD 생성 완료.prd/feature-auth-20260417.md
-```
-
-**시나리오 2: 코드 검토 (영어)**
-```
-사용자: "Can you review this code?"
-Claude 분석: 의도 = "코드 검토 요청"
-→ 자동 실행: /review
-→ 결과: Review completed. 3 suggestions found.
-```
-
-**시나리오 3: 성능 문제**
-```
-사용자: "너무 느려"
-Claude 분석: 의도 = "성능 문제"
-→ 자동 실행: /bottleneck
-→ 결과: 병목 지점 분석 완료. DB 쿼리 최적화 제안.
-```
-
-**시나리오 4: 보안 점검**
-```
-사용자: "보안 문제 없나 확인해줘"
-Claude 분석: 의도 = "보안 점검 요청"
-→ 자동 실행: /audit
-→ 결과: 취약점 스캔 완료. 2건 발견.
-```
-
-**시나리오 5: Git 동기화**
-```
-사용자: "코드 올릴게"
-Claude 분석: 의도 = "Git push/동기화"
-→ 자동 실행: /push-safe
-→ 결과: 안전하게 push 완료. PR 생성됨.
-```
-
----
 
 ## TDD Testing (Option 3: Combined)
 
@@ -175,161 +62,27 @@ Claude 분석: 의도 = "Git push/동기화"
 
 ```
 tests/
-├── test_init_core.py      # Python: 프로젝트 초기화 테스트
-├── test_agents.py          # Python: 에이전트 테스트
-├── test_lib_sh.py          # Python: Bash 라이브러리 테스트 (신규)
+├── test_lib_sh.py            # Python: Bash 라이브러리
 ├── bash/
-│   └── skills.bats         # bats: 스킬 스크립트 테스트 (신규)
-└── run_tests.sh            # 통합 테스트 실행기 (신규)
+│   ├── skills.bats           # bin/ 스크립트·라이브러리·보안 패턴
+│   ├── push-safe.bats        # 임시 원격으로 push·rebase·충돌·비밀값
+│   └── brain_harness.bats    # brain MCP·훅, 하네스, 설치본, 스킬 구조
+└── run_tests.sh              # 통합 실행기 (--python, --bats, --verbose)
 ```
 
-### 테스트 실행
-
-```bash
-# 전체 테스트 (Python + bats)
-./tests/run_tests.sh
-
-# Python 테스트만
-./tests/run_tests.sh --python
-
-# bats 테스트만
-./tests/run_tests.sh --bats
-
-# 상세 출력
-./tests/run_tests.sh --verbose
-
-# 직접 실행
-python3 tests/test_lib_sh.py
-bats tests/bash/skills.bats
-```
-
-### 테스트 커버리지
-
-| 카테고리 | Python | bats | 합계 |
-|----------|--------|------|------|
-| 라이브러리 | 26 | 14 | 40 |
-| P0 보안 | 4 | 4 | 8 |
-| P1 아키텍처 | 5 | 5 | 10 |
-| 통합/스킬 | - | 15 | 15 |
-| **합계** | **35** | **34** | **69** |
-
-### CI/CD 통합
-
-GitHub Actions에서 Linux + macOS 매트릭스로 실행:
-- ShellCheck 정적 분석
-- Python unittest (test_init_core.py, test_lib_sh.py)
-- bats-core (skills.bats)
+테스트는 임시 HOME 에서 돈다. 실제 도구 설정(`CODEX_HOME` 등)을 쓰는 코드는 테스트에서 그 변수를 비운다.
 
 ---
 
-## Current Mode
+## Mode
 
-**MANUAL** 모드로 실행 중입니다.
-
-- `/mode` - 현재 모드 확인
-- `/mode solo` - Solo 모드로 변경
-- `/mode team` - Team 모드로 변경
-
----
-
-## Agent Pipeline
-
-### Pipeline Stages
-
-1. **Gate** - PRD 유효성 검사
-2. **Scan** - 코드베이스 분석
-3. **Fold** - 요구사항 종합
-4. **Verdict** - 최종 판단 (PASS/FIX/FAIL)
-5. **Patch** - 구현 (PASS인 경우)
-6. **Trace** - 로깅
-
-### Pipeline Commands
-
-```bash
-/pipeline [prd_file] [options]   # 파이프라인 실행
-/pipeline --dry-run              # 실행 계획만 표시
-/pipeline --verbose              # 상세 로깅
-/pipeline --retry 3              # 실패 시 3회 재시도
-/pipeline --parallel             # 병렬 실행 (실험적)
-```
+- `solo`(기본): 스펙은 선택.
+- `team`: 사람 여러 명이 같은 저장소에서 개발. push-safe 가 main 이 아닌 브랜치에서 PR 을 만든다.
+  위험한 변경(여러 파일·API·DB·인증·새 기능)에는 `spec` 을 먼저 쓴다. 재설계 중: `prd/feature-20261026-team-mode-redesign.md`
+- 확인·전환: `/mode`, `/mode solo`, `/mode team`
 
 ---
 
-## Verdict System
-
-| Verdict | Confidence | Description |
-|---------|------------|-------------|
-| **PASS** | >= 0.9 | PRD가 충분히 상세함, 구현 진행 |
-| **FIX** | >= 0.5 | PRD 개선 필요, 수정 후 재검증 |
-| **FAIL** | < 0.5 | PRD 불충분, 처음부터 작성 |
-
----
-
-## PRD System v2.4
-
-### PRD Types
-
-- `feature` - 새로운 기능 개발
-- `bug` - 버그 수정
-- `refactor` - 리팩토링
-- `hotfix` - 긴급 핫픽스 (Fast-track)
-- `experiment` - 실험적 기능
-
-**New in v2.4:**
-- `api` - API 전용 PRD
-- `migration` - DB 마이그레이션 PRD
-- `ml` - ML 모델 개발 PRD
-- `devops` - DevOps 자동화 PRD
-
-### PRD Commands
-
-```bash
-/prd                    # 대화형 PRD 생성
-/prd feature            # 특정 타입으로 생성
-/prd api                # v2.4: API PRD 생성
-/prd --list-templates   # 사용 가능한 템플릿 목록
-```
-
-### PRD Validation v2.4
-
-- **자동 수정 제안:** 누락된 섹션에 대한 구체적인 수정 가이드
-- **구체적 에러 메시지:** 어떤 부분이 문제인지 명확히 표시
-- **자동 백업:** 검증 전에 PRD 자동 백업 (최대 10개)
-
----
-
-## Statistics v2.4
-
-```bash
-/stats                   # 기본 통계
-/stats --verbose         # 상세 통계 + 시각화
-/stats --web             # 웹 대시보드 생성
-/stats --json            # JSON 출력
-
-# 필터링
-/stats --filter-verdict PASS
-/stats --filter-type feature
-/stats --since 2024-01-01
-```
-
-### 시각화 기능
-
-- **ASCII 바 차트:** Verdict 분포, PRD 타입 분포
-- **스파크라인:** 실행 추이, 에이전트 성능 추이
-- **타임라인:** 최근 Verdict 히스토리
-
----
-
-## Quick Commands
-
-```bash
-/quick                   # 빠른 핫픽스 (Gate/Fold 생략)
-/review                  # AI Reviewer 실행
-/mode solo/team          # 모드 변경
-/stats                   # 파이프라인 통계
-```
-
----
 
 ## Free Chat Rules
 
@@ -340,7 +93,7 @@ GitHub Actions에서 Linux + macOS 매트릭스로 실행:
 - 문서화
 - 간단한 수정
 
-개발 작업은 PRD 작성을 권장합니다.
+위험한 변경(여러 파일·API·DB·인증·새 기능)은 `spec` 을 먼저 쓴다.
 
 ---
 
