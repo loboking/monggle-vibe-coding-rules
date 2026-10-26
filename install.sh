@@ -38,14 +38,21 @@ skill_body() { awk 'BEGIN{d=0} /^---$/{d++; next} d>=2{print}' "$1"; }
 # frontmatter 에서 한 필드를 꺼낸다
 skill_field() { awk -v k="$2" 'BEGIN{d=0} /^---$/{d++; next} d==1 && $0 ~ "^"k":" {sub("^"k":[ \t]*",""); print; exit}' "$1"; }
 
+# 스크립트는 bin/.. 을 킷 루트로 보고 lib/ scripts/ 등을 찾는다 → 설치본도 저장소와 같은 구조로 둔다.
 install_scripts() {
-    say "스크립트 → $BIN_DST"
-    run mkdir -p "$BIN_DST"
-    if [ "$DRY" = 0 ]; then
-        cp -R "$ROOT/bin/." "$BIN_DST/"
-        chmod +x "$BIN_DST"/*.sh 2>/dev/null || true
-    fi
-    say "  $(ls "$ROOT/bin" | wc -l | tr -d ' ')개"
+    local kit d; kit="$(dirname "$BIN_DST")"
+    say "스크립트 → $kit (bin lib scripts brain agents 훅)"
+    [ "$DRY" = 1 ] && return 0
+    mkdir -p "$kit"
+    for d in bin lib scripts brain agents; do
+        [ -d "$ROOT/$d" ] || continue
+        rm -rf "${kit:?}/$d"; cp -R "$ROOT/$d" "$kit/$d"
+    done
+    mkdir -p "$kit/.claude/hooks"
+    cp "$ROOT/.claude/hooks/pre-tool-use.sh" "$kit/.claude/hooks/"
+    [ -f "$ROOT/VERSION" ] && cp "$ROOT/VERSION" "$kit/"
+    chmod +x "$kit"/bin/*.sh "$kit/.claude/hooks/pre-tool-use.sh" 2>/dev/null || true
+    say "  스크립트 $(ls "$ROOT/bin" | wc -l | tr -d ' ')개"
 }
 
 install_claude() {

@@ -34,7 +34,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 분리될 수 있으므로 경로를 추정하지 않는다. 우선순위:
 #   1) install.sh가 기록한 ~/.claude/.repo_path (가장 신뢰)
 #   2) SCRIPT_DIR에서 위로 올라가며 .git 탐색 (저장소 안에서 직접 실행한 경우)
-#   3) 기존 추정 (~/.claude/../..) — 최후 폴백
+#   3) bin/.. — 최후 폴백 (저장소·설치본 모두 킷 루트)
 resolve_project_root() {
     local repo_file="$HOME/.claude/.repo_path"
     if [[ -f "$repo_file" ]]; then
@@ -46,7 +46,7 @@ resolve_project_root() {
         if [[ -d "$d/.git" ]]; then echo "$d"; return; fi
         d="$(dirname "$d")"
     done
-    (cd "${SCRIPT_DIR}/../.." && pwd)
+    (cd "${SCRIPT_DIR}/.." && pwd)
 }
 PROJECT_ROOT="$(resolve_project_root)"
 

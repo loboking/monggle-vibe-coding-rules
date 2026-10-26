@@ -18,7 +18,8 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+KIT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"   # 킷 자원(scripts/ lib/ agents/ VERSION 훅)
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"   # 사용자 데이터(prd/ logs/ .claude/)
 CONFIG_DIR="${PROJECT_ROOT}/.claude/config"
 USER_CONFIG="${CONFIG_DIR}/user.conf"
 SESSION_FILE="${PROJECT_ROOT}/.claude/.setup-session.json"

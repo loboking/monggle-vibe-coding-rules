@@ -26,7 +26,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Configuration
-LOG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/logs"
+LOG_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)/logs"   # 파이프라인 로그는 사용자 프로젝트에 쌓인다
 
 # Flags
 SHOW_LIST=false

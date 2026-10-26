@@ -22,9 +22,10 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AGENT_RUNNER="${PROJECT_ROOT}/scripts/run_agent.py"
-PIPELINE_CONFIG="${PROJECT_ROOT}/agents/pipeline_config.py"
+KIT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"   # 킷 자원(scripts/ lib/ agents/ VERSION 훅)
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"   # 사용자 데이터(prd/ logs/ .claude/)
+AGENT_RUNNER="${KIT_ROOT}/scripts/run_agent.py"
+PIPELINE_CONFIG="${KIT_ROOT}/agents/pipeline_config.py"
 
 # Logging functions
 log_info() {

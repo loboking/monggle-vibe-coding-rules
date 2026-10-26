@@ -23,7 +23,7 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"   # prd/ logs/ 는 사용자 프로젝트에 있다
 LOG_DIR="${PROJECT_ROOT}/logs"
 PRD_DIR="${PROJECT_ROOT}/prd"
 PRD_BACKUP_DIR="${PRD_DIR}/.backup"
@@ -208,7 +208,7 @@ EOF
     echo ""
 
     # init.sh 실행
-    local init_script="${SCRIPT_DIR}/../commands/init.sh"
+    local init_script="${SCRIPT_DIR}/../../bin/init.sh"
 
     if [[ -f "$init_script" ]]; then
         bash "$init_script" "$prd_type"

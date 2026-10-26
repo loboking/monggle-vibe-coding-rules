@@ -30,11 +30,12 @@ find_project_root() {
         fi
         dir="$(dirname "$dir")"
     done
-    echo "$(cd "${SCRIPT_DIR}/../../" && pwd)"
+    pwd
 }
 
 PROJECT_ROOT="$(find_project_root)"
-STATUS_SCRIPT="${PROJECT_ROOT}/scripts/team_state.py"
+KIT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+STATUS_SCRIPT="${KIT_ROOT}/scripts/team_state.py"
 
 # 테이블 포맷
 print_table() {

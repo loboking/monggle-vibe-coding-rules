@@ -29,12 +29,13 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+KIT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"   # 킷 자원(scripts/ lib/ agents/ VERSION 훅)
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"   # 사용자 데이터(prd/ logs/ .claude/)
 
 # ── Version SSOT (VERSION 파일이 유일한 정본) ──────────────────────────────
 get_toolkit_version() {
     [[ -n "${MONGGLE_TOOLKIT_VERSION:-}" ]] && { printf '%s\n' "$MONGGLE_TOOLKIT_VERSION"; return; }
-    if [[ -f "${PROJECT_ROOT}/VERSION" ]]; then tr -d '[:space:]' < "${PROJECT_ROOT}/VERSION"; return; fi
+    if [[ -f "${KIT_ROOT}/VERSION" ]]; then tr -d '[:space:]' < "${KIT_ROOT}/VERSION"; return; fi
     if [[ -f "${HOME}/.claude/.repo_path" ]]; then
         local r; r="$(cat "${HOME}/.claude/.repo_path" 2>/dev/null)"
         [[ -n "$r" && -f "$r/VERSION" ]] && { tr -d '[:space:]' < "$r/VERSION"; return; }
@@ -47,7 +48,7 @@ get_toolkit_version() {
 }
 TOOLKIT_VERSION="$(get_toolkit_version || echo unknown)"
 
-STATS_SCRIPT="${PROJECT_ROOT}/scripts/stats.py"
+STATS_SCRIPT="${KIT_ROOT}/scripts/stats.py"
 
 # Logging functions
 log_info() {

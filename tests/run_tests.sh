@@ -157,6 +157,7 @@ run_bats_tests() {
         "tests/bash/push-safe.bats"
         "tests/bash/conflict_helper.bats"
         "tests/bash/e2e_git_collaboration.bats"
+        "tests/bash/brain_harness.bats"
     )
 
     local total=0

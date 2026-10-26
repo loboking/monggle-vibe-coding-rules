@@ -25,7 +25,8 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+KIT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"   # 킷 자원(scripts/ lib/ agents/ VERSION 훅)
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"   # 사용자 데이터(prd/ logs/ .claude/)
 # 통합 하네스 경로: 실행 위치와 무관하게 한 곳에 모은다 (HARNESS_HOME으로 오버라이드).
 HARNESS_DIR="${HARNESS_HOME:-${HOME}/.claude/.harness}"
 LOOP_DETECTION="${HARNESS_DIR}/loop-detection.json"
@@ -370,7 +371,7 @@ main() {
                     # 자동 개선 분석 실행
                     log_info "Running automatic improvement analysis..."
                     if command -v python3 &> /dev/null; then
-                        python3 "${PROJECT_ROOT}/scripts/auto_improvement.py" analyze
+                        python3 "${KIT_ROOT}/scripts/auto_improvement.py" analyze
                     else
                         log_warning "Python 3 not found. Skipping analysis."
                     fi

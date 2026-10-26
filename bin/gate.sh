@@ -24,7 +24,7 @@ NC='\033[0m'
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOOK_FILE="${SCRIPT_DIR}/../hooks/pre-tool-use.sh"
+HOOK_FILE="${SCRIPT_DIR}/../.claude/hooks/pre-tool-use.sh"
 
 # Print header
 print_header() {
